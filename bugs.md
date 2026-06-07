@@ -18,7 +18,11 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 
 ## CRITICAL
 
-### 1. `details <id>` is completely broken against the live API (always 406)
+### 1. `details <id>` is completely broken against the live API (always 406) — ✅ FIXED
+
+**Fix:** `details()` now requests `Accept: application/json` and `search()` requests
+`application/hal+json`, via a new per-endpoint `accept` argument to `getJson` (`src/client/client.ts`,
+`src/client/engine.ts`). The hardcoded HAL+JSON default header was removed.
 
 - **Severity:** Critical (core command non-functional / total data loss)
 - **Confidence:** Certain
@@ -46,7 +50,11 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
   (`src/client/client.ts:48`, `defaultHeaders.Accept`), so details can never negotiate.
   Fix: details must request `application/json` (and/or send `application/hal+json, application/json`).
 
-### 2. The engine's `accept` parameter is dead code — Accept can never be overridden per-request
+### 2. The engine's `accept` parameter is dead code — Accept can never be overridden per-request — ✅ FIXED
+
+**Fix:** In `RequestEngine.request` (`src/client/engine.ts`) the header object now spreads
+`defaultHeaders` first and applies the per-request `Accept` (and `User-Agent`) afterwards, so the
+per-call `accept` is authoritative instead of being shadowed by `defaultHeaders`.
 
 - **Severity:** Critical (root cause of Bug 1; latent for any future endpoint)
 - **Confidence:** Certain
@@ -69,7 +77,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 
 ## HIGH
 
-### 3. Empty env var `AUSBILDUNGSSUCHE_API_KEY=""` breaks all requests (403) instead of falling back to default key
+### 3. Empty env var `AUSBILDUNGSSUCHE_API_KEY=""` breaks all requests (403) instead of falling back to default key — ✅ FIXED
+
+**Fix:** The client now treats an empty/whitespace-only `apiKey` as absent and falls back to
+`DEFAULT_API_KEY` (`src/client/client.ts`), so an empty env var resolves to the public key.
 
 - **Severity:** High (env-driven misconfiguration silently disables the tool)
 - **Confidence:** Certain
@@ -90,7 +101,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
   default, so the resolved key is `""`. Then `client.ts:47` uses `apiKey ?? DEFAULT_API_KEY`
   — `""` is not nullish, so the empty key is sent. Should treat empty string as absent.
 
-### 4. `--size ""` / `--size "  "` silently coerced to `size=0` instead of being rejected
+### 4. `--size ""` / `--size "  "` silently coerced to `size=0` instead of being rejected — ✅ FIXED
+
+**Fix:** `parseIntArg` (`src/cli/shared.ts`) now validates with a strict `^[0-9]+$` regex instead
+of `Number()`, so empty/whitespace strings are rejected with "Expected a non-negative integer."
 
 - **Severity:** High (invalid input accepted, wrong query sent)
 - **Confidence:** Certain
@@ -106,7 +120,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Root cause:** `parseIntArg` (`src/cli/shared.ts:10-16`) uses `Number(value)`.
   `Number("") === 0` and `Number("  ") === 0`, both pass `Number.isInteger(n) && n >= 0`.
 
-### 5. `parseIntArg` accepts hex / scientific / binary / signed / padded numbers
+### 5. `parseIntArg` accepts hex / scientific / binary / signed / padded numbers — ✅ FIXED
+
+**Fix:** Same strict `^[0-9]+$` check in `parseIntArg` (`src/cli/shared.ts`) plus a
+`Number.isSafeInteger` guard; `0x10`, `1e3`, `0b10`, `+5`, `5.0`, and padded values are now rejected.
 
 - **Severity:** High (numeric flags accept clearly non-integer strings)
 - **Confidence:** Certain
@@ -127,7 +144,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 
 ## MEDIUM
 
-### 6. Out-of-range `--size` (README/help say "max 2000") is not validated; 5000 is sent unvalidated
+### 6. Out-of-range `--size` (README/help say "max 2000") is not validated; 5000 is sent unvalidated — ✅ FIXED
+
+**Fix:** Added `parseSizeArg` (`src/cli/shared.ts`, `MAX_PAGE_SIZE = 2000`) wired to `--size` in
+`src/cli/commands/ausbildung.ts`; sizes outside 1..2000 are rejected client-side.
 
 - **Severity:** Medium (documented limit not enforced)
 - **Confidence:** Certain
@@ -143,7 +163,11 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Root cause:** No range check anywhere; `ausbildung.ts:18` and `shared.ts:parseIntArg`
   only enforce `>= 0`. Help text `ausbildung.ts:18` and `types.ts:57` claim "max 2000".
 
-### 7. `details ""` (empty id) silently targets the search collection endpoint
+### 7. `details ""` (empty id) silently targets the search collection endpoint — ✅ FIXED
+
+**Fix:** `details()` now throws a new `AusbildungValidationError` ("id must not be empty") before any
+request when the id is empty/whitespace (`src/client/client.ts`, `src/client/errors.ts`); `run.ts`
+maps it to exit 2 with a clear message.
 
 - **Severity:** Medium (wrong endpoint, confusing 403)
 - **Confidence:** High
@@ -163,7 +187,11 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Root cause:** `client.ts:61` builds `.../ausbildungsangebot/${encodeURIComponent("")}`
   = `.../ausbildungsangebot/`. No empty-id guard in `ausbildung.ts:40-42` or `client.ts`.
 
-### 8. Mapping a 403 to "rejected API key" is wrong for non-auth 403s (e.g. empty id)
+### 8. Mapping a 403 to "rejected API key" is wrong for non-auth 403s (e.g. empty id) — ✅ FIXED
+
+**Fix:** The 401/403 hint in `run.ts` no longer asserts the key is the cause; it now says the
+rejection is "often — but not always — the X-API-Key" and prompts verifying the request path/params.
+(The empty-id case that motivated this is also now caught client-side, see Bug 7.)
 
 - **Severity:** Medium (misleading diagnostics)
 - **Confidence:** High
@@ -176,7 +204,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
   the key is the valid public one and the real cause is a malformed request path.
 - **Root cause:** `run.ts:41` treats all 401/403 as key rejection with no nuance.
 
-### 9. `details <id>` with an already-percent-encoded id is double-encoded
+### 9. `details <id>` with an already-percent-encoded id is double-encoded — ✅ FIXED
+
+**Fix:** Added `encodePathSegment` (`src/client/client.ts`) which leaves an id that is already
+validly percent-encoded untouched and only `encodeURIComponent`s a raw id, so `a%20b` stays `a%20b`.
 
 - **Severity:** Medium (data corruption for pre-encoded ids)
 - **Confidence:** High
@@ -194,7 +225,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 
 ## LOW / UX / DOCS
 
-### 10. README example `ausbildungssuche details <id>` cannot work as documented
+### 10. README example `ausbildungssuche details <id>` cannot work as documented — ✅ FIXED
+
+**Fix:** Resolved by Bug 1 (`details` now negotiates `application/json`), so the documented
+happy path works. README left unchanged here since the example is now correct.
 
 - **Severity:** Low (docs promise a broken workflow)
 - **Confidence:** Certain
@@ -204,7 +238,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Actual:** Always 406. (Consequence of Bug 1; listed separately as a doc defect.)
 - **Root cause:** Same as Bug 1; README at `README.md` "Examples"/"Details for one offer".
 
-### 11. README claims usage errors "return commander's non-zero code" — but it's always 1
+### 11. README claims usage errors "return commander's non-zero code" — but it's always 1 — ✅ FIXED
+
+**Fix:** `run.ts` now maps every non-zero CommanderError to a distinct exit code `2` (USAGE),
+separate from the catch-all `1`; README "Exit codes" updated to document `2`.
 
 - **Severity:** Low (docs vs behavior)
 - **Confidence:** High
@@ -220,7 +257,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Root cause:** `run.ts:33` returns `err.exitCode` (commander default 1) for parse
   errors, identical to the catch-all exit 1.
 
-### 12. No-args prints help to **stderr** and exits 1
+### 12. No-args prints help to **stderr** and exits 1 — ✅ FIXED
+
+**Fix:** `run.ts` now intercepts a bare invocation (`argv.length === 0`) and writes the help text to
+stdout, returning exit 0 — consistent with `--help`.
 
 - **Severity:** Low (UX / convention)
 - **Confidence:** Certain
@@ -237,7 +277,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Root cause:** commander's default "missing command" behavior routed through
   `configureOutput.writeErr` (`run.ts:19`).
 
-### 13. `--api-key ""` (explicit empty flag) sends an empty key (403) instead of erroring or defaulting
+### 13. `--api-key ""` (explicit empty flag) sends an empty key (403) instead of erroring or defaulting — ✅ FIXED
+
+**Fix:** Same empty/whitespace-key fallback as Bug 3 in `src/client/client.ts`; an explicit
+`--api-key ""` now falls back to the public default key.
 
 - **Severity:** Low (mirror of Bug 3 on the flag side)
 - **Confidence:** Certain
@@ -249,7 +292,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Actual:** Empty string is sent as the `X-API-Key` -> 403.
 - **Root cause:** `client.ts:47` `apiKey ?? DEFAULT_API_KEY` — `""` is not nullish.
 
-### 14. Help text / docs say global options must go **before** the command, but they also work after
+### 14. Help text / docs say global options must go **before** the command, but they also work after — ✅ FIXED
+
+**Fix:** Docs corrected: README now states global options work both before and after the command
+(commander hoists them via `optsWithGlobals()`). Behavior was already intended; only the docs were wrong.
 
 - **Severity:** Low (docs understate behavior / inconsistency)
 - **Confidence:** High
@@ -264,7 +310,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Root cause:** commander hoists global options via `optsWithGlobals()` (`shared.ts:68`);
   README does not reflect this.
 
-### 15. Live server silently ignores `size=0` and out-of-range sizes, returning `page.size:20` — no client warning
+### 15. Live server silently ignores `size=0` and out-of-range sizes, returning `page.size:20` — no client warning — ✅ FIXED
+
+**Fix:** `parseSizeArg` (`src/cli/shared.ts`) now rejects `size=0` and out-of-range sizes client-side
+(1..2000), so the nonsensical request is never sent (see Bugs 4/6).
 
 - **Severity:** Low (silent surprise; partly server-side)
 - **Confidence:** Certain
@@ -278,7 +327,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Actual:** `size=0` accepted, sent, silently overridden by the server to 20.
 - **Root cause:** Combination of Bug 4 (0 accepted) and no post-response validation.
 
-### 16. `details` errors hide every non-406 failure mode (404 for missing id unreachable)
+### 16. `details` errors hide every non-406 failure mode (404 for missing id unreachable) — ✅ FIXED
+
+**Fix:** Resolved by Bug 1: `details` now sends `Accept: application/json`, so a nonexistent id
+surfaces as the real 404 (exit 4) instead of a spurious 406.
 
 - **Severity:** Low (consequence of Bug 1; observability)
 - **Confidence:** Certain
@@ -292,7 +344,11 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
   `details`; the documented exit-4 path is unreachable via this command.
 - **Root cause:** Bug 1 (Accept negotiation fails before the id is even evaluated).
 
-### 17. `sty` and `bg` search parameters are typed but not exposed by the CLI
+### 17. `sty` and `bg` search parameters are typed but not exposed by the CLI — ✅ FIXED
+
+**Fix:** Added `--sty <n>` (offer type, parsed as a non-negative int) and `--bg` (boolean voucher
+filter) flags to the `search` command and wired them into `params`
+(`src/cli/commands/ausbildung.ts`); README synopsis updated.
 
 - **Severity:** Low (feature gap / type vs CLI mismatch)
 - **Confidence:** Certain
@@ -304,7 +360,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Actual:** Library users can set them; CLI users cannot.
 - **Root cause:** `ausbildung.ts` action builds `params` without `sty`/`bg`.
 
-### 18. Generic transport/timeout errors all collapse to exit 1, indistinguishable from API "other" errors
+### 18. Generic transport/timeout errors all collapse to exit 1, indistinguishable from API "other" errors — ✅ FIXED
+
+**Fix:** `run.ts` now maps `AusbildungNetworkError` (DNS/connection/timeout/size-cap) to a distinct
+exit code `6` (NETWORK), separate from HTTP "other" (`1`); README "Exit codes" updated.
 
 - **Severity:** Low (scripting / observability)
 - **Confidence:** Certain
@@ -320,7 +379,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Root cause:** `run.ts:55/59` map both `AusbildungApiError` (other status) and
   `AusbildungError` (network/parse) to 1.
 
-### 19. Misleading 406 hint blames "a custom transport or proxy" when the client itself is at fault
+### 19. Misleading 406 hint blames "a custom transport or proxy" when the client itself is at fault — ✅ FIXED
+
+**Fix:** The 406 hint in `run.ts` was rewritten to "The endpoint does not serve the requested media
+type." and no longer blames a proxy. (The underlying 406 on `details` is also gone, see Bug 1.)
 
 - **Severity:** Low (diagnostics)
 - **Confidence:** High
@@ -335,7 +397,10 @@ Where exit codes are shown, they were captured with `echo $?` on a non-piped run
 - **Root cause:** `run.ts:48-53` hardcodes a proxy-blaming message; combined with Bug 1
   it actively misdirects.
 
-### 20. `--max-response-bytes` size-cap aborts mid-stream but the resulting error is also exit 1 with a low-level message
+### 20. `--max-response-bytes` size-cap aborts mid-stream but the resulting error is also exit 1 with a low-level message — ✅ FIXED
+
+**Fix:** The size-cap `AusbildungNetworkError` now exits `6` (distinct from generic `1`, see Bug 18)
+and `run.ts` adds a hint to raise the cap with `--max-response-bytes <n>` (0 = unlimited).
 
 - **Severity:** Low (UX of a security feature)
 - **Confidence:** Certain

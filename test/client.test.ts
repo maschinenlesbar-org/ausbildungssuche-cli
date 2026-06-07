@@ -27,17 +27,17 @@ test("a custom apiKey overrides the default header", async () => {
   assert.equal(mt.last().headers?.["X-API-Key"], "my-key");
 });
 
-test("the client sends Accept: application/hal+json (the load-bearing override)", async () => {
-  // The API 406s on application/json, so the client MUST request HAL+JSON. This
-  // guards against a spread-order regression in engine.ts that would silently
-  // let the engine's application/json default win.
+test("Accept is negotiated per endpoint (search=HAL+JSON, details=JSON)", async () => {
+  // The search collection 406s on application/json, so search MUST request
+  // HAL+JSON; the per-id details endpoint 406s on HAL+JSON, so details MUST
+  // request application/json. This guards against a spread-order regression in
+  // engine.ts that would let one default silently win for both.
   const mt = constantJson({});
   await clientWith(mt).search();
   assert.equal(mt.last().headers?.["Accept"], "application/hal+json");
-  // ...and on the details path too.
   const mt2 = constantJson({});
   await clientWith(mt2).details("abc");
-  assert.equal(mt2.last().headers?.["Accept"], "application/hal+json");
+  assert.equal(mt2.last().headers?.["Accept"], "application/json");
 });
 
 test("details builds the per-id path and url-encodes the id", async () => {

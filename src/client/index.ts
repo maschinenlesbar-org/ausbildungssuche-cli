@@ -13,6 +13,7 @@ export {
   AusbildungApiError,
   AusbildungNetworkError,
   AusbildungParseError,
+  AusbildungValidationError,
 } from "./errors.js";
 
 export * from "./types.js";

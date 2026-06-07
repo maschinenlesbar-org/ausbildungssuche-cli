@@ -53,6 +53,6 @@ export interface AusbildungSearchParams {
   bt?: string;
   /** 0-based page. */
   page?: number;
-  /** Page size (max 2000). */
+  /** Page size (1..2000; the CLI enforces this range). */
   size?: number;
 }

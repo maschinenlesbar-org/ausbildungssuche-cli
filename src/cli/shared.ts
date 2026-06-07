@@ -6,11 +6,37 @@ import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { AusbildungssucheClientOptions } from "../client/client.js";
 
-/** commander value-parser: a non-negative integer. */
+/**
+ * commander value-parser: a plain base-10 non-negative integer.
+ *
+ * Uses a strict regex rather than `Number()` coercion, which would otherwise
+ * accept empty/whitespace strings (`Number("") === 0`), hex/binary/scientific
+ * literals (`0x10`, `0b10`, `1e3`), signs, padding and decimals (`+5`, `5.0`).
+ */
 export function parseIntArg(value: string): number {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) {
+  if (!/^[0-9]+$/.test(value)) {
     throw new InvalidArgumentError("Expected a non-negative integer.");
+  }
+  const n = Number(value);
+  if (!Number.isSafeInteger(n)) {
+    throw new InvalidArgumentError("Expected a non-negative integer.");
+  }
+  return n;
+}
+
+/** Largest page size the API honours (documented in README and --size help). */
+export const MAX_PAGE_SIZE = 2000;
+
+/**
+ * commander value-parser for `--size`: a base-10 integer in 1..MAX_PAGE_SIZE.
+ * `size=0` is nonsensical (the server silently overrides it to 20) and sizes
+ * above the documented maximum are silently ignored server-side, so both are
+ * rejected up front rather than sent and quietly dropped.
+ */
+export function parseSizeArg(value: string): number {
+  const n = parseIntArg(value);
+  if (n < 1 || n > MAX_PAGE_SIZE) {
+    throw new InvalidArgumentError(`Expected an integer between 1 and ${MAX_PAGE_SIZE}.`);
   }
   return n;
 }

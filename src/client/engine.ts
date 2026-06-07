@@ -101,10 +101,14 @@ export class RequestEngine {
     options: { query?: QueryParams; accept: string } = { accept: "application/json" },
   ): Promise<RawResponse> {
     let url = this.buildUrl(path, options.query);
+    // The per-request `accept` is the authoritative Accept for this call, so it
+    // is applied AFTER defaultHeaders — otherwise a default `Accept` (e.g. an
+    // API-wide HAL+JSON default) would permanently shadow per-endpoint
+    // negotiation. User-Agent is likewise applied after defaultHeaders.
     let headers: Record<string, string> = {
+      ...this.defaultHeaders,
       Accept: options.accept,
       "User-Agent": this.userAgent,
-      ...this.defaultHeaders,
     };
 
     let attempt = 0;
@@ -155,9 +159,13 @@ export class RequestEngine {
     }
   }
 
-  /** Perform a GET expecting JSON and parse it into `T`. */
-  async getJson<T>(path: string, query?: QueryParams): Promise<T> {
-    const res = await this.request("GET", path, { query, accept: "application/json" });
+  /**
+   * Perform a GET expecting JSON and parse it into `T`. The `accept` header
+   * defaults to `application/json` but can be overridden per endpoint (e.g. the
+   * search collection serves HAL+JSON and 406s on plain `application/json`).
+   */
+  async getJson<T>(path: string, query?: QueryParams, accept = "application/json"): Promise<T> {
+    const res = await this.request("GET", path, { query, accept });
     const text = res.data.toString("utf8");
     try {
       return JSON.parse(text) as T;

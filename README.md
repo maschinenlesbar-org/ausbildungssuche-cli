@@ -66,13 +66,16 @@ search returns a HAL+JSON envelope (`_embedded` / `_links` / `page`).
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 | `--compact` | Print JSON on a single line |
 
-Global options go **before** the command, e.g. `ausbildungssuche --compact search --sw Informatik`.
+Global options may be given **before** the command (e.g.
+`ausbildungssuche --compact search --sw Informatik`) and, thanks to commander's
+global-option hoisting, also **after** it (e.g.
+`ausbildungssuche search --sw Informatik --compact`). Both take effect.
 
 ### Commands
 
 ```text
-search [--sw <kw>] [--orte <id>] [--re <code>] [--uk <radius>] [--ids <id>]
-       [--bart <type>] [--bt <date>] [--page <n>] [--size <n>]
+search [--sw <kw>] [--sty <n>] [--orte <id>] [--re <code>] [--uk <radius>]
+       [--ids <id>] [--bart <type>] [--bg] [--bt <date>] [--page <n>] [--size <n>]
 details <id>     full details for one apprenticeship offer
 ```
 
@@ -89,9 +92,11 @@ ausbildungssuche search --sw Pflege --uk Bundesweit
 ausbildungssuche details <id>
 ```
 
-Exit codes: `0` success, `3` on a `401`/`403` (rejected API key), `4` on a `404`,
-`5` on a `406` (Accept negotiation failed), `1` for any other error. Usage errors
-return commander's non-zero code, while `--help`/`--version` return `0`.
+Exit codes: `0` success, `2` for usage / argument-validation errors, `3` on a
+`401`/`403` (rejected request — often the API key), `4` on a `404`, `5` on a
+`406` (Accept negotiation failed), `6` on a network / transport failure (DNS,
+connection, timeout, response-size cap), `1` for any other error.
+`--help`/`--version` return `0`.
 
 ---
 

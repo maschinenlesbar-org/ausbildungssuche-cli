@@ -47,3 +47,6 @@ export class AusbildungNetworkError extends AusbildungError {}
 
 /** The response body could not be parsed as the expected JSON shape. */
 export class AusbildungParseError extends AusbildungError {}
+
+/** A caller-supplied argument was invalid (e.g. an empty id) — no request made. */
+export class AusbildungValidationError extends AusbildungError {}
