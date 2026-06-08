@@ -103,7 +103,7 @@ connection, timeout, response-size cap), `1` for any other error.
 ## Library usage
 
 ```ts
-import { AusbildungssucheClient, AusbildungApiError } from "ausbildungssuche-cli";
+import { AusbildungssucheClient, AusbildungApiError } from "@maschinenlesbar.org/ausbildungssuche-cli";
 
 const client = new AusbildungssucheClient(); // sends the public X-API-Key by default
 
