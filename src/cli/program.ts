@@ -41,21 +41,23 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
 
   // Seed the --api-key default from the environment. Commander only applies a
   // default when the flag is absent from argv, so an explicit --api-key always
-  // wins: precedence is CLI flag > env var > built-in default key. (The env is
-  // read from the injected deps.env so this is unit-testable.)
+  // wins: precedence is CLI flag > env var > (no key). No key is bundled; with
+  // none set the X-API-Key header is omitted. (The env is read from the injected
+  // deps.env so this is unit-testable.)
   const envApiKey = deps.env[API_KEY_ENV_VAR];
 
   program
     .name("ausbildungssuche")
     .description(
       "CLI for the Bundesagentur für Arbeit Ausbildungssuche API " +
-        "(rest.arbeitsagentur.de/infosysbub/absuche). Uses the public X-API-Key by default.",
+        "(rest.arbeitsagentur.de/infosysbub/absuche). Requires an X-API-Key: " +
+        "pass --api-key or set AUSBILDUNGSSUCHE_API_KEY (no key is bundled).",
     )
     .version(VERSION)
     .option("--base-url <url>", "API base URL", "https://rest.arbeitsagentur.de")
     .option(
       "--api-key <key>",
-      `override the X-API-Key header (env: ${API_KEY_ENV_VAR})`,
+      `X-API-Key header value (env: ${API_KEY_ENV_VAR})`,
       envApiKey,
     )
     .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg)

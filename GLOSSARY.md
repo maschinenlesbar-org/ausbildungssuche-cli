@@ -43,10 +43,12 @@ operates the Ausbildungssuche service and its API.
 [ausbildungssuche.api.bund.dev](https://ausbildungssuche.api.bund.dev/).
 
 **X-API-Key.** A static, publicly-documented API key
-(`infosysbub-absuche`) required on every request. The client sends it by default;
-override it with `--api-key`, the `AUSBILDUNGSSUCHE_API_KEY` env var, or the
-`apiKey` client option. An empty/whitespace key is treated as absent and falls
-back to the public default (the service answers `403` to an empty key).
+(`infosysbub-absuche`) required on every request. It is **not bundled** — supply
+it via `--api-key`, the `AUSBILDUNGSSUCHE_API_KEY` env var, or the `apiKey` client
+option, else the header is omitted and the service answers `401`/`403`. An
+empty/whitespace key is treated as absent (no header sent). For CI / live testing
+the public key can be fetched out-of-band (never from the CLI) via
+`scripts/fetch-api-key.mjs` (`npm run fetch-key`).
 
 ---
 

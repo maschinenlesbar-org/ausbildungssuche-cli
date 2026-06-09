@@ -27,12 +27,13 @@ function makeCli(
   return { deps, out, err, mt };
 }
 
-test("search builds the query and sends the default key", async () => {
+test("search builds the query and sends no key when none is configured", async () => {
   const cli = makeCli(() => jsonResponse({ page: {} }));
   const code = await run(["search", "--sw", "Informatik", "--size", "5"], cli.deps);
   assert.equal(code, 0);
   const req = cli.mt.last();
-  assert.equal(req.headers?.["X-API-Key"], "infosysbub-absuche");
+  // No key is bundled: without --api-key/env the header is omitted.
+  assert.equal(req.headers?.["X-API-Key"], undefined);
   assert.equal(new URL(req.url).pathname, `${SERVICE}/pc/v1/ausbildungsangebot`);
 });
 
@@ -82,14 +83,14 @@ test("AUSBILDUNGSSUCHE_API_KEY env var supplies the key when no --api-key", asyn
   assert.equal(cli.mt.last().headers?.["X-API-Key"], "env-key");
 });
 
-test("--api-key overrides the env var (CLI flag > env > default)", async () => {
+test("--api-key overrides the env var (CLI flag > env > none)", async () => {
   const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
   await run(["--api-key", "flag-key", "search", "--sw", "x"], cli.deps);
   assert.equal(cli.mt.last().headers?.["X-API-Key"], "flag-key");
 });
 
-test("the default public key is used when neither flag nor env is set", async () => {
+test("no X-API-Key is sent when neither flag nor env is set (no bundled default)", async () => {
   const cli = makeCli(() => jsonResponse({}));
   await run(["search", "--sw", "x"], cli.deps);
-  assert.equal(cli.mt.last().headers?.["X-API-Key"], "infosysbub-absuche");
+  assert.equal(cli.mt.last().headers?.["X-API-Key"], undefined);
 });

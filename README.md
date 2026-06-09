@@ -14,9 +14,22 @@ vocational-training** catalogue: search offers and fetch details.
 ## Authentication
 
 The API requires a static, publicly-documented `X-API-Key`
-(`infosysbub-absuche`). This client sends it **by default**. Override it with
-`--api-key`, the `AUSBILDUNGSSUCHE_API_KEY` env var, or the `apiKey` client
-option. Precedence is **`--api-key` flag > env var > built-in default key**.
+(`infosysbub-absuche`). **The key is not bundled** with the client or CLI — you
+supply it via `--api-key`, the `AUSBILDUNGSSUCHE_API_KEY` env var, or the `apiKey`
+client option. Precedence is **`--api-key` flag > env var > (no key)**; with no
+key the header is omitted and the API answers `401`/`403`.
+
+Because the key is publicly documented, you can fetch it out-of-band (for CI or
+local live testing — never from the CLI/production) with the bundled script:
+
+```bash
+npm run fetch-key                                       # prints the current public key
+AUSBILDUNGSSUCHE_API_KEY="$(npm run --silent fetch-key)" ausbildungssuche search --sw Informatik
+```
+
+The script scrapes the key from the upstream
+[bundesAPI README](https://github.com/bundesAPI/ausbildungssuche-api); it is a
+dev/CI tool only and is not part of the published package.
 
 The client also overrides the `Accept` header to `application/hal+json`: the
 service serves HAL+JSON and **responds `406` to a plain `application/json`**, so

@@ -1,8 +1,11 @@
 // AusbildungssucheClient — a typed client over the open Ausbildungssuche API of
 // the Bundesagentur für Arbeit (rest.arbeitsagentur.de/infosysbub/absuche).
 //
-// Auth: a static, publicly-documented `X-API-Key` header ("infosysbub-absuche")
-// is applied automatically; override via `apiKey`.
+// Auth: the API requires a static, publicly-documented `X-API-Key` header. The
+// key is NOT bundled with this client — pass it via `apiKey` (the CLI maps this
+// to `--api-key` / the AUSBILDUNGSSUCHE_API_KEY env var). When no key is supplied
+// the header is omitted and the API answers 401/403. The public key can be
+// fetched out-of-band for CI / live testing via scripts/fetch-api-key.mjs.
 //
 //   client.search({ sw: "Informatik", size: 10 })
 //   client.details(id)
@@ -17,12 +20,13 @@ import type {
 } from "./types.js";
 
 const SERVICE = "/infosysbub/absuche";
-/** The static, publicly-documented API key for the Ausbildungssuche service. */
-export const DEFAULT_API_KEY = "infosysbub-absuche";
 
 /** Options for the Ausbildungssuche client (engine options plus the API key). */
 export interface AusbildungssucheClientOptions extends EngineOptions {
-  /** Overrides the default `X-API-Key`. */
+  /**
+   * The `X-API-Key` to send. No key is bundled; when omitted (or blank) the
+   * header is not sent. Obtain the public key via scripts/fetch-api-key.mjs.
+   */
   apiKey?: string;
 }
 
@@ -51,16 +55,17 @@ export class AusbildungssucheClient {
 
   constructor(options: AusbildungssucheClientOptions = {}) {
     const { apiKey, ...engineOptions } = options;
-    // Treat an empty/whitespace-only key as absent and fall back to the public
-    // default — an empty `X-API-Key` is rejected by the service with 403.
-    const resolvedKey = apiKey && apiKey.trim() !== "" ? apiKey : DEFAULT_API_KEY;
+    // Only send X-API-Key when a non-blank key was supplied; never default one.
+    // (An empty `X-API-Key` is rejected by the service with 403, so a blank value
+    // is treated as absent rather than forwarded.)
+    const key = apiKey?.trim() ? apiKey : undefined;
     this.engine = new RequestEngine({
       ...engineOptions,
       // Accept is negotiated per endpoint (see search/details below): the search
       // collection serves HAL+JSON and 406s on plain JSON, while the per-id
       // detail endpoint serves application/json and 406s on HAL+JSON.
       defaultHeaders: {
-        "X-API-Key": resolvedKey,
+        ...(key ? { "X-API-Key": key } : {}),
         ...engineOptions.defaultHeaders,
       },
     });

@@ -1,6 +1,6 @@
 // Public entry point for the API client library.
 
-export { AusbildungssucheClient, DEFAULT_API_KEY } from "./client.js";
+export { AusbildungssucheClient } from "./client.js";
 export type { AusbildungssucheClientOptions } from "./client.js";
 export { RequestEngine, DEFAULT_BASE_URL } from "./engine.js";
 export type { EngineOptions, RawResponse } from "./engine.js";

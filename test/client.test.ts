@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AusbildungssucheClient, DEFAULT_API_KEY } from "../src/client/client.js";
+import { AusbildungssucheClient } from "../src/client/client.js";
 import { AusbildungApiError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
 
@@ -10,18 +10,24 @@ function clientWith(mt: ReturnType<typeof makeMockTransport>, apiKey?: string): 
 
 const SERVICE = "/infosysbub/absuche";
 
-test("search sends the default X-API-Key and params", async () => {
+test("search forwards the supplied X-API-Key and params", async () => {
   const mt = constantJson({ page: {} });
-  await clientWith(mt).search({ sw: "Informatik", size: 10 });
+  await clientWith(mt, "test-key").search({ sw: "Informatik", size: 10 });
   const req = mt.last();
-  assert.equal(req.headers?.["X-API-Key"], DEFAULT_API_KEY);
+  assert.equal(req.headers?.["X-API-Key"], "test-key");
   const url = new URL(req.url);
   assert.equal(url.pathname, `${SERVICE}/pc/v1/ausbildungsangebot`);
   assert.equal(url.searchParams.get("sw"), "Informatik");
   assert.equal(url.searchParams.get("size"), "10");
 });
 
-test("a custom apiKey overrides the default header", async () => {
+test("no X-API-Key header is sent when no key is supplied (no bundled default)", async () => {
+  const mt = constantJson({ page: {} });
+  await clientWith(mt).search();
+  assert.equal(mt.last().headers?.["X-API-Key"], undefined);
+});
+
+test("a custom apiKey sets the header", async () => {
   const mt = constantJson({});
   await clientWith(mt, "my-key").search();
   assert.equal(mt.last().headers?.["X-API-Key"], "my-key");
