@@ -130,59 +130,16 @@ ignores oversized values, so the CLI rejects anything outside `1..2000` up front
 
 ---
 
-## Library / technical terms
-
-**API client.** [`AusbildungssucheClient`](src/client/client.ts) — the typed
-wrapper over the API. Sends the `X-API-Key` automatically and exposes `search()`
-and `details()`. Usable as a library independently of the CLI.
-
-**Request engine.** [`RequestEngine`](src/client/engine.ts) — builds URLs,
-serialises queries, applies retry/backoff, follows redirects, decodes JSON and
-maps errors. Sits between the client and the transport. `DEFAULT_BASE_URL` is
-`https://rest.arbeitsagentur.de`.
-
-**Transport.** A single function `(HttpRequest) => Promise<HttpResponse>`
-([`http.ts`](src/client/http.ts)). The default (`nodeHttpTransport`) uses Node's
-built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
-
-**Default headers / Accept negotiation.** The engine merges `defaultHeaders` into
-every request — the seam that injects `X-API-Key`. The `Accept` header is chosen
-per endpoint (`application/hal+json` for search, `application/json` for details)
-because each endpoint `406`s on the other media type.
-
-**Cross-origin credential stripping.** When the API issues a redirect that
-crosses an origin boundary (different scheme, host, or port), the engine strips
-credential headers (`X-API-Key`, `Authorization`, `Cookie`) before following it,
-so a private key is never forwarded to another host. Same-origin redirects keep
-the key.
-
-**Retry / backoff.** Transient `429` (rate limit) and `503` responses are
-retried automatically with backoff, up to `--max-retries`. `AusbildungApiError`
-exposes `isRetryable` (true for `429`/`503`).
-
-**maxResponseBytes.** A cap on the response body size in bytes (`0` = unlimited;
-default 100 MiB), guarding against unbounded responses.
-
-**RawResponse.** The engine's raw-response shape (`data`/`contentType`/`status`)
-— exported for completeness; the offer endpoints return decoded JSON.
-
-**Query builder.** [`buildQueryString`](src/client/query.ts) — a dependency-free
-serialiser: omits `undefined`/`null`, repeats keys for arrays, renders booleans
-as `true`/`false`, dates as ISO-8601, and encodes spaces as `%20` (not `+`).
-
-**CliDeps / CliIO.** The dependency-injection seam for the CLI
-([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`) and
-an injectable `env` (for `AUSBILDUNGSSUCHE_API_KEY`). Lets the whole CLI run in
-tests with a mocked client and captured output — no subprocess.
-
-**Error types.** [`errors.ts`](src/client/errors.ts): `AusbildungApiError`
-(non-2xx, carries `status`/`detail`), `AusbildungNetworkError` (transport
-failure/timeout), `AusbildungParseError` (bad JSON), `AusbildungValidationError`
-(invalid argument, e.g. an empty id — no request made), all extending
-`AusbildungError`.
+## Exit codes
 
 **Exit codes.** The CLI maps outcomes to process exit codes: `0` success;
 `2` usage / argument-validation errors; `3` on `401`/`403` (rejected request,
 often the API key); `4` on `404`; `5` on `406` (Accept negotiation failed);
 `6` on a network / transport failure (DNS, connection, timeout, response-size
 cap); `1` for any other error. `--help`/`--version` return `0`.
+
+---
+
+> **Library & internals.** Terms for the TypeScript client and its internals —
+> `AusbildungssucheClient`, the request engine, transport, retry/backoff, error
+> types, query builder — now live in **[DEVELOPING.md](DEVELOPING.md)**.

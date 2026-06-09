@@ -1,208 +1,193 @@
 # ausbildungssuche-cli
 
-A TypeScript **API client** and **command-line interface** for the
-[Bundesagentur für Arbeit Ausbildungssuche API](https://ausbildungssuche.api.bund.dev/)
-(`rest.arbeitsagentur.de/infosysbub/absuche`) — the federal **apprenticeship /
-vocational-training** catalogue: search offers and fetch details.
+Search Germany's federal **apprenticeship and vocational-training** catalogue from
+your terminal. `ausbildungssuche` is a small command-line tool over the
+[Bundesagentur für Arbeit Ausbildungssuche API](https://ausbildungssuche.api.bund.dev/):
+find training offers by keyword, location, profession or region, and fetch the
+full record for any offer — as clean JSON you can pipe straight into
+[`jq`](https://jqlang.github.io/jq/).
 
-- **Zero runtime HTTP dependencies** — built on Node's built-in `http`/`https` (no axios, no fetch polyfill).
-- **One small dependency** for the CLI: [`commander`](https://github.com/tj/commander.js).
-- **Strongly typed** — typed search params and the HAL+JSON envelope.
-- **Auth handled** — sends the static, publicly-documented `X-API-Key` automatically; override with `--api-key`.
-- **Well tested** — unit tests on Node's built-in test runner (`node --test`), every HTTP response mocked.
+- **Works out of the box** — no account, no API key, no configuration. Install and search.
+- **Clean JSON output** — pretty-printed by default, `--compact` for one-line/scripting.
+- **Just two commands** — `search` and `details`.
+- **Nothing to leak** — sends only the public, documented key; no personal credentials involved.
 
-## Authentication
-
-The API requires a static, publicly-documented `X-API-Key`
-(`infosysbub-absuche`). **The key is not bundled** with the client or CLI — you
-supply it via `--api-key`, the `AUSBILDUNGSSUCHE_API_KEY` env var, or the `apiKey`
-client option. Precedence is **`--api-key` flag > env var > (no key)**; with no
-key the header is omitted and the API answers `401`/`403`.
-
-Because the key is publicly documented, you can fetch it out-of-band (for CI or
-local live testing — never from the CLI/production) with the bundled script:
-
-```bash
-npm run fetch-key                                       # prints the current public key
-AUSBILDUNGSSUCHE_API_KEY="$(npm run --silent fetch-key)" ausbildungssuche search --sw Informatik
-```
-
-The script scrapes the key from the upstream
-[bundesAPI README](https://github.com/bundesAPI/ausbildungssuche-api); it is a
-dev/CI tool only and is not part of the published package.
-
-The client also overrides the `Accept` header to `application/hal+json`: the
-service serves HAL+JSON and **responds `406` to a plain `application/json`**, so
-this override is required (and is asserted by the test suite).
-
-**Redirect safety:** when the API issues a redirect that crosses an origin
-boundary (a different scheme, host, or port), the client **strips credential
-headers** (`X-API-Key`, `Authorization`, `Cookie`) before following it, so your
-key — including a private one passed via `--api-key`/env — is never forwarded to
-another host. Same-origin redirects keep the key.
-
-## Requirements
-
-- Node.js **>= 20** (uses the stable built-in test runner, ESM and top-level `await`).
+> Want to use this as a TypeScript library or understand how it's built?
+> See **[DEVELOPING.md](DEVELOPING.md)**.
 
 ## Install
 
 ```bash
-npm install
-npm run build        # compiles TypeScript to dist/
+npm i -g @maschinenlesbar.org/ausbildungssuche-cli
 ```
 
-Run the CLI without a global install:
+This installs the **`ausbildungssuche`** command. Requires **Node.js 20+**.
+
+Check it works:
 
 ```bash
-node dist/src/cli/index.js --help
-# or, after `npm link` / global install:
 ausbildungssuche --help
 ```
 
----
+## Quickstart
 
-## CLI usage
+No setup needed — the public API key is sent automatically. Your first search:
 
-Every command prints pretty JSON to stdout (`--compact` for a single line). The
-search returns a HAL+JSON envelope (`_embedded` / `_links` / `page`).
+```bash
+ausbildungssuche search --sw Informatik --size 10
+```
 
-### Global options
+`--sw` is the search keyword (*Suchwort*). The result is a JSON envelope: the
+offers live under `_embedded`, paging info under `page`. Pull out just the
+offers with `jq`:
+
+```bash
+ausbildungssuche search --sw Informatik --size 10 | jq '._embedded'
+```
+
+Take an offer's id from those results and fetch its full record:
+
+```bash
+ausbildungssuche details 365241044
+```
+
+## Commands
+
+```text
+search   [filters…]   search training offers
+details  <id>         full details for one offer
+```
+
+### `search` filters
+
+| Flag | Meaning |
+| --- | --- |
+| `--sw <text>` | search keyword (*Suchwort*) |
+| `--orte <loc>` | location as `Name_lat_lon`, e.g. `Köln_50.938_6.957` (*Ort*) |
+| `--uk <radius>` | radius: `Bundesweit` or `25`..`200` km (*Umkreis*) |
+| `--re <code>` | region / Bundesland code, e.g. `iD` (*Region*) |
+| `--ids <id>` | profession id(s) (*Berufs-id*) |
+| `--sty <n>` | offer type `0`..`4` (*Suchtyp*) |
+| `--bart <type>` | training type (*Bildungsart*) |
+| `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
+| `--bt <code>` | start-date code `0`..`2` (*Beginntermin*) |
+| `--page <n>` | 0-based page index |
+| `--size <n>` | page size (`1`..`2000`) |
+
+The flag names mirror the API's German abbreviations — the
+**[Glossary](GLOSSARY.md)** decodes every one.
+
+## Common tasks
+
+A few recipes to get going — see **[Usage.md](Usage.md)** for the full,
+use-case-driven set.
+
+```bash
+# Apprenticeships near a place, within 50 km
+ausbildungssuche search --sw Mechatroniker --orte "Köln_50.938_6.957" --uk 50
+
+# Search the whole country (no radius limit)
+ausbildungssuche search --sw Pflege --uk Bundesweit
+
+# Only offers eligible for an education voucher (Bildungsgutschein)
+ausbildungssuche search --sw Umschulung --bg
+
+# Page through a large result set (0-based pages)
+ausbildungssuche search --sw Kaufmann --size 25 --page 0
+ausbildungssuche search --sw Kaufmann --size 25 --page 1
+
+# Search by profession id instead of free text
+ausbildungssuche search --ids 7150 --uk Bundesweit
+```
+
+## Output & scripting
+
+Every command prints **pretty JSON to stdout**. Errors and diagnostics go to
+stderr, so piping stdout into `jq` stays clean.
+
+```bash
+# How many results does a query have? Read the page block.
+ausbildungssuche search --sw Pflege | jq '.page'
+
+# Reshape a detail record (title + provider)
+ausbildungssuche details 365241044 \
+  | jq '.[0] | {titel: .angebot.titel, anbieter: .angebot.bildungsanbieter.name}'
+```
+
+Use `--compact` for single-line JSON in pipelines and logs:
+
+```bash
+ausbildungssuche --compact search --sw Informatik --size 5 | jq -c '._embedded'
+```
+
+`--compact` (and every global option) works **before or after** the command —
+both `ausbildungssuche --compact search …` and `ausbildungssuche search … --compact`
+do the same thing.
+
+**Exit codes** make the CLI easy to use in scripts:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | success (also `--help` / `--version`) |
+| `2` | bad usage / invalid argument (nothing was sent) |
+| `3` | request rejected (`401`/`403`) |
+| `4` | offer not found (`404`) |
+| `5` | server content-type negotiation failed (`406`) |
+| `6` | network/transport failure (DNS, connection, timeout, oversized response) |
+| `1` | any other error |
+
+## Troubleshooting
+
+- **`command not found: ausbildungssuche`** — the global npm bin directory isn't on
+  your `PATH`. Run `npm bin -g` to find it and add it, or run via
+  `npx @maschinenlesbar.org/ausbildungssuche-cli …`.
+- **Exit `3` / "rejected"** — the upstream service declined the request. Since the
+  public key is sent automatically, this usually means the service is temporarily
+  restricting access; retry later. (If you passed your own `--api-key`, check it.)
+- **Exit `4` / "not found"** — the offer id doesn't exist. Re-fetch it from a fresh
+  `search` result; ids can change as the catalogue updates.
+- **Exit `6` / network error** — connectivity, DNS, or a timeout. Try again, or raise
+  the limit with `--timeout 60000`.
+- **Empty `_embedded`** — the search simply matched nothing; broaden the keyword,
+  widen `--uk`, or drop filters.
+
+## Global options
+
+These apply to every command and may be given before *or* after it:
 
 | Option | Description |
 | --- | --- |
+| `-V, --version` | Print the version number |
+| `-h, --help` | Show help for the program or a command |
+| `--compact` | Print JSON on a single line instead of pretty-printed |
 | `--base-url <url>` | API base URL (default `https://rest.arbeitsagentur.de`) |
-| `--api-key <key>` | override the `X-API-Key` (env `AUSBILDUNGSSUCHE_API_KEY`) |
+| `--api-key <key>` | Override the built-in public key (env `AUSBILDUNGSSUCHE_API_KEY`) |
 | `--timeout <ms>` | Per-request timeout (default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses (default `2`) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
-| `--compact` | Print JSON on a single line |
 
-Global options may be given **before** the command (e.g.
-`ausbildungssuche --compact search --sw Informatik`) and, thanks to commander's
-global-option hoisting, also **after** it (e.g.
-`ausbildungssuche search --sw Informatik --compact`). Both take effect.
+### Using your own API key (advanced)
 
-### Commands
-
-```text
-search [--sw <kw>] [--sty <n>] [--orte <id>] [--re <code>] [--uk <radius>]
-       [--ids <id>] [--bart <type>] [--bg] [--bt <date>] [--page <n>] [--size <n>]
-details <id>     full details for one apprenticeship offer
-```
-
-### Examples
+You don't need this — the public, documented key is built in and sent
+automatically. It's here only if you have your own key or need to point at a
+proxy/staging host:
 
 ```bash
-# IT apprenticeships
-ausbildungssuche search --sw Informatik --size 10
-
-# Within a region, nationwide radius
-ausbildungssuche search --sw Pflege --uk Bundesweit
-
-# Details for one offer (id from a search result's _embedded entries)
-ausbildungssuche details <id>
+ausbildungssuche --api-key "$MY_KEY" search --sw Pflege
+ausbildungssuche --base-url https://proxy.internal.example search --sw Pflege
 ```
 
-Exit codes: `0` success, `2` for usage / argument-validation errors, `3` on a
-`401`/`403` (rejected request — often the API key), `4` on a `404`, `5` on a
-`406` (Accept negotiation failed), `6` on a network / transport failure (DNS,
-connection, timeout, response-size cap), `1` for any other error.
-`--help`/`--version` return `0`.
+Precedence is `--api-key` > `AUSBILDUNGSSUCHE_API_KEY` env var > built-in key. If
+the API redirects across an origin boundary (different scheme/host/port), the
+tool **strips your key** before following, so a private key never leaks to another
+host.
 
----
+## Learn more
 
-## Library usage
-
-```ts
-import { AusbildungssucheClient, AusbildungApiError } from "@maschinenlesbar.org/ausbildungssuche-cli";
-
-const client = new AusbildungssucheClient(); // sends the public X-API-Key by default
-
-const page = await client.search({ sw: "Informatik", size: 10 });
-const offers = (page._embedded ?? {}) as Record<string, unknown>;
-
-// Override the key if you have your own:
-const custom = new AusbildungssucheClient({ apiKey: "my-key" });
-
-try {
-  await client.details("does-not-exist");
-} catch (err) {
-  if (err instanceof AusbildungApiError) console.error(err.status, err.detail);
-}
-```
-
-### Client options
-
-```ts
-new AusbildungssucheClient({
-  apiKey: "infosysbub-absuche",   // X-API-Key (defaults to the public key)
-  baseUrl: "https://rest.arbeitsagentur.de",
-  timeoutMs: 15_000,
-  maxRetries: 3,
-  maxResponseBytes: 50 << 20,
-  userAgent: "my-app/1.0",
-  transport: customTransport,
-});
-```
-
-### Methods
-
-`client.search(params)` and `client.details(id)`.
-
----
-
-## Architecture
-
-```
-src/
-  client/
-    types.ts     # AusbildungSearchResult (HAL) + search params
-    query.ts     # dependency-free query-string builder
-    http.ts      # the Transport interface + default node:http/https transport
-    engine.ts    # URL building, retry/backoff, redirects, default headers (auth), decoding, errors
-    errors.ts    # AusbildungError / AusbildungApiError / AusbildungNetworkError / AusbildungParseError
-    client.ts    # AusbildungssucheClient — search + details over the engine (injects X-API-Key)
-  cli/
-    io.ts        # injectable I/O seam (stdout/stderr) + injectable env (for AUSBILDUNGSSUCHE_API_KEY)
-    shared.ts    # option parsers, global-option resolver (incl. --api-key), JSON renderer
-    commands/    # search / details
-    program.ts   # assembles the commander program from injectable deps
-    run.ts       # parses argv -> exit code (no process.exit; testable)
-    index.ts     # #! bin shim
-```
-
-**Design notes**
-
-- The engine accepts `defaultHeaders` merged into every request — the seam used to inject the `X-API-Key`.
-  The CLI surfaces it as `--api-key` (or the `AUSBILDUNGSSUCHE_API_KEY` env var, read through the injectable `deps.env`).
-- On a cross-origin redirect the engine strips credential headers (`X-API-Key`/`Authorization`/`Cookie`) so the key never leaks to another host.
-- The HTTP layer is a single `Transport` function; the default uses `node:http`/`node:https` and tests inject a mock.
-- The CLI is built around injectable `CliDeps`, so the whole program can be driven in-process by tests.
-
----
-
-## Testing
-
-```bash
-npm test          # builds, then runs `node --test` over dist/test
-```
-
-- **`query.test.ts`** — query-string serialisation.
-- **`http.test.ts`** — the default transport against a real loopback `http.createServer`.
-- **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirect following + `maxRedirects`, cross-origin credential stripping, network-error propagation, `maxResponseBytes=0` — mocked transport.
-- **`client.test.ts`** — the X-API-Key header, the `Accept: application/hal+json` override, search params and the details path — mocked transport.
-- **`cli.test.ts`** — command parsing, `--api-key` override, env-var precedence, 401/403/404/406 exit codes — mocked client.
-
-## Continuous integration
-
-GitHub Actions workflows under `.github/workflows/`:
-
-- **ci.yml** — type-check, build and test on Node 20/22/24 for every push and PR.
-- **release.yml** — on a `v*` tag: verify the tag matches `package.json`, test, `npm pack`, and create a GitHub Release with the tarball.
-- **publish.yml** — manual dispatch: publish to npm via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
-- **docs.yml** — build TypeDoc API docs and deploy to GitHub Pages on each `v*` tag.
+- **[Usage.md](Usage.md)** — full use-case-driven cookbook.
+- **[GLOSSARY.md](GLOSSARY.md)** — every flag and domain term explained.
+- **[DEVELOPING.md](DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
 
 ## License
 
