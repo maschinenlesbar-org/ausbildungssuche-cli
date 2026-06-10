@@ -1,0 +1,24 @@
+{
+  "name": "ausbildungssuche",
+  "version": "0.1.0",
+  "description": "German apprenticeship & vocational-training search skills powered by the ausbildungssuche-cli (Bundesagentur für Arbeit Ausbildungssuche API).",
+  "author": {
+    "name": "Sebastian Schürmann",
+    "email": "sebs@2xs.org"
+  },
+  "license": "AGPL-3.0-or-later",
+  "repository": "https://github.com/maschinenlesbar-org/ausbildungssuche-cli",
+  "homepage": "https://github.com/maschinenlesbar-org/ausbildungssuche-cli#readme",
+  "keywords": [
+    "ausbildungssuche",
+    "arbeitsagentur",
+    "ausbildung",
+    "apprenticeship",
+    "vocational-training",
+    "weiterbildung",
+    "umschulung",
+    "bildungsgutschein",
+    "germany",
+    "bund.dev"
+  ]
+}
