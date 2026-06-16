@@ -194,6 +194,17 @@ host.
 - **[GLOSSARY.md](GLOSSARY.md)** — every flag and domain term explained.
 - **[DEVELOPING.md](DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
 
+## Data license
+
+This CLI is a **client** — it accesses data it does not own or redistribute. The
+upstream data is © its provider and licensed **separately from this tool's code**.
+See **[DATA_LICENSE.md](DATA_LICENSE.md)**.
+
+> [!WARNING]
+> **Not open data.** Bundesagentur für Arbeit — full copyright, no reuse license.
+> Suitable for personal lookup only; no redistribution or commercial use without
+> the BA's permission.
+
 ## License
 
 **Dual-licensed** — use it under **either**:
