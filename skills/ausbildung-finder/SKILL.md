@@ -4,8 +4,8 @@ description: >
   Find German apprenticeships / vocational-training offers near a place and turn
   the raw catalogue into a ranked, deduplicated shortlist using the
   ausbildungssuche-cli. Trigger when the user asks "Ausbildung als X near
-  <city>", "apprenticeships for <job> within 50 km of <place>", "Umschulung /
-  Weiterbildung in <region>", "training with a Bildungsgutschein near me", or
+  a city", "apprenticeships for a job within 50 km of a place", "Umschulung /
+  Weiterbildung in a region", "training with a Bildungsgutschein near me", or
   wants vocational offers filtered by location, profession, funding, or start
   date. Handles the location-string and radius traps the bare CLI does not.
 version: 1.0.0

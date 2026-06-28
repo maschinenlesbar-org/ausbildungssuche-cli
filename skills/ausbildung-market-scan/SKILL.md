@@ -6,7 +6,7 @@ description: >
   ausbildungssuche-cli. Trigger when the user asks "how much Pflege training is
   out there?", "which Bundesland has the most apprenticeships for X?", "compare
   the IT training market across regions", "what share is Bildungsgutschein-funded?",
-  "who are the biggest providers for <field>?", or wants market-size / availability
+  "who are the biggest providers for a field?", or wants market-size / availability
   numbers rather than a single offer. Uses the `page.totalElements` count and
   filter sweeps to build a comparison, working around the 10000 result cap.
 version: 1.0.0
