@@ -11,10 +11,11 @@ fetches the full details of a single offer.
 npm i -g @maschinenlesbar.org/ausbildungssuche-cli
 ```
 
-The installed binary is **`ausbildungssuche`**. All examples below use it. The
-public `X-API-Key` is sent automatically, so no credentials are needed to get
-started. Output is pretty-printed JSON on stdout (`--compact` for a single line),
-which makes the examples pipe cleanly into [`jq`](https://jqlang.github.io/jq/).
+The installed binary is **`ausbildungssuche`**. All examples below use it. No key
+is bundled: supply the public, documented `X-API-Key` via `--api-key` or the
+`AUSBILDUNGSSUCHE_API_KEY` env var before running (see the API-key section below).
+Output is pretty-printed JSON on stdout (`--compact` for a single line), which
+makes the examples pipe cleanly into [`jq`](https://jqlang.github.io/jq/).
 
 The two commands are:
 
@@ -158,11 +159,12 @@ The global option also works after the subcommand (commander hoists it):
 ausbildungssuche search --sw Informatik --size 5 --compact | jq -c '._embedded'
 ```
 
-### 10. Use your own API key against a custom base URL
+### 10. Supply the API key against a custom base URL
 
-Override the built-in public key (`--api-key`, or the
-`AUSBILDUNGSSUCHE_API_KEY` env var) and/or point at an alternative host with
-`--base-url` — e.g. for a proxy or a staging endpoint.
+No key is bundled: supply the public, documented key (or your own) via `--api-key`
+or the `AUSBILDUNGSSUCHE_API_KEY` env var, and/or point at an alternative host with
+`--base-url` — e.g. for a proxy or a staging endpoint. Prefer the env var for a
+private key (an `--api-key` argument is visible in `ps`/shell history).
 
 ```bash
 ausbildungssuche --api-key "$MY_KEY" search --sw Pflege
@@ -176,9 +178,9 @@ AUSBILDUNGSSUCHE_API_KEY="$MY_KEY" ausbildungssuche search --sw Pflege
 ausbildungssuche --base-url https://proxy.internal.example search --sw Pflege
 ```
 
-Precedence is `--api-key` flag > env var > built-in default key. On a redirect
-that crosses an origin boundary the client strips credential headers, so a
-private key is never forwarded to another host.
+Precedence is `--api-key` flag > `AUSBILDUNGSSUCHE_API_KEY` env var > no key. On a
+redirect that crosses an origin boundary the client strips credential headers, so
+a private key is never forwarded to another host.
 
 ## Global options
 
@@ -188,7 +190,7 @@ These apply to every command and may be given before *or* after the subcommand:
 | --- | --- |
 | `-V, --version` | Print the version number |
 | `--base-url <url>` | API base URL (default `https://rest.arbeitsagentur.de`) |
-| `--api-key <key>` | Override the `X-API-Key` (env `AUSBILDUNGSSUCHE_API_KEY`) |
+| `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled |
 | `--timeout <ms>` | Per-request timeout in milliseconds |
 | `--user-agent <ua>` | `User-Agent` header value |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses |

@@ -11,10 +11,10 @@ find training offers by keyword, location, profession or region, and fetch the
 full record for any offer — as clean JSON you can pipe straight into
 [`jq`](https://jqlang.github.io/jq/).
 
-- **Works out of the box** — no account, no API key, no configuration. Install and search.
+- **One key to supply** — pass the public, documented API key with `--api-key` or the `AUSBILDUNGSSUCHE_API_KEY` env var. No key is bundled.
 - **Clean JSON output** — pretty-printed by default, `--compact` for one-line/scripting.
 - **Just two commands** — `search` and `details`.
-- **Nothing to leak** — sends only the public, documented key; no personal credentials involved.
+- **Nothing personal to leak** — the API's documented key is a public value; no personal credentials are involved.
 
 > Want to use this as a TypeScript library or understand how it's built?
 > See **[DEVELOPING.md](DEVELOPING.md)**.
@@ -35,9 +35,11 @@ ausbildungssuche --help
 
 ## Quickstart
 
-No setup needed — the public API key is sent automatically. Your first search:
+Supply the public, documented API key (no key is bundled) — pass `--api-key` or
+set the `AUSBILDUNGSSUCHE_API_KEY` env var. Your first search:
 
 ```bash
+export AUSBILDUNGSSUCHE_API_KEY=<the public key>
 ausbildungssuche search --sw Informatik --size 10
 ```
 
@@ -145,9 +147,10 @@ do the same thing.
 - **`command not found: ausbildungssuche`** — the global npm bin directory isn't on
   your `PATH`. Run `npm bin -g` to find it and add it, or run via
   `npx @maschinenlesbar.org/ausbildungssuche-cli …`.
-- **Exit `3` / "rejected"** — the upstream service declined the request. Since the
-  public key is sent automatically, this usually means the service is temporarily
-  restricting access; retry later. (If you passed your own `--api-key`, check it.)
+- **Exit `3` / "rejected"** — the upstream service declined the request (401/403).
+  Most often no key was supplied, or the key is wrong: pass `--api-key` or set
+  `AUSBILDUNGSSUCHE_API_KEY` to the public, documented key. It can also mean the
+  service is temporarily restricting access; retry later.
 - **Exit `4` / "not found"** — the offer id doesn't exist. Re-fetch it from a fresh
   `search` result; ids can change as the catalogue updates.
 - **Exit `6` / network error** — connectivity, DNS, or a timeout. Try again, or raise
@@ -165,27 +168,31 @@ These apply to every command and may be given before *or* after it:
 | `-h, --help` | Show help for the program or a command |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `--base-url <url>` | API base URL (default `https://rest.arbeitsagentur.de`) |
-| `--api-key <key>` | Override the built-in public key (env `AUSBILDUNGSSUCHE_API_KEY`) |
+| `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled |
 | `--timeout <ms>` | Per-request timeout (default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses (default `2`) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 
-### Using your own API key (advanced)
+### Supplying the API key
 
-You don't need this — the public, documented key is built in and sent
-automatically. It's here only if you have your own key or need to point at a
-proxy/staging host:
+No key is bundled. Supply the public, documented key (or your own) via the env
+var, or override it per-invocation with `--api-key`. You can also point at a
+proxy/staging host with `--base-url`:
 
 ```bash
+export AUSBILDUNGSSUCHE_API_KEY="$MY_KEY"
+ausbildungssuche search --sw Pflege
+
 ausbildungssuche --api-key "$MY_KEY" search --sw Pflege
 ausbildungssuche --base-url https://proxy.internal.example search --sw Pflege
 ```
 
-Precedence is `--api-key` > `AUSBILDUNGSSUCHE_API_KEY` env var > built-in key. If
-the API redirects across an origin boundary (different scheme/host/port), the
-tool **strips your key** before following, so a private key never leaks to another
-host.
+Prefer the env var for a private key — an `--api-key` argument is visible in the
+process table and shell history. Precedence is `--api-key` flag >
+`AUSBILDUNGSSUCHE_API_KEY` env var > no key. If the API redirects across an origin
+boundary (different scheme/host/port), the tool **strips your key** before
+following, so a private key never leaks to another host.
 
 ## Learn more
 

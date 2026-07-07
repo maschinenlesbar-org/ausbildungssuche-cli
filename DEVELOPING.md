@@ -37,13 +37,14 @@ ausbildungssuche --help
 ```ts
 import { AusbildungssucheClient, AusbildungApiError } from "@maschinenlesbar.org/ausbildungssuche-cli";
 
-const client = new AusbildungssucheClient(); // sends the public X-API-Key by default
+// No key is bundled — pass the public, documented X-API-Key (or your own):
+const client = new AusbildungssucheClient({ apiKey: "my-key" });
 
 const page = await client.search({ sw: "Informatik", size: 10 });
 const offers = (page._embedded ?? {}) as Record<string, unknown>;
 
-// Override the key if you have your own:
-const custom = new AusbildungssucheClient({ apiKey: "my-key" });
+// With no apiKey the X-API-Key header is omitted and the API answers 401/403:
+const keyless = new AusbildungssucheClient();
 
 try {
   await client.details("does-not-exist");
@@ -56,7 +57,7 @@ try {
 
 ```ts
 new AusbildungssucheClient({
-  apiKey: "infosysbub-absuche",   // X-API-Key (defaults to the public key)
+  apiKey: "the-public-key",       // X-API-Key; no key is bundled (omitted when unset)
   baseUrl: "https://rest.arbeitsagentur.de",
   timeoutMs: 15_000,
   maxRetries: 3,
@@ -72,12 +73,12 @@ new AusbildungssucheClient({
 
 ## Authentication internals
 
-The API requires a static, publicly-documented `X-API-Key` (`infosysbub-absuche`)
-on every request. The client **sends it by default** so the CLI works with no
-configuration; you can override it via `apiKey` (library), `--api-key`, or the
-`AUSBILDUNGSSUCHE_API_KEY` env var. Precedence is **`--api-key` > env var >
-built-in default key**; an empty/whitespace key is treated as absent (header
-omitted), and the API then answers `401`/`403`.
+The API requires a static, publicly-documented `X-API-Key` on every request. **No
+key is bundled** with this client — supply it via `apiKey` (library), `--api-key`,
+or the `AUSBILDUNGSSUCHE_API_KEY` env var. Precedence is **`--api-key` flag > env
+var > no key**; an empty/whitespace key is treated as absent (header omitted), and
+the API then answers `401`/`403`. The env value is seeded onto the option after
+parse (not as a commander default), so it never appears in `--help` output.
 
 Because the key is publicly documented, you can fetch it out-of-band (for CI or
 local live testing — never from production) with the bundled script:
@@ -133,8 +134,8 @@ src/
 ### Library / technical terms
 
 **API client.** [`AusbildungssucheClient`](src/client/client.ts) — the typed
-wrapper over the API. Sends the `X-API-Key` automatically and exposes `search()`
-and `details()`. Usable as a library independently of the CLI.
+wrapper over the API. Sends the supplied `X-API-Key` (none is bundled) and exposes
+`search()` and `details()`. Usable as a library independently of the CLI.
 
 **Request engine.** [`RequestEngine`](src/client/engine.ts) — builds URLs,
 serialises queries, applies retry/backoff, follows redirects, decodes JSON and
