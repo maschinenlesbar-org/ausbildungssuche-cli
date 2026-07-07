@@ -146,6 +146,15 @@ maps errors. Sits between the client and the transport. `DEFAULT_BASE_URL` is
 ([`http.ts`](src/client/http.ts)). The default (`nodeHttpTransport`) uses Node's
 built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
 
+**`--base-url` scheme allowlist (blueprint divergence).** The default transport
+rejects any URL whose scheme is not `http:`/`https:` with an `AusbildungNetworkError`
+(exit `6`), on every request — including redirect targets, so a redirect to
+`file:`/`data:` is refused mid-flight. This repo deliberately performs that check
+at the **transport** rather than as a commander parse-time value-parser: the
+control is stronger (it also gates redirect hops) but surfaces as exit `6`
+(network) rather than the blueprint's exit `2` (usage). No user-supplied URL ever
+reaches a non-http(s) scheme.
+
 **Default headers / Accept negotiation.** The engine merges `defaultHeaders` into
 every request — the seam that injects `X-API-Key`. The `Accept` header is chosen
 per endpoint (`application/hal+json` for search, `application/json` for details)
