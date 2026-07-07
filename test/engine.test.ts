@@ -8,6 +8,19 @@ import {
 } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
 
+// Control chars built via char codes so no raw control byte appears in this file.
+const ESC = String.fromCharCode(0x1b);
+const BEL = String.fromCharCode(0x07);
+const CSI = String.fromCharCode(0x9b); // a C1 control
+
+/** True if the string contains any C0/C1 control char except tab/newline. */
+function hasControlChars(s: string): boolean {
+  return [...s].some((c) => {
+    const n = c.charCodeAt(0);
+    return n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f);
+  });
+}
+
 test("buildUrl normalises the path and appends the query", () => {
   const e = new RequestEngine({ baseUrl: "https://example.test/" });
   assert.equal(e.buildUrl("infosysbub/"), "https://example.test/infosysbub/");
@@ -147,6 +160,29 @@ test("maxResponseBytes=0 disables the cap (no field sent to the transport)", asy
   const e = new RequestEngine({ transport: mt.transport, maxResponseBytes: 0 });
   await e.getJson("/x");
   assert.equal("maxResponseBytes" in mt.last(), false);
+});
+
+test("error detail is stripped of terminal control characters", async () => {
+  // A hostile endpoint escapes ESC/BEL/C1 controls in the JSON error `detail`;
+  // JSON.parse decodes them to real control bytes. run.ts prints the resulting
+  // error message raw to stderr, so they must be stripped at the source.
+  const evil = `boom${ESC}[31mred${BEL}${CSI}2J`;
+  const mt = makeMockTransport(() =>
+    rawResponse(JSON.stringify({ detail: evil }), "application/json", 500),
+  );
+  const e = new RequestEngine({ transport: mt.transport, maxRetries: 0 });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => {
+      assert.ok(err instanceof AusbildungApiError);
+      // Control bytes gone from both the structured detail and the printed message...
+      assert.ok(!hasControlChars(err.detail ?? ""));
+      assert.ok(!hasControlChars(err.message));
+      // ...while the printable characters survive.
+      assert.equal(err.detail, "boom[31mred2J");
+      return true;
+    },
+  );
 });
 
 test("the engine surfaces a transport-level network error", async () => {

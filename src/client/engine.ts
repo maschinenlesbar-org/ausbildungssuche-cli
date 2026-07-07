@@ -50,6 +50,27 @@ const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
  */
 const CREDENTIAL_HEADERS = ["authorization", "x-api-key", "cookie"];
 
+/**
+ * Strip control characters (C0 controls except tab/newline, DEL, and C1 controls)
+ * out of a string that originates in an attacker-controlled response — here the
+ * error `detail`. JSON.parse decodes an escaped ESC in an error body into a
+ * real ESC byte, so without this a hostile or MITM'd endpoint could drive ANSI/OSC
+ * terminal escape sequences (display spoofing, title changes) into the user's
+ * terminal when the message is printed raw to stderr by run.ts. The success path
+ * is already safe because JSON.stringify escapes control characters, so this only
+ * needs to cover text that flows into an error message. Implemented with a
+ * code-point filter so no raw control byte appears in this source file.
+ */
+function sanitizeServerText(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const n = ch.codePointAt(0) ?? 0;
+    if (n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f)) continue;
+    out += ch;
+  }
+  return out;
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -184,6 +205,11 @@ export class RequestEngine {
     } catch {
       // Non-JSON error body; leave detail undefined.
     }
+    // `detail` came from the response body; strip control characters so a hostile
+    // endpoint cannot inject terminal escape sequences via the stderr error message
+    // (run.ts prints AusbildungApiError.message raw). The success path is already
+    // safe because JSON.stringify escapes these characters.
+    if (detail !== undefined) detail = sanitizeServerText(detail);
     return new AusbildungApiError({ status, url, method, body: text, detail });
   }
 }
