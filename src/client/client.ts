@@ -35,10 +35,26 @@ export interface AusbildungssucheClientOptions extends EngineOptions {
  * untouched so an id copied from a `_links` href is not double-encoded
  * (`%20` -> `%2520`). An id counts as "already encoded" when every `%` in it
  * introduces a valid `%XX` hex escape.
+ *
+ * SECURITY (AUS-003): the "already encoded" branch would otherwise pass the id
+ * through verbatim, so a crafted id containing a single valid `%XX` plus raw
+ * `/`, `?`, or `#` (e.g. `x%20/../../../v2/secret`) would inject path traversal,
+ * a query, or a fragment into the request URL — steering the GET (with the
+ * X-API-Key header attached) to an arbitrary path on the chosen origin. Reject
+ * any id that carries these structural characters before deciding to skip
+ * encoding; a genuine already-encoded id has them as `%2F`/`%3F`/`%23`.
  */
 function encodePathSegment(id: string): string {
   const isAlreadyEncoded = /%[0-9A-Fa-f]{2}/.test(id) && !/%(?![0-9A-Fa-f]{2})/.test(id);
-  return isAlreadyEncoded ? id : encodeURIComponent(id);
+  if (isAlreadyEncoded) {
+    if (/[/?#]/.test(id)) {
+      throw new AusbildungValidationError(
+        "details: id must not contain a raw '/', '?', or '#' (path/query/fragment injection).",
+      );
+    }
+    return id;
+  }
+  return encodeURIComponent(id);
 }
 
 /** Drop undefined values so only the parameters the caller set are sent. */
