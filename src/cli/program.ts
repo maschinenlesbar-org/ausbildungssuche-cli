@@ -39,13 +39,6 @@ export const defaultDeps: CliDeps = {
 export function buildProgram(deps: CliDeps = defaultDeps): Command {
   const program = new Command();
 
-  // Seed the --api-key default from the environment. Commander only applies a
-  // default when the flag is absent from argv, so an explicit --api-key always
-  // wins: precedence is CLI flag > env var > (no key). No key is bundled; with
-  // none set the X-API-Key header is omitted. (The env is read from the injected
-  // deps.env so this is unit-testable.)
-  const envApiKey = deps.env[API_KEY_ENV_VAR];
-
   program
     .name("ausbildungssuche")
     .description(
@@ -55,11 +48,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     )
     .version(VERSION)
     .option("--base-url <url>", "API base URL", "https://rest.arbeitsagentur.de")
-    .option(
-      "--api-key <key>",
-      `X-API-Key header value (env: ${API_KEY_ENV_VAR})`,
-      envApiKey,
-    )
+    .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`)
     .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg)
     .option("--user-agent <ua>", "User-Agent header value")
     .option("--max-retries <n>", "retries for transient 429/503 responses", parseIntArg)
@@ -70,6 +59,19 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     )
     .option("--compact", "print JSON on a single line instead of pretty-printed")
     .showHelpAfterError();
+
+  // Seed --api-key from AUSBILDUNGSSUCHE_API_KEY (trimmed; blank treated as unset).
+  // The env value is NOT passed as the commander option default, because commander
+  // renders defaults in --help output — seeding it there would print a private key
+  // verbatim in the help text. Instead set it as the option value here, which an
+  // explicit --api-key on the command line overrides during parse: precedence is
+  // CLI flag > env var > (no key). No key is bundled; with none set the X-API-Key
+  // header is omitted. (The env is read from the injected deps.env so this is
+  // unit-testable.)
+  const envApiKey = deps.env[API_KEY_ENV_VAR];
+  if (typeof envApiKey === "string" && envApiKey.trim().length > 0) {
+    program.setOptionValue("apiKey", envApiKey.trim());
+  }
 
   registerAusbildungCommands(program, deps);
 

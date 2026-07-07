@@ -94,3 +94,16 @@ test("no X-API-Key is sent when neither flag nor env is set (no bundled default)
   await run(["search", "--sw", "x"], cli.deps);
   assert.equal(cli.mt.last().headers?.["X-API-Key"], undefined);
 });
+
+test("--help does not leak the env API key (commander default disclosure)", async () => {
+  // Regression for AUS-001: seeding the env key as the commander option DEFAULT
+  // made --help render it verbatim. The env is set here, so if the key were
+  // still the option default it would appear in the captured help text.
+  const secret = "SUPER-SECRET-KEY-123";
+  const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: secret });
+  const code = await run(["--help"], cli.deps);
+  assert.equal(code, 0);
+  const printed = [...cli.out, ...cli.err].join("\n");
+  assert.ok(printed.length > 0, "help output should not be empty");
+  assert.ok(!printed.includes(secret), "the API key must not appear in --help output");
+});
