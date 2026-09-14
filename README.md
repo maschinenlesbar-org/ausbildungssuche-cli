@@ -4,6 +4,8 @@
 [![Release](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/actions/workflows/release.yml/badge.svg)](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/actions/workflows/release.yml)
 [![npm](https://img.shields.io/npm/v/@maschinenlesbar.org/ausbildungssuche-cli)](https://www.npmjs.com/package/@maschinenlesbar.org/ausbildungssuche-cli)
 
+**Website:** [English](https://maschinenlesbar-org.github.io/ausbildungssuche-cli/) · [Deutsch](https://maschinenlesbar-org.github.io/ausbildungssuche-cli/de/) — command reference, guides and API docs
+
 Search Germany's federal **apprenticeship and vocational-training** catalogue from
 your terminal. `ausbildungssuche` is a small command-line tool over the
 [Bundesagentur für Arbeit Ausbildungssuche API](https://ausbildungssuche.api.bund.dev/):

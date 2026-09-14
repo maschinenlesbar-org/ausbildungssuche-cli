@@ -1,0 +1,17 @@
+# The only repo-specific texts of the website. Everything else comes from the
+# repository: the English intro from README.md, the commands from the built CLI.
+
+# How the API is accessed: open | key (env: VAR) | account (token, user, password: VARs)
+access:
+  type: key
+  env: AUSBILDUNGSSUCHE_API_KEY
+
+de:
+  # German version of the README's intro paragraph. Keep it in step with README.md.
+  intro: >-
+    Den bundesweiten Katalog für **Ausbildungs- und Berufsbildungsangebote** direkt im
+    Terminal durchsuchen. `ausbildungssuche` ist ein kleines Kommandozeilen-Tool für die
+    [Ausbildungssuche-API der Bundesagentur für
+    Arbeit](https://ausbildungssuche.api.bund.dev/): Angebote nach Stichwort, Ort, Beruf oder
+    Region finden und den vollständigen Datensatz zu jedem Angebot abrufen – als sauberes
+    JSON, das Sie direkt an [`jq`](https://jqlang.github.io/jq/) weitergeben können.
