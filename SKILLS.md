@@ -41,16 +41,19 @@ codes, the 10000-result cap) so Claude doesn't have to rediscover them each time
 
 ### Plugin marketplace (recommended)
 
-This repo is a Claude Code **plugin marketplace**, so installation is two commands inside
-Claude Code:
+The skills are published as the `ausbildungssuche` plugin in the
+[maschinenlesbar.org plugin marketplace](https://github.com/maschinenlesbar-org/plugins),
+which lists the plugins for all maschinenlesbar.org CLIs. Installation is two commands
+inside Claude Code:
 
 ```
-/plugin marketplace add maschinenlesbar-org/ausbildungssuche-cli
-/plugin install ausbildungssuche@ausbildungssuche-skills
+/plugin marketplace add maschinenlesbar-org/plugins
+/plugin install ausbildungssuche@maschinenlesbar
 ```
 
-The first command registers the marketplace; the second installs the `ausbildungssuche`
-plugin, which bundles all three skills. Update later with `/plugin marketplace update`.
+The first command registers the marketplace (once, for all maschinenlesbar.org
+plugins); the second installs the `ausbildungssuche` plugin, which bundles all three
+skills. Update later with `/plugin marketplace update maschinenlesbar`.
 
 ### Manual (copy the skill folders)
 
