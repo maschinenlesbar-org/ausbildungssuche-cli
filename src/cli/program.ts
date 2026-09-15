@@ -49,7 +49,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .version(VERSION)
     .option("--base-url <url>", "API base URL", "https://rest.arbeitsagentur.de")
     .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`)
-    .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg)
+    .option("--timeout <ms>", "time limit per request in milliseconds, whole response included", parseIntArg)
     .option("--user-agent <ua>", "User-Agent header value")
     .option("--max-retries <n>", "retries for transient 429/503 responses", parseIntArg)
     .option(
