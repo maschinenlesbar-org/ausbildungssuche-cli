@@ -33,17 +33,17 @@ export type AusbildungDetails = JsonObject;
 
 /** Parameters for the apprenticeship-offer search. */
 export interface AusbildungSearchParams {
-  /** "sw" — search keyword. */
+  /** "sw" — search keyword. Currently ignored by the API; filter by occupation with `ids`. */
   sw?: string;
-  /** Offer type (0..4). */
+  /** Offer type (0..3; the API rejects 4 with HTTP 400). */
   sty?: number;
-  /** Profession id(s). */
+  /** Occupation id(s): the `dkzId` from `angebot.systematiken[]`, comma-separated for several. */
   ids?: string;
-  /** Location id. */
+  /** Location as `Name_lon_lat` (longitude first), e.g. `Köln_6.957_50.938`. */
   orte?: string;
-  /** Region / state code. */
+  /** Bundesland code (`BAW`, `BAY`, … `THÜ`), comma-separated for several. */
   re?: string;
-  /** Radius: "Bundesweit" or 25..200 (km). */
+  /** Radius: "Bundesweit" or 10, 25, 50, 100 (km); other values get HTTP 400. */
   uk?: string;
   /** Training type. */
   bart?: string;
@@ -53,6 +53,6 @@ export interface AusbildungSearchParams {
   bt?: string;
   /** 0-based page. */
   page?: number;
-  /** Page size (1..2000; the CLI enforces this range). */
+  /** Page size (1..2000; the CLI enforces this range). The server returns at most 20 rows. */
   size?: number;
 }

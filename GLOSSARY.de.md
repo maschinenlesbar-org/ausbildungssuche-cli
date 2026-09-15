@@ -12,17 +12,17 @@ abgekürzten Abfrageparameter der API.
 >
 > | API-Parameter / Flag | Bedeutung |
 > | --- | --- |
-> | `sw` | Suchwort |
-> | `sty` | Suchtyp – Angebots- bzw. Suchart (`0`..`4`) |
-> | `orte` | Ort – Orts-ID |
-> | `re` | Region – Regions- bzw. Ländercode |
+> | `sw` | Suchwort (von der API derzeit ignoriert) |
+> | `sty` | Suchtyp – Angebots- bzw. Suchart (`0`..`3`) |
+> | `orte` | Ort (`Name_lon_lat`) |
+> | `re` | Region – Ländercode |
 > | `uk` | Umkreis – Suchradius (km oder `Bundesweit`) |
 > | `ids` | Berufs-id(s) – Kennung(en) des Berufs |
 > | `bart` | Bildungsart |
 > | `bg` | Bildungsgutschein – Filter nach Bildungsgutschein |
 > | `bt` | Beginntermin |
 > | `page` | Seitenindex, beginnend bei 0 |
-> | `size` | Seitengröße (`1`..`2000`) |
+> | `size` | Seitengröße (`1`..`2000`; der Server liefert höchstens 20) |
 
 ---
 
@@ -94,23 +94,32 @@ erkennt das und kodiert sie beim Aufbau des Detail-Pfads nicht doppelt.
 `details <id>`. Darf nicht leer sein (eine leere ID lehnt der Client mit einem
 Validierungsfehler ab, bevor eine Anfrage gesendet wird).
 
-**Orts-ID (`orte`).** Kennung eines Orts, auf den eine Suche eingegrenzt wird.
+**Ort (`orte`).** Der Ort, auf den eine Suche eingegrenzt wird, geschrieben als
+`Name_lon_lat` mit dem **Längengrad zuerst**, z. B. `Köln_6.957_50.938`. Steht der
+Breitengrad vorn, liefert die API stillschweigend 0 Treffer. Bei einer Ortssuche trägt
+jedes Angebot seine Entfernung vom Ort in `abstaende[].abstandInKm`.
 
 **Berufs-ID (`ids`).** Kennung(en) eines Berufs, auf den eine Suche eingegrenzt
-wird.
+wird: die `dkzId` in `angebot.systematiken[]` eines Angebots (z. B. `9162`,
+Staatlich anerkannter Erzieher). Mehrere IDs lassen sich durch Kommas trennen. Das ist
+der einzige funktionierende Berufsfilter: Das Suchwort `sw` ignoriert die API.
 
-**Regions- bzw. Ländercode (`re`).** Ein Code für eine Region oder ein Bundesland, auf das
-eine Suche eingegrenzt wird.
+**Regions- bzw. Ländercode (`re`).** Der dreistellige Code eines Bundeslands, auf das eine Suche
+eingegrenzt wird: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
+`RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`. Mehrere Codes lassen sich durch Kommas trennen.
+Den Code eines Angebots enthält `adresse.ortStrasse.land.code`; die zweistelligen
+Abkürzungen (z. B. `BW`) führen zu HTTP 400.
 
 ---
 
 ## Filterwerte, Einheiten & Enums
 
-**Angebotstyp (`sty`).** Ein kleiner ganzzahliger Code `0`..`4`, der die Art des
-Angebots bzw. der Suche auswählt.
+**Angebotstyp (`sty`).** Ein kleiner ganzzahliger Code `0`..`3`, der die Art des
+Angebots bzw. der Suche auswählt. Den Wert `4` lehnt die API mit HTTP 400 ab.
 
-**Umkreis (`uk`).** Der Suchradius um den Ort in **Kilometern** – `25`..`200` – oder die
-Zeichenkette `Bundesweit`, um ohne Radiusbegrenzung im ganzen Land zu suchen.
+**Umkreis (`uk`).** Der Suchradius um den Ort in **Kilometern** – `10`, `25`, `50` oder
+`100` – oder die Zeichenkette `Bundesweit`, um ohne Radiusbegrenzung im ganzen Land zu
+suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400.
 
 **Bildungsart (`bart`).** Die Kategorie der gesuchten Ausbildung bzw. Bildung.
 
@@ -125,6 +134,8 @@ ausgegebenen Gutschein, der eine zugelassene Bildungsmaßnahme finanziert.
 **Seitengröße (`size`).** Anzahl der Ergebnisse pro Seite, eine ganze Zahl `1`..`2000`.
 `MAX_PAGE_SIZE` ist `2000`; der Server ersetzt `size=0` stillschweigend (durch 20) und
 ignoriert zu große Werte, daher lehnt die CLI alles außerhalb von `1..2000` vorab ab.
+Tatsächlich liefert der Server höchstens **20** Zeilen pro Seite: Eine größere `size`
+kommt als `page.size` 20 zurück.
 
 ---
 

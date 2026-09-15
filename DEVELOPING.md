@@ -40,7 +40,8 @@ import { AusbildungssucheClient, AusbildungApiError } from "@maschinenlesbar.org
 // No key is bundled — pass the public, documented X-API-Key (or your own):
 const client = new AusbildungssucheClient({ apiKey: "my-key" });
 
-const page = await client.search({ sw: "Informatik", size: 10 });
+// Filter by occupation id (`ids`, the dkzId); the API ignores the keyword `sw`.
+const page = await client.search({ ids: "9162", size: 10 });
 const offers = (page._embedded ?? {}) as Record<string, unknown>;
 
 // With no apiKey the X-API-Key header is omitted and the API answers 401/403:
@@ -85,7 +86,7 @@ local live testing — never from production) with the bundled script:
 
 ```bash
 npm run fetch-key                                       # prints the current public key
-AUSBILDUNGSSUCHE_API_KEY="$(npm run --silent fetch-key)" ausbildungssuche search --sw Informatik
+AUSBILDUNGSSUCHE_API_KEY="$(npm run --silent fetch-key)" ausbildungssuche search --ids 9162
 ```
 
 The script scrapes the key from the upstream

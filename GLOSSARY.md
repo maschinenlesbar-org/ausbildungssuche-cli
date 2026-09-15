@@ -12,17 +12,17 @@ abbreviated query parameters.
 >
 > | API param / flag | Meaning |
 > | --- | --- |
-> | `sw` | Suchwort — search keyword |
-> | `sty` | Suchtyp — offer/search type (`0`..`4`) |
-> | `orte` | Ort — location id |
-> | `re` | Region — region / state code |
+> | `sw` | Suchwort — search keyword (currently ignored by the API) |
+> | `sty` | Suchtyp — offer/search type (`0`..`3`) |
+> | `orte` | Ort — location (`Name_lon_lat`) |
+> | `re` | Region — Bundesland code |
 > | `uk` | Umkreis — search radius (km, or `Bundesweit`) |
-> | `ids` | Berufs-id(s) — profession id(s) |
+> | `ids` | Berufs-id(s) — occupation id(s) |
 > | `bart` | Bildungsart — training/education type |
 > | `bg` | Bildungsgutschein — education-voucher filter |
 > | `bt` | Beginntermin — start date |
 > | `page` | 0-based page index |
-> | `size` | page size (`1`..`2000`) |
+> | `size` | page size (`1`..`2000`; the server returns at most 20) |
 
 ---
 
@@ -94,24 +94,33 @@ this and does not double-encode it when building the details path.
 `details <id>`. Must be non-empty (an empty id is rejected client-side with a
 validation error, before any request).
 
-**Location id (`orte`).** Identifier of a place/location used to scope a search.
+**Location (`orte`).** The place used to scope a search, written as
+`Name_lon_lat` with the **longitude first**, e.g. `Köln_6.957_50.938`. With the
+latitude first the API silently returns 0 results. On a place search each offer
+carries its distance from the place in `abstaende[].abstandInKm`.
 
 **Profession id (`ids`).** Identifier(s) of a profession/occupation used to scope
-a search.
+a search: the `dkzId` in an offer's `angebot.systematiken[]` (e.g. `9162`,
+Staatlich anerkannter Erzieher). Several ids can be comma-separated. This is the
+only working occupation filter: the API ignores the keyword `sw`.
 
-**Region / state code (`re`).** A code identifying a region or federal state used
-to scope a search.
+**Region / state code (`re`).** The 3-letter code of a Bundesland used to scope a
+search: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
+`RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`. Several can be comma-separated. An
+offer's code is in `adresse.ortStrasse.land.code`; the 2-letter abbreviations
+(e.g. `BW`) get HTTP 400.
 
 ---
 
 ## Filter values, units & enums
 
-**Offer type (`sty`).** A small integer code `0`..`4` selecting the kind of
-offer/search.
+**Offer type (`sty`).** A small integer code `0`..`3` selecting the kind of
+offer/search. The API rejects `4` with HTTP 400.
 
 **Radius (`uk`, Umkreis).** The search radius around the location, in
-**kilometres** — `25`..`200` — or the literal string `Bundesweit` ("nationwide")
-to search the whole country with no radius limit.
+**kilometres** — `10`, `25`, `50` or `100` — or the literal string `Bundesweit`
+("nationwide") to search the whole country with no radius limit. Other values
+(e.g. `30`, `150`, `200`) get HTTP 400.
 
 **Training type (`bart`, Bildungsart).** The category of training/education being
 searched.
@@ -127,6 +136,8 @@ that funds an approved training measure.
 **Page size (`size`).** Number of results per page, an integer `1`..`2000`.
 `MAX_PAGE_SIZE` is `2000`; the server silently overrides `size=0` (to 20) and
 ignores oversized values, so the CLI rejects anything outside `1..2000` up front.
+In practice the server returns at most **20** rows per page: a larger `size` comes
+back as `page.size` 20.
 
 ---
 

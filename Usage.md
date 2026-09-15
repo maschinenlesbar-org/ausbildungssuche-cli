@@ -26,13 +26,18 @@ ausbildungssuche details  <id>         # full details for one offer
 
 ## Use cases
 
-### 1. Search apprenticeships by keyword
+### 1. Search apprenticeships for one occupation
 
-Find offers matching a free-text term (`--sw`, *Suchwort*) — the quickest way in.
+Filter by occupation id (`--ids`, *Berufs-id*) — the quickest way in. `9162` is
+*Staatlich anerkannter Erzieher*.
 
 ```bash
-ausbildungssuche search --sw Informatik --size 10
+ausbildungssuche search --ids 9162 --size 10
 ```
+
+The CLI also has a free-text flag (`--sw`, *Suchwort*), but the API currently
+ignores it: any keyword returns the same offers as none. Use `--ids` to filter
+by occupation (see use case 8).
 
 `search` returns a HAL+JSON envelope: `_embedded` holds the offer objects,
 `_links` carries paging links, and `page` carries paging metadata
@@ -40,7 +45,7 @@ ausbildungssuche search --sw Informatik --size 10
 offers with `jq`:
 
 ```bash
-ausbildungssuche search --sw Informatik --size 10 | jq '._embedded'
+ausbildungssuche search --ids 9162 --size 10 | jq '._embedded'
 ```
 
 ### 2. See how many results a search has before fetching them all
@@ -48,7 +53,7 @@ ausbildungssuche search --sw Informatik --size 10 | jq '._embedded'
 Read the `page` block to size up a query without downloading every page.
 
 ```bash
-ausbildungssuche search --sw Pflege | jq '.page'
+ausbildungssuche search --ids 9162 | jq '.page'
 ```
 
 This prints `{ "size": …, "totalElements": …, "totalPages": …, "number": … }`,
@@ -56,37 +61,43 @@ so you know how many pages exist before paging through them.
 
 ### 3. Search near a location within a radius
 
-Scope a search to a place (`--orte`, a `Name_lat_lon` location string) and a
-`--uk` radius in kilometres (`25`..`200`) — useful when a trainee can only
-travel so far.
+Scope a search to a place (`--orte`, a `Name_lon_lat` location string with the
+**longitude first**) and a `--uk` radius in kilometres (`10`, `25`, `50` or
+`100`; other values get HTTP 400) — useful when a trainee can only travel so far.
 
 ```bash
-ausbildungssuche search --sw Mechatroniker --orte "Köln_50.938_6.957" --uk 50
+ausbildungssuche search --ids 9162 --orte "Köln_6.957_50.938" --uk 50
 ```
+
+With the latitude first (`Köln_50.938_6.957`) the API silently returns 0
+results. On a place search each offer carries its distance from the place in
+`abstaende[].abstandInKm`.
 
 `--uk` accepts the literal `Bundesweit` to search the whole country with no
 radius limit:
 
 ```bash
-ausbildungssuche search --sw Pflege --uk Bundesweit
+ausbildungssuche search --ids 9162 --uk Bundesweit
 ```
 
 ### 4. Page through a large result set
 
-Walk results in fixed-size pages with `--page` (0-based) and `--size` (`1`..`2000`).
+Walk results in fixed-size pages with `--page` (0-based) and `--size`. The CLI
+accepts `1`..`2000`, but the server returns at most 20 rows per page (it reports
+`page.size` 20 for anything larger).
 
 ```bash
 # first page
-ausbildungssuche search --sw Kaufmann --size 25 --page 0
+ausbildungssuche search --ids 9162 --size 20 --page 0
 # next page
-ausbildungssuche search --sw Kaufmann --size 25 --page 1
+ausbildungssuche search --ids 9162 --size 20 --page 1
 ```
 
 Extract just the ids and self-links from a page to feed a follow-up `details`
 call:
 
 ```bash
-ausbildungssuche search --sw Kaufmann --size 25 --page 0 \
+ausbildungssuche search --ids 9162 --size 20 --page 0 \
   | jq '._embedded'
 ```
 
@@ -116,32 +127,46 @@ Restrict results to offers eligible for a *Bildungsgutschein* (`--bg`) — a
 state-issued voucher that funds an approved training measure.
 
 ```bash
-ausbildungssuche search --sw Umschulung --bg
+ausbildungssuche search --ids 9162 --bg
 ```
 
 `--bg` is a boolean flag (no value); include it to turn the filter on.
 
 ### 7. Filter by region, offer type and start date
 
-Combine the structured filters: `--re` (region / Bundesland code, e.g. `iD` for
-Schleswig-Holstein), `--sty` (offer type, `0`..`4`), `--bart` (training type,
+Combine the structured filters: `--re` (Bundesland code, e.g. `SLH` for
+Schleswig-Holstein), `--sty` (offer type, `0`..`3`), `--bart` (training type,
 *Bildungsart*) and `--bt` (start-date code, *Beginntermin*: `0`..`2`).
 
+The `--re` codes are `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`,
+`NDS`, `NRW`, `RPF`, `SAA`, `SAC`, `SAN`, `SLH` and `THÜ`; several can be
+comma-separated (`--re NRW,BAY`). An offer's code is in
+`adresse.ortStrasse.land.code`.
+
 ```bash
-ausbildungssuche search --sw Industriekaufmann --re iD --sty 0 --bt 0
+ausbildungssuche search --re SLH --sty 0 --bt 0
 ```
 
 ```bash
-ausbildungssuche search --sw Erzieher --bart 1 --uk 100
+ausbildungssuche search --ids 9162 --bart 102 --re SAC
 ```
 
 ### 8. Search by profession id
 
-When you already know the occupation, scope by profession id (`--ids`) instead
-of free text for a precise match.
+Scope by occupation id (`--ids`). The id is the `dkzId` in an offer's
+`angebot.systematiken[]`, next to the occupation name (`kurzbezeichnung`), so
+you can read it from any search result:
 
 ```bash
-ausbildungssuche search --ids 7150 --uk Bundesweit
+ausbildungssuche search --re SAC --size 20 \
+  | jq -c '[._embedded.termine[].angebot.systematiken[] | {dkzId, kurzbezeichnung}] | unique'
+```
+
+Then filter on it; several ids can be comma-separated:
+
+```bash
+ausbildungssuche search --ids 9162 --uk Bundesweit
+ausbildungssuche search --ids 9162,9106 --uk Bundesweit
 ```
 
 ### 9. Get compact, line-delimited output for scripting
@@ -150,13 +175,13 @@ Use `--compact` to emit single-line JSON — handy in pipelines, logs, or when
 combined with `jq -c`.
 
 ```bash
-ausbildungssuche --compact search --sw Informatik --size 5
+ausbildungssuche --compact search --ids 9162 --size 5
 ```
 
 The global option also works after the subcommand (commander hoists it):
 
 ```bash
-ausbildungssuche search --sw Informatik --size 5 --compact | jq -c '._embedded'
+ausbildungssuche search --ids 9162 --size 5 --compact | jq -c '._embedded'
 ```
 
 ### 10. Supply the API key against a custom base URL
@@ -167,15 +192,15 @@ or the `AUSBILDUNGSSUCHE_API_KEY` env var, and/or point at an alternative host w
 private key (an `--api-key` argument is visible in `ps`/shell history).
 
 ```bash
-ausbildungssuche --api-key "$MY_KEY" search --sw Pflege
+ausbildungssuche --api-key "$MY_KEY" search --ids 9162
 ```
 
 ```bash
-AUSBILDUNGSSUCHE_API_KEY="$MY_KEY" ausbildungssuche search --sw Pflege
+AUSBILDUNGSSUCHE_API_KEY="$MY_KEY" ausbildungssuche search --ids 9162
 ```
 
 ```bash
-ausbildungssuche --base-url https://proxy.internal.example search --sw Pflege
+ausbildungssuche --base-url https://proxy.internal.example search --ids 9162
 ```
 
 Precedence is `--api-key` flag > `AUSBILDUNGSSUCHE_API_KEY` env var > no key. On a
@@ -202,17 +227,17 @@ These apply to every command and may be given before *or* after the subcommand:
 
 | Flag | Meaning |
 | --- | --- |
-| `--sw <text>` | search keyword (*Suchwort*) |
-| `--sty <n>` | offer type `0`..`4` (*Suchtyp*) |
-| `--orte <loc>` | location as `Name_lat_lon`, e.g. `Köln_50.938_6.957` (*Ort*) |
-| `--re <code>` | region / Bundesland code, e.g. `iD` (*Region*) |
-| `--uk <radius>` | radius: `Bundesweit` or `25`..`200` km (*Umkreis*) |
-| `--ids <id>` | profession id(s) (*Berufs-id*) |
+| `--sw <text>` | search keyword (*Suchwort*); currently ignored by the API, use `--ids` |
+| `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
+| `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*) |
+| `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ` (*Region*) |
+| `--uk <radius>` | radius: `Bundesweit` or `10`, `25`, `50`, `100` km (*Umkreis*) |
+| `--ids <id>` | occupation id(s), comma-separated (*Berufs-id*, the `dkzId`) |
 | `--bart <type>` | training type (*Bildungsart*) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
 | `--bt <code>` | start-date code `0`..`2` (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
-| `--size <n>` | page size (`1`..`2000`) |
+| `--size <n>` | page size (`1`..`2000`; the server returns at most 20) |
 
 Exit codes: `0` success, `2` usage/argument errors, `3` on `401`/`403`, `4` on
 `404`, `5` on `406` (Accept negotiation), `6` on a network/transport failure,

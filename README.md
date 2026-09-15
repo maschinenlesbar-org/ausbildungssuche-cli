@@ -42,16 +42,20 @@ set the `AUSBILDUNGSSUCHE_API_KEY` env var. Your first search:
 
 ```bash
 export AUSBILDUNGSSUCHE_API_KEY=<the public key>
-ausbildungssuche search --sw Informatik --size 10
+ausbildungssuche search --orte "Köln_6.957_50.938" --uk 25 --size 10
 ```
 
-`--sw` is the search keyword (*Suchwort*). The result is a JSON envelope: the
-offers live under `_embedded`, paging info under `page`. Pull out just the
-offers with `jq`:
+`--orte` is the place (*Ort*) as `Name_lon_lat`, longitude first, and `--uk` the
+radius (*Umkreis*). The result is a JSON envelope: the offers live under
+`_embedded`, paging info under `page`. Pull out just the offers with `jq`:
 
 ```bash
-ausbildungssuche search --sw Informatik --size 10 | jq '._embedded'
+ausbildungssuche search --orte "Köln_6.957_50.938" --uk 25 --size 10 | jq '._embedded'
 ```
+
+To narrow to one occupation, pass its id with `--ids` (see
+[Common tasks](#common-tasks)). The keyword flag `--sw` is sent, but the API
+currently ignores it.
 
 Take an offer's id from those results and fetch its full record:
 
@@ -70,17 +74,17 @@ details  <id>         full details for one offer
 
 | Flag | Meaning |
 | --- | --- |
-| `--sw <text>` | search keyword (*Suchwort*) |
-| `--orte <loc>` | location as `Name_lat_lon`, e.g. `Köln_50.938_6.957` (*Ort*) |
-| `--uk <radius>` | radius: `Bundesweit` or `25`..`200` km (*Umkreis*) |
-| `--re <code>` | region / Bundesland code, e.g. `iD` (*Region*) |
-| `--ids <id>` | profession id(s) (*Berufs-id*) |
-| `--sty <n>` | offer type `0`..`4` (*Suchtyp*) |
+| `--sw <text>` | search keyword (*Suchwort*); currently ignored by the API, use `--ids` |
+| `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*) |
+| `--uk <radius>` | radius: `Bundesweit` or `10`, `25`, `50`, `100` km (*Umkreis*) |
+| `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ` (*Region*) |
+| `--ids <id>` | occupation id(s), comma-separated (*Berufs-id*, the `dkzId`) |
+| `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
 | `--bart <type>` | training type (*Bildungsart*) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
 | `--bt <code>` | start-date code `0`..`2` (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
-| `--size <n>` | page size (`1`..`2000`) |
+| `--size <n>` | page size (`1`..`2000`; the server returns at most 20) |
 
 The flag names mirror the API's German abbreviations — the
 **[Glossary](GLOSSARY.md)** decodes every one.
@@ -91,22 +95,22 @@ A few recipes to get going — see **[Usage.md](Usage.md)** for the full,
 use-case-driven set.
 
 ```bash
-# Apprenticeships near a place, within 50 km
-ausbildungssuche search --sw Mechatroniker --orte "Köln_50.938_6.957" --uk 50
+# Offers near a place, within 50 km (longitude first in --orte)
+ausbildungssuche search --orte "Köln_6.957_50.938" --uk 50
 
-# Search the whole country (no radius limit)
-ausbildungssuche search --sw Pflege --uk Bundesweit
+# One occupation nationwide, by id (9162 = Staatlich anerkannter Erzieher)
+ausbildungssuche search --ids 9162 --uk Bundesweit
 
 # Only offers eligible for an education voucher (Bildungsgutschein)
-ausbildungssuche search --sw Umschulung --bg
+ausbildungssuche search --ids 9162 --bg
 
-# Page through a large result set (0-based pages)
-ausbildungssuche search --sw Kaufmann --size 25 --page 0
-ausbildungssuche search --sw Kaufmann --size 25 --page 1
-
-# Search by profession id instead of free text
-ausbildungssuche search --ids 7150 --uk Bundesweit
+# Page through a large result set (0-based pages, at most 20 rows each)
+ausbildungssuche search --ids 9162 --size 20 --page 0
+ausbildungssuche search --ids 9162 --size 20 --page 1
 ```
+
+The occupation id is the `dkzId` in an offer's `angebot.systematiken[]`; read it
+from a search result.
 
 ## Output & scripting
 
@@ -115,7 +119,7 @@ stderr, so piping stdout into `jq` stays clean.
 
 ```bash
 # How many results does a query have? Read the page block.
-ausbildungssuche search --sw Pflege | jq '.page'
+ausbildungssuche search --ids 9162 | jq '.page'
 
 # Reshape a detail record (title + provider)
 ausbildungssuche details 365241044 \
@@ -125,7 +129,7 @@ ausbildungssuche details 365241044 \
 Use `--compact` for single-line JSON in pipelines and logs:
 
 ```bash
-ausbildungssuche --compact search --sw Informatik --size 5 | jq -c '._embedded'
+ausbildungssuche --compact search --ids 9162 --size 5 | jq -c '._embedded'
 ```
 
 `--compact` (and every global option) works **before or after** the command —
@@ -157,8 +161,11 @@ do the same thing.
   `search` result; ids can change as the catalogue updates.
 - **Exit `6` / network error** — connectivity, DNS, or a timeout. Try again, or raise
   the limit with `--timeout 60000`.
-- **Empty `_embedded`** — the search simply matched nothing; broaden the keyword,
-  widen `--uk`, or drop filters.
+- **Empty `_embedded`** — the search matched nothing. Check that `--orte` has the
+  longitude first (`Name_lon_lat`); the other order silently returns 0 results.
+  Otherwise widen `--uk` or drop filters.
+- **Every keyword gives the same results** — the API ignores `--sw`. Filter by
+  occupation with `--ids`.
 
 ## Global options
 
@@ -184,10 +191,10 @@ proxy/staging host with `--base-url`:
 
 ```bash
 export AUSBILDUNGSSUCHE_API_KEY="$MY_KEY"
-ausbildungssuche search --sw Pflege
+ausbildungssuche search --ids 9162
 
-ausbildungssuche --api-key "$MY_KEY" search --sw Pflege
-ausbildungssuche --base-url https://proxy.internal.example search --sw Pflege
+ausbildungssuche --api-key "$MY_KEY" search --ids 9162
+ausbildungssuche --base-url https://proxy.internal.example search --ids 9162
 ```
 
 Prefer the env var for a private key — an `--api-key` argument is visible in the

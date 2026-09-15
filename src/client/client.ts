@@ -7,7 +7,7 @@
 // the header is omitted and the API answers 401/403. The public key can be
 // fetched out-of-band for CI / live testing via scripts/fetch-api-key.mjs.
 //
-//   client.search({ sw: "Informatik", size: 10 })
+//   client.search({ ids: "9162", size: 10 })
 //   client.details(id)
 
 import { RequestEngine, type EngineOptions } from "./engine.js";

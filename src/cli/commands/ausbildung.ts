@@ -7,17 +7,17 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
   program
     .command("search")
     .description("Search apprenticeship/training offers")
-    .option("--sw <text>", "search keyword (sw)")
-    .option("--sty <n>", "offer type 0..4 (sty)", parseIntArg)
-    .option("--orte <id>", "location id (orte)")
-    .option("--re <code>", "region / state code (re)")
-    .option("--uk <radius>", 'radius: "Bundesweit" or 25..200 (km)')
-    .option("--ids <id>", "profession id(s) (ids)")
+    .option("--sw <text>", "search keyword (sw); currently ignored by the API, use --ids to filter by occupation")
+    .option("--sty <n>", "offer type 0..3 (sty); 4 is rejected with HTTP 400", parseIntArg)
+    .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938" (orte)')
+    .option("--re <code>", "Bundesland code (re), e.g. BAY, NRW, THÜ; comma-separated for several")
+    .option("--uk <radius>", 'radius: "Bundesweit" or 10, 25, 50, 100 (km)')
+    .option("--ids <id>", "occupation id(s), the dkzId from angebot.systematiken[]; comma-separated for several (ids)")
     .option("--bart <type>", "training type (bart)")
     .option("--bg", "only offers eligible for an education voucher (bg)")
     .option("--bt <date>", "start date (bt)")
     .option("--page <n>", "0-based page", parseIntArg)
-    .option("--size <n>", "page size (1..2000)", parseSizeArg)
+    .option("--size <n>", "page size (1..2000; the server returns at most 20 rows)", parseSizeArg)
     .action(
       action(deps, async ({ client, global, opts }) => {
         const params: AusbildungSearchParams = {
