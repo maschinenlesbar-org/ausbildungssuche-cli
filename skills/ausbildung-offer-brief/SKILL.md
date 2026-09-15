@@ -66,18 +66,18 @@ strings** (`<p>`, `<ul><li>` …) that must be stripped to plain text:
 | `angebot.abschlussbezeichnung` / `abschlussart` | Qualification gained | **HTML** |
 | `angebot.zugang` | Entry requirements | **HTML** |
 | `angebot.zielgruppe` | Who it's for | **HTML** |
-| `angebot.foerderung` | Funding (free text) | **HTML** — lists eligible funding schemes (Bildungsgutschein, Reha, DRV …) |
+| `angebot.foerderung` | Funding (free text) | **HTML** — lists eligible funding schemes (Bildungsgutschein, Reha, DRV …). **Can be `null` even when the Termin-level `foerderung` is `true`**; then give the verdict without a scheme list. |
 | `angebot.link` | Apply / info URL | the provider's enrolment link |
-| `adresse.bezeichnung` / `.strasse` / `adresse.ortStrasse.{plz,name}` | Location | venue address |
+| `adresse.bezeichnung` / `.strasse` / `adresse.ortStrasse.{plz,name}` | Location | venue address. **Not** `angebot.bildungsanbieter.adresse`, which is the provider's office and can be in another city (a course in Halle whose provider address is in Berlin). `adresse.ortStrasse.breitengrad`/`.laengengrad` are the town centroid, not the venue. |
 | `adresse.ortStrasse.land.name` | Bundesland | |
 | `adresse.hinweise` | Directions / contact notes | **HTML**, optional |
-| `beginn` / `ende` | Start / end date | **epoch milliseconds** — convert with `new Date(ms)`; `null` = not fixed |
+| `beginn` / `ende` | Start / end date | **epoch milliseconds** at local midnight — convert **in Europe/Berlin** (in UTC they read as the day before); `null` = not fixed |
 | `individuellerEinstieg` | Rolling entry | `true` = start anytime |
-| `anmeldeschluss` | Application deadline | epoch ms or null |
+| `anmeldeschluss` | Application deadline | epoch ms (convert in Europe/Berlin) or null |
 | `dauer.bezeichnung` | Duration | |
 | `unterrichtsform.bezeichnung` | Format | presence / online / blended |
 | `unterrichtszeit` / `unterrichtszeiten` | Schedule | full-time / part-time |
-| `kostenWert` / `kostenWaehrung` / `kostenBemerkung` | Cost | `kostenWert` is often `null`; the Termin-level boolean `foerderung` tells you if it's funding-eligible |
+| `kostenWert` / `kostenWaehrung` / `kostenBemerkung` | Cost | `kostenWert` is a **string** or `null`, and can be `"0"`. `kostenWaehrung` is `"EUR"` even when `kostenWert` is null. `kostenBemerkung` is **HTML** and often explains the figure (e.g. „Wir erheben kein Schulgeld!" next to `"0"`). The Termin-level boolean `foerderung` tells you if it's funding-eligible |
 | `ansprechpartner` | Named contact | optional |
 
 **HTML handling:** strip tags to plain text, turn `<li>` into bullet lines, decode entities
@@ -99,7 +99,7 @@ Entry requirements
 
 Qualification: Trägerinternes Zertifikat (from abschlussbezeichnung)
 
-Funding options: Bildungsgutschein, Qualifizierungschancengesetz, … (from foerderung)
+Funding options: Bildungsgutschein, Qualifizierungschancengesetz, … (from angebot.foerderung; omit when null)
 
 Apply / info: https://…    Contact: 0800 0010865 · email@provider.de
 ```
@@ -107,10 +107,15 @@ Apply / info: https://…    Contact: 0800 0010865 · email@provider.de
 Rules:
 - Lead with title, type, provider, town, start date, and the funding verdict — that's what
   a trainee decides on.
-- Convert every epoch-ms date to `YYYY-MM-DD`; show "rolling start" when
+- Convert every epoch-ms date to `YYYY-MM-DD` **in Europe/Berlin**, e.g.
+  `new Date(ms).toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" })` or
+  `TZ=Europe/Berlin jq '.[0].beginn / 1000 | strflocaltime("%Y-%m-%d")'`. A UTC rendering
+  (`toISOString()`, jq `strftime`) shows the day before. Show "rolling start" when
   `individuellerEinstieg === true` or `beginn` is null.
 - State cost honestly: if `kostenWert` is null, say "cost not stated" and report whether
-  `foerderung === true` (funding-eligible) — don't imply free.
+  `foerderung === true` (funding-eligible) — don't imply free. If it is `"0"`, don't call
+  the offer free on that alone: quote `kostenBemerkung` when it says so, otherwise write
+  "listed as 0 EUR".
 - Strip all HTML; keep `inhalt`/`zugang`/`zielgruppe` as short readable sections, not walls
   of markup.
 - Surface the `angebot.link` and provider contact so the user can act.
