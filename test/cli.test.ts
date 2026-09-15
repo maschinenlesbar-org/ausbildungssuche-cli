@@ -52,6 +52,22 @@ test("details builds the per-id path", async () => {
   );
 });
 
+test("DEL and C1 control characters in server data are escaped in the JSON output", async () => {
+  const controls = String.fromCharCode(0x7f, 0x85, 0x9b) + "2J";
+  const served = { id: 12345, titel: `Koch${controls}`, beruf: String.fromCharCode(0x1b) + "[31m" };
+  for (const format of [[], ["--compact"]]) {
+    const cli = makeCli(() => jsonResponse(served));
+    assert.equal(await run([...format, "details", "12345"], cli.deps), 0);
+    const text = cli.out.join("\n");
+    const raw = [...text].filter((c) =>
+      c.charCodeAt(0) < 0x20 ? c !== "\n" : c.charCodeAt(0) >= 0x7f && c.charCodeAt(0) <= 0x9f,
+    );
+    assert.deepEqual(raw, [], format.join(" "));
+    assert.match(text, /Koch\\u007f\\u0085\\u009b2J/);
+    assert.deepEqual(JSON.parse(text), served);
+  }
+});
+
 test("a 404 from the API maps to exit code 4", async () => {
   const cli = makeCli(() => jsonResponse({}, 404));
   const code = await run(["details", "nope"], cli.deps);

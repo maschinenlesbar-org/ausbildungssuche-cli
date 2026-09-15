@@ -56,9 +56,10 @@ const CREDENTIAL_HEADERS = ["authorization", "x-api-key", "cookie"];
  * error `detail`. JSON.parse decodes an escaped ESC in an error body into a
  * real ESC byte, so without this a hostile or MITM'd endpoint could drive ANSI/OSC
  * terminal escape sequences (display spoofing, title changes) into the user's
- * terminal when the message is printed raw to stderr by run.ts. The success path
- * is already safe because JSON.stringify escapes control characters, so this only
- * needs to cover text that flows into an error message. Implemented with a
+ * terminal when the message is printed raw to stderr by run.ts. The CLI's JSON
+ * output is escaped separately (escapeControlChars in cli/shared.ts: JSON.stringify
+ * alone leaves DEL and the C1 range raw), so this only needs to cover text that
+ * flows into an error message. Implemented with a
  * code-point filter so no raw control byte appears in this source file.
  */
 function sanitizeServerText(text: string): string {
@@ -207,8 +208,8 @@ export class RequestEngine {
     }
     // `detail` came from the response body; strip control characters so a hostile
     // endpoint cannot inject terminal escape sequences via the stderr error message
-    // (run.ts prints AusbildungApiError.message raw). The success path is already
-    // safe because JSON.stringify escapes these characters.
+    // (run.ts prints AusbildungApiError.message raw). The CLI's JSON output is
+    // escaped separately (escapeControlChars in cli/shared.ts).
     if (detail !== undefined) detail = sanitizeServerText(detail);
     return new AusbildungApiError({ status, url, method, body: text, detail });
   }
