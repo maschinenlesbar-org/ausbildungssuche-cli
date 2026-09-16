@@ -5,7 +5,7 @@
 // key is NOT bundled with this client — pass it via `apiKey` (the CLI maps this
 // to `--api-key` / the AUSBILDUNGSSUCHE_API_KEY env var). When no key is supplied
 // the header is omitted and the API answers 401/403. The public key can be
-// fetched out-of-band for CI / live testing via scripts/fetch-api-key.mjs.
+// fetched at run time via obtainKey() / the CLI's `obtain-key` command.
 //
 //   client.search({ ids: "9162", size: 10 })
 //   client.details(id)
@@ -25,7 +25,7 @@ const SERVICE = "/infosysbub/absuche";
 export interface AusbildungssucheClientOptions extends EngineOptions {
   /**
    * The `X-API-Key` to send. No key is bundled; when omitted (or blank) the
-   * header is not sent. Obtain the public key via scripts/fetch-api-key.mjs.
+   * header is not sent. Obtain the public key with obtainKey() (see obtain-key.ts).
    */
   apiKey?: string;
 }

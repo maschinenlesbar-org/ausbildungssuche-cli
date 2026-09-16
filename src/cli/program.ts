@@ -11,6 +11,8 @@ import { AusbildungssucheClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
 import { parseBoundedInt, parseIntArg } from "./shared.js";
 import { registerAusbildungCommands } from "./commands/ausbildung.js";
+import { registerObtainKeyCommands } from "./commands/obtain-key.js";
+import { nodeHttpTransport } from "../client/http.js";
 
 /**
  * Single source of truth for the version: read from package.json at runtime
@@ -35,6 +37,7 @@ export const defaultDeps: CliDeps = {
   io: defaultIO,
   createClient: (options) => new AusbildungssucheClient(options),
   env: process.env,
+  transport: nodeHttpTransport,
 };
 
 export function buildProgram(deps: CliDeps = defaultDeps): Command {
@@ -78,6 +81,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     program.setOptionValue("apiKey", envApiKey.trim());
   }
 
+  registerObtainKeyCommands(program, deps);
   registerAusbildungCommands(program, deps);
 
   return program;

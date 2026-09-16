@@ -16,7 +16,7 @@ Skills: [ausbildung-finder](#ausbildung-finder) · [ausbildung-market-scan](#aus
 > I want to retrain as a state-certified Erzieher near Leipzig. What is on offer that a Bildungsgutschein would pay for?
 
 ```bash
-export AUSBILDUNGSSUCHE_API_KEY=infosysbub-absuche
+eval "$(ausbildungssuche obtain-key --export)"
 ausbildungssuche --compact search --sw Erzieher --orte "Leipzig_12.374_51.340" --uk 25 --bg --size 20   # 1207 hits, no Erzieher course among them
 ausbildungssuche --compact search --orte "Leipzig_12.374_51.340" --uk 25 --bg --size 1                  # also 1207: the keyword changes nothing
 ausbildungssuche --compact search --orte "Leipzig_12.374_51.340" --uk 25 --bg --bart 102 --size 20      # 154; two Erzieher offers carry dkzId 9162
@@ -54,7 +54,7 @@ Next steps offered: a full briefing on any of the three (ausbildung-offer-brief)
 > Where in Germany can you train as a state-certified Erzieher, and how much of it does a Bildungsgutschein cover?
 
 ```bash
-export AUSBILDUNGSSUCHE_API_KEY=infosysbub-absuche
+eval "$(ausbildungssuche obtain-key --export)"
 ausbildungssuche --compact search --sw Erzieher --re SAC --size 1 | jq '.page.totalElements'    # 6991 = every offer in Sachsen
 ausbildungssuche --compact search --ids 9162 --uk Bundesweit --size 1 | jq '.page.totalElements'        # 319
 ausbildungssuche --compact search --ids 9162 --uk Bundesweit --bg --size 1 | jq '.page.totalElements'   # 83
@@ -102,7 +102,7 @@ Next steps offered: the shortlist for one region (ausbildung-finder) or a briefi
 > Summarise offer 396148851 for me: what do I need to get in, and is it funded?
 
 ```bash
-export AUSBILDUNGSSUCHE_API_KEY=infosysbub-absuche
+eval "$(ausbildungssuche obtain-key --export)"
 ausbildungssuche --compact details 396148851
 ```
 

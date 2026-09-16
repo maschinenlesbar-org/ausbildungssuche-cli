@@ -24,13 +24,26 @@ de-duplication, and the enrichment the raw `search` JSON does not give you.
 
 This skill drives the `ausbildungssuche` command. **Before anything else, validate it is available** — run `command -v ausbildungssuche` (or `ausbildungssuche --version`). If it is not on your PATH, STOP and inform the user that the `ausbildungssuche` CLI (`@maschinenlesbar.org/ausbildungssuche-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build.
 
-**An API key is required and is NOT bundled.** The upstream service answers `403` (CLI
-exit `3`) without it. The key is a static, publicly-documented value — `infosysbub-absuche`
-— supply it via the `AUSBILDUNGSSUCHE_API_KEY` env var (preferred) or `--api-key`:
+**API key — obtain it once, then reuse it.** The API needs a static `X-API-Key`. **None is
+bundled**, and it is **not a secret**: one public value, the same for everyone. Finding it is
+not the user's job either. If `AUSBILDUNGSSUCHE_API_KEY` is already set in the environment,
+use that; otherwise obtain it with the CLI's own command:
 
 ```bash
-export AUSBILDUNGSSUCHE_API_KEY=infosysbub-absuche
+ausbildungssuche obtain-key
 ```
+
+It prints the key on stdout (the "obtained from …" note goes to stderr) and reads it from the
+published upstream source, so a rotated key needs no new release. **Keep that value for the
+rest of the session** and put it on every later call — a shell `export` does not survive
+between separate commands:
+
+```bash
+AUSBILDUNGSSUCHE_API_KEY="<the key obtain-key printed>" ausbildungssuche --compact search --uk 25
+```
+
+Say which key you used when you report back — it is public, not a credential to hide. If
+`obtain-key` exits non-zero, stop and tell the user; never guess a key or hard-code one.
 
 Always pass `--compact` so each result is one line for `jq`.
 

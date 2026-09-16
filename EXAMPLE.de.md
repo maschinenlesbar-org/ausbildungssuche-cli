@@ -16,7 +16,7 @@ Skills: [ausbildung-finder](#ausbildung-finder) · [ausbildung-market-scan](#aus
 > Umschulung zur staatlich anerkannten Erzieherin in der Nähe von Leipzig – welche Angebote werden über einen Bildungsgutschein gefördert?
 
 ```bash
-export AUSBILDUNGSSUCHE_API_KEY=infosysbub-absuche
+eval "$(ausbildungssuche obtain-key --export)"
 ausbildungssuche --compact search --sw Erzieher --orte "Leipzig_12.374_51.340" --uk 25 --bg --size 20   # 1207 Treffer, kein Erzieher-Kurs darunter
 ausbildungssuche --compact search --orte "Leipzig_12.374_51.340" --uk 25 --bg --size 1                  # ebenfalls 1207: das Suchwort ändert nichts
 ausbildungssuche --compact search --orte "Leipzig_12.374_51.340" --uk 25 --bg --bart 102 --size 20      # 154; zwei Erzieher-Angebote tragen dkzId 9162
@@ -55,7 +55,7 @@ Als Nächstes angeboten: ein ausführliches Briefing zu einem der drei Angebote 
 > Wo in Deutschland kann man sich zur staatlich anerkannten Erzieherin ausbilden lassen, und wie viel davon ist über einen Bildungsgutschein förderfähig?
 
 ```bash
-export AUSBILDUNGSSUCHE_API_KEY=infosysbub-absuche
+eval "$(ausbildungssuche obtain-key --export)"
 ausbildungssuche --compact search --sw Erzieher --re SAC --size 1 | jq '.page.totalElements'    # 6991 = alle Angebote in Sachsen
 ausbildungssuche --compact search --ids 9162 --uk Bundesweit --size 1 | jq '.page.totalElements'        # 319
 ausbildungssuche --compact search --ids 9162 --uk Bundesweit --bg --size 1 | jq '.page.totalElements'   # 83
@@ -104,7 +104,7 @@ Als Nächstes angeboten: die Trefferliste für eine Region (ausbildung-finder) o
 > Eine Zusammenfassung von Angebot 396148851: Welche Voraussetzungen gelten, und wird es gefördert?
 
 ```bash
-export AUSBILDUNGSSUCHE_API_KEY=infosysbub-absuche
+eval "$(ausbildungssuche obtain-key --export)"
 ausbildungssuche --compact details 396148851
 ```
 

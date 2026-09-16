@@ -31,10 +31,12 @@ the 10000-result cap) so Claude doesn't have to rediscover them each time.
   npm i -g @maschinenlesbar.org/ausbildungssuche-cli   # installs the `ausbildungssuche` bin
   ```
 - **An API key.** The Ausbildungssuche API requires a static `X-API-Key`, and it is
-  **not bundled** with the CLI. It is a publicly-documented value — `infosysbub-absuche` —
+  **not bundled** with the CLI. It is public, not a secret, and you do not have to go and
+  find it — the CLI obtains it from the upstream source that publishes it —
   supplied via the `AUSBILDUNGSSUCHE_API_KEY` env var (preferred) or `--api-key`:
   ```bash
-  export AUSBILDUNGSSUCHE_API_KEY=infosysbub-absuche
+  eval "$(ausbildungssuche obtain-key --export)"        # this shell
+  ausbildungssuche obtain-key --export >> ~/.zshrc      # or keep it for later
   ```
   Without it the service answers `403` (CLI exit `3`).
 

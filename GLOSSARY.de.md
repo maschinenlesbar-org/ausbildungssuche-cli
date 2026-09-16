@@ -42,13 +42,13 @@ seine API betreibt.
 [ausbildungssuche.api.bund.dev](https://ausbildungssuche.api.bund.dev/).
 
 **X-API-Key.** Ein statischer, öffentlich dokumentierter API-Schlüssel
-(`infosysbub-absuche`), der bei jeder Anfrage erforderlich ist. Er ist **nicht mitgeliefert** –
+, der bei jeder Anfrage erforderlich ist. Er ist **nicht mitgeliefert** – mit `obtain-key` abrufen oder
 übergeben Sie ihn per `--api-key`, über die Umgebungsvariable `AUSBILDUNGSSUCHE_API_KEY` oder
 die Client-Option `apiKey`; andernfalls entfällt der Header, und der Dienst antwortet mit
 `401`/`403`. Ein leerer oder nur aus Leerzeichen bestehender Schlüssel gilt als nicht
 vorhanden (es wird kein Header gesendet). Für CI und Live-Tests lässt sich der öffentliche
 Schlüssel separat abrufen (nie aus der CLI heraus) – mit
-`scripts/fetch-api-key.mjs` (`npm run fetch-key`).
+dem CLI-Befehl `obtain-key` abrufen (`npm run obtain-key`).
 
 ---
 

@@ -85,8 +85,8 @@ Because the key is publicly documented, you can fetch it out-of-band (for CI or
 local live testing — never from production) with the bundled script:
 
 ```bash
-npm run fetch-key                                       # prints the current public key
-AUSBILDUNGSSUCHE_API_KEY="$(npm run --silent fetch-key)" ausbildungssuche search --ids 9162
+npm run obtain-key                                      # prints the current public key
+AUSBILDUNGSSUCHE_API_KEY="$(npm run --silent obtain-key)" ausbildungssuche search --ids 9162
 ```
 
 The script scrapes the key from the upstream

@@ -35,13 +35,48 @@ Check it works:
 ausbildungssuche --help
 ```
 
-## Quickstart
+## Obtain key
 
-Supply the public, documented API key (no key is bundled) — pass `--api-key` or
-set the `AUSBILDUNGSSUCHE_API_KEY` env var. Your first search:
+The Bundesagentur für Arbeit publishes one static key for public use. It is
+**not a secret** — it is the same value for everyone, printed in the upstream
+[bundesAPI/ausbildungssuche-api](https://github.com/bundesAPI/ausbildungssuche-api)
+README — but finding and copying it shouldn't be your job either. `obtain-key`
+reads it from that published source at run time and prints it:
 
 ```bash
-export AUSBILDUNGSSUCHE_API_KEY=<the public key>
+ausbildungssuche obtain-key        # -> infosysbub-absuche  (provenance note on stderr)
+```
+
+**From obtaining the key to having it where it is used, in one line:**
+
+```bash
+# this shell only
+eval "$(ausbildungssuche obtain-key --export)"
+
+# or keep it for later — appends one `export …` line to your shell profile
+ausbildungssuche obtain-key --export >> ~/.zshrc     # ~/.bashrc on bash
+```
+
+`--export` prints a single shell-quoted `export AUSBILDUNGSSUCHE_API_KEY='…'`
+line on stdout (the "obtained from …" note goes to stderr, so it never lands in
+your profile). The plain form composes too:
+
+```bash
+export AUSBILDUNGSSUCHE_API_KEY="$(ausbildungssuche obtain-key)"
+```
+
+Because the key is fetched rather than compiled in, a rotated key needs no
+release of this CLI. If the upstream source is unreachable or stops publishing a
+key, `obtain-key` fails loudly with a non-zero exit rather than printing a guess
+— it will never invent a value.
+
+## Quickstart
+
+The API needs a key on every request and **none is bundled**; get it with
+`obtain-key` (above), then search:
+
+```bash
+eval "$(ausbildungssuche obtain-key --export)"
 ausbildungssuche search --orte "Köln_6.957_50.938" --uk 25 --size 10
 ```
 
@@ -154,8 +189,8 @@ do the same thing.
   your `PATH`. Run `npm bin -g` to find it and add it, or run via
   `npx @maschinenlesbar.org/ausbildungssuche-cli …`.
 - **Exit `3` / "rejected"** — the upstream service declined the request (401/403).
-  Most often no key was supplied, or the key is wrong: pass `--api-key` or set
-  `AUSBILDUNGSSUCHE_API_KEY` to the public, documented key. It can also mean the
+  Most often no key was supplied, or the key is wrong: run
+  `eval "$(ausbildungssuche obtain-key --export)"`, or pass `--api-key`. It can also mean the
   service is temporarily restricting access; retry later.
 - **Exit `4` / "not found"** — the offer id doesn't exist. Re-fetch it from a fresh
   `search` result; ids can change as the catalogue updates.
@@ -185,9 +220,10 @@ These apply to every command and may be given before *or* after it:
 
 ### Supplying the API key
 
-No key is bundled. Supply the public, documented key (or your own) via the env
-var, or override it per-invocation with `--api-key`. You can also point at a
-proxy/staging host with `--base-url`:
+No key is bundled. Get the public one with `ausbildungssuche obtain-key` (see
+[Obtain key](#obtain-key)), or supply your own via the env var, or override it
+per-invocation with `--api-key`. You can also point at a proxy/staging host with
+`--base-url`:
 
 ```bash
 export AUSBILDUNGSSUCHE_API_KEY="$MY_KEY"
