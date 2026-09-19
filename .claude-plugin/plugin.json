@@ -1,6 +1,6 @@
 {
   "name": "ausbildungssuche",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "German apprenticeship & vocational-training search skills powered by the ausbildungssuche-cli (Bundesagentur für Arbeit Ausbildungssuche API).",
   "author": {
     "name": "Sebastian Schürmann",
