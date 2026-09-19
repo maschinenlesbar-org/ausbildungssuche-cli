@@ -160,3 +160,18 @@ for (const [name, argv] of blankCases) {
     assert.match(cli.err.join("\n"), /non-empty/);
   });
 }
+
+// A non-http(s) or malformed --base-url is a usage error at parse time: it must
+// not reach the transport (an injected custom transport does no scheme check).
+for (const bad of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
+  test(`--base-url ${bad} is rejected before any request`, async () => {
+    const cli = makeCli(() => jsonResponse({}));
+    const code = await run(
+      ["--api-key", "dummy", "--base-url", bad, "search", "--sw", "x"],
+      cli.deps,
+    );
+    assert.notEqual(code, 0);
+    assert.equal(cli.mt.calls.length, 0, "no request may be sent");
+    assert.match(cli.err.join("\n"), /--base-url/);
+  });
+}

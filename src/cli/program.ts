@@ -9,7 +9,7 @@ import type { CliDeps } from "./io.js";
 import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
 import { AusbildungssucheClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
-import { parseBoundedInt, parseIntArg } from "./shared.js";
+import { parseBaseUrl, parseBoundedInt, parseIntArg } from "./shared.js";
 import { registerAusbildungCommands } from "./commands/ausbildung.js";
 import { registerObtainKeyCommands } from "./commands/obtain-key.js";
 import { nodeHttpTransport } from "../client/http.js";
@@ -51,7 +51,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
         "pass --api-key or set AUSBILDUNGSSUCHE_API_KEY (no key is bundled).",
     )
     .version(VERSION)
-    .option("--base-url <url>", "API base URL", "https://rest.arbeitsagentur.de")
+    .option("--base-url <url>", "API base URL", parseBaseUrl, "https://rest.arbeitsagentur.de")
     .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`)
     .option(
       "--timeout <ms>",

@@ -192,3 +192,14 @@ test("the engine surfaces a transport-level network error", async () => {
   const e = new RequestEngine({ transport: mt.transport });
   await assert.rejects(() => e.getJson("/x"), AusbildungNetworkError);
 });
+
+test("a non-http(s) base URL is rejected at construction, before any request", () => {
+  for (const baseUrl of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
+    const mt = makeMockTransport(() => jsonResponse({}));
+    assert.throws(
+      () => new RequestEngine({ baseUrl, transport: mt.transport }),
+      AusbildungNetworkError,
+    );
+    assert.equal(mt.calls.length, 0);
+  }
+});
