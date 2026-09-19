@@ -134,3 +134,29 @@ test("--help does not leak the env API key (commander default disclosure)", asyn
   assert.ok(printed.length > 0, "help output should not be empty");
   assert.ok(!printed.includes(secret), "the API key must not appear in --help output");
 });
+
+// A blank filter, query or id (often an unset shell variable) must be a usage
+// error at parse time: otherwise it is sent as an empty parameter (`sw=`) and
+// the command silently runs unfiltered and exits 0.
+const blankCases: Array<[string, string[]]> = [
+  ["--sw", ["search", "--sw", ""]],
+  ["--sw (whitespace)", ["search", "--sw", "   "]],
+  ["--orte", ["search", "--orte", ""]],
+  ["--re", ["search", "--re", ""]],
+  ["--uk", ["search", "--uk", ""]],
+  ["--ids", ["search", "--ids", ""]],
+  ["--bart", ["search", "--bart", ""]],
+  ["--bt", ["search", "--bt", ""]],
+  ["details <id>", ["details", ""]],
+  ["details <id> (whitespace)", ["details", " \t "]],
+];
+
+for (const [name, argv] of blankCases) {
+  test(`a blank ${name} is rejected before any request`, async () => {
+    const cli = makeCli(() => jsonResponse({}));
+    const code = await run(["--api-key", "dummy", ...argv], cli.deps);
+    assert.notEqual(code, 0);
+    assert.equal(cli.mt.calls.length, 0, "no request may be sent");
+    assert.match(cli.err.join("\n"), /non-empty/);
+  });
+}
