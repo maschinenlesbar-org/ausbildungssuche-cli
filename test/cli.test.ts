@@ -398,3 +398,25 @@ test("userinfo in --base-url is redacted from error messages but still sent", as
   assert.match(err, /HTTP 404 for GET http:\/\/\*\*\*@127\.0\.0\.1:1\/p\//);
   assert.equal(new URL(cli.mt.last().url).password, "s3cret");
 });
+
+test("a too deeply nested response is a clean error, not a stack overflow", async () => {
+  const depth = 200_000;
+  const body = "[".repeat(depth) + "]".repeat(depth);
+  const responder = (): HttpResponse => ({
+    status: 200,
+    headers: { "content-type": "application/json" },
+    body: Buffer.from(body),
+  });
+  const pretty = makeCli(responder);
+  assert.equal(await run(["details", "1"], pretty.deps), 1);
+  assert.equal(
+    pretty.err.join("\n"),
+    "Error: The response is nested too deeply to pretty-print; try --compact.",
+  );
+  // Compact may cope, or fail with its own message — never "Unexpected error".
+  const compact = makeCli(responder);
+  const code = await run(["--compact", "details", "1"], compact.deps);
+  if (code !== 0) {
+    assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
+  }
+});
