@@ -96,14 +96,18 @@ export function parseBoundedInt(min: number, max: number): (value: string) => nu
   };
 }
 
-/** Largest page size the API honours (documented in README and --size help). */
-export const MAX_PAGE_SIZE = 2000;
+/**
+ * Largest page size the API honours. Its OpenAPI description says 2000, but the
+ * server clamps every larger `size` to 20 (it reports `page.size` 20), so `--page`
+ * would count in pages of 20 while a script computes offsets from its own size.
+ */
+export const MAX_PAGE_SIZE = 20;
 
 /**
  * commander value-parser for `--size`: a base-10 integer in 1..MAX_PAGE_SIZE.
- * `size=0` is nonsensical (the server silently overrides it to 20) and sizes
- * above the documented maximum are silently ignored server-side, so both are
- * rejected up front rather than sent and quietly dropped.
+ * `size=0` is nonsensical (the server silently overrides it to 20) and a larger
+ * size is silently clamped to 20 server-side, so both are rejected up front
+ * rather than sent and quietly changed.
  */
 export function parseSizeArg(value: string): number {
   const n = parseIntArg(value);

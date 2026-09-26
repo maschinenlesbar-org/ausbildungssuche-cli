@@ -22,7 +22,7 @@ abbreviated query parameters.
 > | `bg` | Bildungsgutschein — education-voucher filter |
 > | `bt` | Beginntermin — start-date code (`2`, `101`..`112`; not a date) |
 > | `page` | 0-based page index |
-> | `size` | page size (`1`..`2000`; the server returns at most 20) |
+> | `size` | page size (`1`..`20`) |
 
 ---
 
@@ -150,11 +150,11 @@ API serves at most 10000 results of a query, so `(page + 1) × size` must be at 
 `10000` (with the default size 20, the last page is `499`); a later page gets HTTP 500,
 so the CLI rejects it (exit `2`).
 
-**Page size (`size`).** Number of results per page, an integer `1`..`2000`.
-`MAX_PAGE_SIZE` is `2000`; the server silently overrides `size=0` (to 20) and
-ignores oversized values, so the CLI rejects anything outside `1..2000` up front.
-In practice the server returns at most **20** rows per page: a larger `size` comes
-back as `page.size` 20.
+**Page size (`size`).** Number of results per page, an integer `1`..`20`
+(`MAX_PAGE_SIZE`). The server silently overrides `size=0` (to 20) and clamps any
+larger value to 20 (it comes back as `page.size` 20, so `page` counts in pages of
+20), so the CLI rejects anything outside `1..20` up front. The upstream API
+description names 2000 as the maximum; the server does not honour it.
 
 ---
 

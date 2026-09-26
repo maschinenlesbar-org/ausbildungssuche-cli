@@ -108,7 +108,7 @@ skills encode the non-obvious parts of this API, all verified against the live s
 - **`--re` wants the API's 3-letter `land.code`** (`BAW`, `BAY`, `BER`, `BRA`, `BRE`,
   `HAM`, `HES`, `MBV`, `NDS`, `NRW`, `RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`), not the
   usual 2-letter abbreviation — `BW`/`BY`/`SH` are rejected. `--sty` is `0..3`;
-- **the server returns at most 20 offers per page**, whatever `--size` says, and
+- **the server returns at most 20 offers per page** (`--size` is `1`..`20`), and
   **`page.totalElements` caps at exactly 10000** — a broad query reports `10000` whether
   there are 10001 or a million, and you cannot page past that window (see
   **ausbildung-market-scan**);

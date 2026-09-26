@@ -75,7 +75,7 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     .option("--bg", "only offers eligible for an education voucher (bg)")
     .option("--bt <code>", "start-date code(s) (bt): 2 = earlier dates, 101..112 = January..December of the following year, 0 and 1 also accepted; not a date. Comma-separated or repeated for several", commaList(parseStartCodes))
     .option("--page <n>", "0-based page", once(parseIntArg))
-    .option("--size <n>", "page size (1..2000; the server returns at most 20 rows)", once(parseSizeArg))
+    .option("--size <n>", "page size, 1..20 (the server serves at most 20 rows per page)", once(parseSizeArg))
     .action(
       action(deps, async ({ client, global, opts }) => {
         checkPlaceAndRadius(opts["orte"] as string | undefined, opts["uk"] as string | undefined);

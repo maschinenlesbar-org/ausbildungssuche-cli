@@ -316,3 +316,14 @@ test("search --help describes --bt as a code, not a date", async () => {
   assert.match(help, /--bt <code>\s+start-date code\(s\)/);
   assert.doesNotMatch(help, /--bt <date>/);
 });
+
+test("--size is capped at 20, the most the server serves per page", async () => {
+  const ok = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["search", "--size", "20"], ok.deps), 0);
+  for (const size of ["21", "50", "2000"]) {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run(["search", "--size", size], cli.deps), 2, size);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), /between 1 and 20/);
+  }
+});

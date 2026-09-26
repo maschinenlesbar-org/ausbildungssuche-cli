@@ -125,7 +125,7 @@ done
 
 For provider concentration in a field, tally
 `_embedded.termine[].angebot.bildungsanbieter.name` across pages. **The server returns at
-most 20 offers per page** (a larger `--size` still comes back as 20), so one page is a
+most 20 offers per page** (the CLI rejects a `--size` above 20), so one page is a
 20-offer sample. Page through a small set:
 
 ```bash

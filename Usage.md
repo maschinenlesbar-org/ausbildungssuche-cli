@@ -94,9 +94,9 @@ ausbildungssuche search --ids 9162 --orte "Köln_6.957_50.938" --uk Bundesweit
 
 ### 4. Page through a large result set
 
-Walk results in fixed-size pages with `--page` (0-based) and `--size`. The CLI
-accepts `1`..`2000`, but the server returns at most 20 rows per page (it reports
-`page.size` 20 for anything larger).
+Walk results in fixed-size pages with `--page` (0-based) and `--size` (`1`..`20`).
+The server serves at most 20 rows per page — it clamps a larger size to 20, so
+`--page` would count in pages of 20 — and the CLI rejects a `--size` above 20.
 
 ```bash
 # first page
@@ -251,7 +251,7 @@ These apply to every command and may be given before *or* after the subcommand:
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
 | `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0`, `1` also accepted (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
-| `--size <n>` | page size (`1`..`2000`; the server returns at most 20) |
+| `--size <n>` | page size, `1`..`20` (the server serves at most 20 rows per page) |
 
 Exit codes: `0` success, `2` usage/argument errors, `3` on `401`/`403`, `4` on
 `404`, `5` on `406` (Accept negotiation), `6` on a network/transport failure,

@@ -120,7 +120,7 @@ details  <id>         full details for one offer
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
 | `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0`, `1` also accepted (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
-| `--size <n>` | page size (`1`..`2000`; the server returns at most 20) |
+| `--size <n>` | page size, `1`..`20` (the server serves at most 20 rows per page) |
 
 `--ids`, `--re` and `--bt` take several values, comma-separated or by repeating
 the flag; repeating any other filter is a usage error (exit `2`) rather than

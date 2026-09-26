@@ -68,7 +68,7 @@ Map the request to `search` flags. The fields that matter most:
 | `--re <code>` | Bundesland code | use the API's **3-letter `land.code`**, not the common 2-letter abbreviation: `BAW` Baden-Württ., `BAY` Bayern, `BER` Berlin, `BRA` Brandenburg, `BRE` Bremen, `HAM` Hamburg, `HES` Hessen, `MBV` Mecklenb.-Vorp., `NDS` Niedersachsen, `NRW`, `RPF` Rheinl.-Pfalz, `SAA` Saarland, `SAC` Sachsen, `SAN` Sachsen-Anhalt, `SLH` Schl.-Holst., `THÜ` Thüringen. Comma-separate several. Wrong codes (`BW`, `BY`, `SH`) are rejected (exit `2`); lowercase is uppercased for you. |
 | `--bg` | only Bildungsgutschein-eligible offers | boolean flag, no value. |
 | `--bt <code>` | start-date window | a code, not a date: `2` earlier dates, `101`..`112` January..December of the following year (`0`, `1` also accepted); comma-separate several. |
-| `--size <n>` / `--page <n>` | paging | the CLI accepts `size` 1..2000, but **the server returns at most 20 rows per page** (`page.size` comes back as 20); `page` is 0-based. |
+| `--size <n>` / `--page <n>` | paging | `size` is `1`..`20` — **the server returns at most 20 rows per page**, so the CLI rejects more (exit `2`); `page` is 0-based. |
 
 ## Step 1b — Resolve the occupation to a `dkzId`
 

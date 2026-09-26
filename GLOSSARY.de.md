@@ -22,7 +22,7 @@ abgekürzten Abfrageparameter der API.
 > | `bg` | Bildungsgutschein – Filter nach Bildungsgutschein |
 > | `bt` | Beginntermin – Code für den Beginn (`2`, `101`..`112`; kein Datum) |
 > | `page` | Seitenindex, beginnend bei 0 |
-> | `size` | Seitengröße (`1`..`2000`; der Server liefert höchstens 20) |
+> | `size` | Seitengröße (`1`..`20`) |
 
 ---
 
@@ -148,11 +148,11 @@ Die API liefert höchstens 10000 Ergebnisse einer Abfrage, daher darf `(page + 1
 höchstens `10000` sein (bei der Standardgröße 20 ist die letzte Seite `499`); eine spätere
 Seite führt zu HTTP 500, daher lehnt die CLI sie ab (Exit `2`).
 
-**Seitengröße (`size`).** Anzahl der Ergebnisse pro Seite, eine ganze Zahl `1`..`2000`.
-`MAX_PAGE_SIZE` ist `2000`; der Server ersetzt `size=0` stillschweigend (durch 20) und
-ignoriert zu große Werte, daher lehnt die CLI alles außerhalb von `1..2000` vorab ab.
-Tatsächlich liefert der Server höchstens **20** Zeilen pro Seite: Eine größere `size`
-kommt als `page.size` 20 zurück.
+**Seitengröße (`size`).** Anzahl der Ergebnisse pro Seite, eine ganze Zahl `1`..`20`
+(`MAX_PAGE_SIZE`). Der Server ersetzt `size=0` stillschweigend (durch 20) und kürzt jeden
+größeren Wert auf 20 (er kommt als `page.size` 20 zurück, `page` zählt also in Seiten zu
+20), daher lehnt die CLI alles außerhalb von `1..20` vorab ab. Die Beschreibung der
+Upstream-API nennt 2000 als Maximum; der Server hält sich nicht daran.
 
 ---
 

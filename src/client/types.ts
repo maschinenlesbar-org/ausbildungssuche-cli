@@ -63,6 +63,6 @@ export interface AusbildungSearchParams {
   bt?: string;
   /** 0-based page. */
   page?: number;
-  /** Page size (1..2000; the CLI enforces this range). The server returns at most 20 rows. */
+  /** Page size. The server clamps anything above 20 to 20; the CLI accepts 1..20. */
   size?: number;
 }
