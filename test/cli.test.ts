@@ -218,3 +218,42 @@ test("--uk Bundesweit alone, and --orte with --uk, are sent", async () => {
     assert.equal(cli.mt.calls.length, 1);
   }
 });
+
+test("repeated list options (--ids, --re, --bt) accumulate into one comma-separated value", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  const code = await run(
+    ["search", "--ids", "1", "--ids", "2,3", "--re", "NRW", "--re", "BAY", "--bt", "2", "--bt", "101"],
+    cli.deps,
+  );
+  assert.equal(code, 0);
+  const q = new URL(cli.mt.last().url).searchParams;
+  assert.equal(q.get("ids"), "1,2,3");
+  assert.equal(q.get("re"), "NRW,BAY");
+  assert.equal(q.get("bt"), "2,101");
+});
+
+for (const [opt, a, b] of [
+  ["--sw", "x", "y"],
+  ["--sty", "0", "1"],
+  ["--bart", "102", "104"],
+  ["--page", "0", "1"],
+  ["--size", "5", "10"],
+] as const) {
+  test(`repeating the single-valued ${opt} is a usage error, before any request`, async () => {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run(["search", opt, a, opt, b], cli.deps), 2);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), /Given more than once/);
+  });
+}
+
+test("repeating --orte or --uk is a usage error", async () => {
+  for (const argv of [
+    ["search", "--orte", "A_1_2", "--orte", "B_3_4", "--uk", "10"],
+    ["search", "--orte", "A_1_2", "--uk", "10", "--uk", "50"],
+  ]) {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0);
+  }
+});

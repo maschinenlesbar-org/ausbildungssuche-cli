@@ -235,9 +235,9 @@ These apply to every command and may be given before *or* after the subcommand:
 | `--sw <text>` | search keyword (*Suchwort*); currently ignored by the API, use `--ids` |
 | `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
 | `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*) |
-| `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ` (*Region*) |
+| `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ`; comma-separated or repeated for several (*Region*) |
 | `--uk <radius>` | radius around `--orte`: `10`, `25`, `50`, `100` km, or `Bundesweit` (*Umkreis*); a km radius needs `--orte` |
-| `--ids <id>` | occupation id(s), comma-separated (*Berufs-id*, the `dkzId`) |
+| `--ids <id>` | occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`) |
 | `--bart <type>` | training type (*Bildungsart*) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
 | `--bt <code>` | start-date code `0`..`2` (*Beginntermin*) |

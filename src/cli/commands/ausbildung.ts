@@ -1,6 +1,14 @@
 import type { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { action, parseIntArg, parseNonEmpty, parseSizeArg, renderJson } from "../shared.js";
+import {
+  action,
+  commaList,
+  once,
+  parseIntArg,
+  parseNonEmpty,
+  parseSizeArg,
+  renderJson,
+} from "../shared.js";
 import type { AusbildungSearchParams } from "../../client/types.js";
 import { AusbildungValidationError } from "../../client/errors.js";
 
@@ -31,17 +39,19 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
   program
     .command("search")
     .description("Search apprenticeship/training offers")
-    .option("--sw <text>", "search keyword (sw); currently ignored by the API, use --ids to filter by occupation", parseNonEmpty)
-    .option("--sty <n>", "offer type 0..3 (sty); 4 is rejected with HTTP 400", parseIntArg)
-    .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938" (orte); needs --uk', parseNonEmpty)
-    .option("--re <code>", "Bundesland code (re), e.g. BAY, NRW, THÜ; comma-separated for several", parseNonEmpty)
-    .option("--uk <radius>", 'radius around --orte: 10, 25, 50, 100 (km), or "Bundesweit" (uk); a km radius needs --orte', parseNonEmpty)
-    .option("--ids <id>", "occupation id(s), the dkzId from angebot.systematiken[]; comma-separated for several (ids)", parseNonEmpty)
-    .option("--bart <type>", "training type (bart)", parseNonEmpty)
+    // Single-valued options reject a repeat (once); list-valued ones, whose API
+    // parameter takes comma-separated values, accumulate repeats (commaList).
+    .option("--sw <text>", "search keyword (sw); currently ignored by the API, use --ids to filter by occupation", once(parseNonEmpty))
+    .option("--sty <n>", "offer type 0..3 (sty); 4 is rejected with HTTP 400", once(parseIntArg))
+    .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938" (orte); needs --uk', once(parseNonEmpty))
+    .option("--re <code>", "Bundesland code (re), e.g. BAY, NRW, THÜ; comma-separated or repeated for several", commaList(parseNonEmpty))
+    .option("--uk <radius>", 'radius around --orte: 10, 25, 50, 100 (km), or "Bundesweit" (uk); a km radius needs --orte', once(parseNonEmpty))
+    .option("--ids <id>", "occupation id(s), the dkzId from angebot.systematiken[]; comma-separated or repeated for several (ids)", commaList(parseNonEmpty))
+    .option("--bart <type>", "training type (bart)", once(parseNonEmpty))
     .option("--bg", "only offers eligible for an education voucher (bg)")
-    .option("--bt <date>", "start date (bt)", parseNonEmpty)
-    .option("--page <n>", "0-based page", parseIntArg)
-    .option("--size <n>", "page size (1..2000; the server returns at most 20 rows)", parseSizeArg)
+    .option("--bt <date>", "start date (bt)", commaList(parseNonEmpty))
+    .option("--page <n>", "0-based page", once(parseIntArg))
+    .option("--size <n>", "page size (1..2000; the server returns at most 20 rows)", once(parseSizeArg))
     .action(
       action(deps, async ({ client, global, opts }) => {
         checkPlaceAndRadius(opts["orte"] as string | undefined, opts["uk"] as string | undefined);

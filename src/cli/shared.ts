@@ -55,6 +55,36 @@ export function parseBaseUrl(value: string): string {
   return value;
 }
 
+/**
+ * Wrap a commander value-parser for a single-valued option so that a second
+ * occurrence is a usage error. commander otherwise keeps only the last value, so
+ * `--uk 10 --uk 50` silently dropped the first. (The option must have no default:
+ * commander passes the default as `previous` on the first occurrence.)
+ */
+export function once<T>(parse: (value: string) => T): (value: string, previous: T | undefined) => T {
+  return (value, previous) => {
+    if (previous !== undefined) {
+      throw new InvalidArgumentError("Given more than once; this option takes a single value.");
+    }
+    return parse(value);
+  };
+}
+
+/**
+ * Wrap a commander value-parser for an option whose API parameter takes a
+ * comma-separated list (`--ids`, `--re`, `--bt`): repeats accumulate, joined with
+ * ",", so `--ids 9162 --ids 9106` sends `ids=9162,9106` like `--ids 9162,9106`
+ * instead of keeping only the last value.
+ */
+export function commaList(
+  parse: (value: string) => string,
+): (value: string, previous: string | undefined) => string {
+  return (value, previous) => {
+    const parsed = parse(value);
+    return previous === undefined ? parsed : `${previous},${parsed}`;
+  };
+}
+
 /** Build a commander value-parser for a base-10 integer constrained to [min, max]. */
 export function parseBoundedInt(min: number, max: number): (value: string) => number {
   return (value: string) => {

@@ -113,14 +113,18 @@ details  <id>         full details for one offer
 | `--sw <text>` | search keyword (*Suchwort*); currently ignored by the API, use `--ids` |
 | `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*); needs `--uk` |
 | `--uk <radius>` | radius around `--orte`: `10`, `25`, `50`, `100` km, or `Bundesweit` (*Umkreis*); a km radius needs `--orte` |
-| `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ` (*Region*) |
-| `--ids <id>` | occupation id(s), comma-separated (*Berufs-id*, the `dkzId`) |
+| `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ`; comma-separated or repeated for several (*Region*) |
+| `--ids <id>` | occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`) |
 | `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
 | `--bart <type>` | training type (*Bildungsart*) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
 | `--bt <code>` | start-date code `0`..`2` (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
 | `--size <n>` | page size (`1`..`2000`; the server returns at most 20) |
+
+`--ids`, `--re` and `--bt` take several values, comma-separated or by repeating
+the flag; repeating any other filter is a usage error (exit `2`) rather than
+silently keeping only the last value.
 
 The flag names mirror the API's German abbreviations — the
 **[Glossary](GLOSSARY.md)** decodes every one.
