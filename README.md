@@ -81,7 +81,8 @@ ausbildungssuche search --orte "Köln_6.957_50.938" --uk 25 --size 10
 ```
 
 `--orte` is the place (*Ort*) as `Name_lon_lat`, longitude first, and `--uk` the
-radius (*Umkreis*). The result is a JSON envelope: the offers live under
+radius (*Umkreis*). The two only filter together, so each needs the other
+(`--uk Bundesweit` on its own is fine: it is the nationwide default). The result is a JSON envelope: the offers live under
 `_embedded`, paging info under `page`. Pull out just the offers with `jq`:
 
 ```bash
@@ -110,8 +111,8 @@ details  <id>         full details for one offer
 | Flag | Meaning |
 | --- | --- |
 | `--sw <text>` | search keyword (*Suchwort*); currently ignored by the API, use `--ids` |
-| `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*) |
-| `--uk <radius>` | radius: `Bundesweit` or `10`, `25`, `50`, `100` km (*Umkreis*) |
+| `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*); needs `--uk` |
+| `--uk <radius>` | radius around `--orte`: `10`, `25`, `50`, `100` km, or `Bundesweit` (*Umkreis*); a km radius needs `--orte` |
 | `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ` (*Region*) |
 | `--ids <id>` | occupation id(s), comma-separated (*Berufs-id*, the `dkzId`) |
 | `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |

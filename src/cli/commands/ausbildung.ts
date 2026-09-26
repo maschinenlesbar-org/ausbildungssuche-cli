@@ -2,6 +2,30 @@ import type { Command } from "commander";
 import type { CliDeps } from "../io.js";
 import { action, parseIntArg, parseNonEmpty, parseSizeArg, renderJson } from "../shared.js";
 import type { AusbildungSearchParams } from "../../client/types.js";
+import { AusbildungValidationError } from "../../client/errors.js";
+
+/**
+ * `--orte` and `--uk` only filter together: the API ignores a numeric radius
+ * without a place, and a place without a radius does not restrict the search at
+ * all (it only adds distances). Either alone would silently return the nationwide
+ * set with exit 0, so reject it before any request. `--uk Bundesweit` alone is
+ * fine: it asks for exactly what the API returns without a place.
+ */
+function checkPlaceAndRadius(orte: string | undefined, uk: string | undefined): void {
+  if (uk !== undefined && orte === undefined && uk.toLowerCase() !== "bundesweit") {
+    throw new AusbildungValidationError(
+      `search: --uk ${uk} needs --orte: a radius is measured around a place, and without ` +
+        "one the API ignores it. Leave --uk out (or use --uk Bundesweit) for a nationwide search.",
+    );
+  }
+  if (orte !== undefined && uk === undefined) {
+    throw new AusbildungValidationError(
+      "search: --orte needs --uk: without a radius the API does not restrict the search to " +
+        "the place. Add --uk 10, 25, 50 or 100 (km), or --uk Bundesweit to search nationwide " +
+        "with distances.",
+    );
+  }
+}
 
 export function registerAusbildungCommands(program: Command, deps: CliDeps): void {
   program
@@ -9,9 +33,9 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     .description("Search apprenticeship/training offers")
     .option("--sw <text>", "search keyword (sw); currently ignored by the API, use --ids to filter by occupation", parseNonEmpty)
     .option("--sty <n>", "offer type 0..3 (sty); 4 is rejected with HTTP 400", parseIntArg)
-    .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938" (orte)', parseNonEmpty)
+    .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938" (orte); needs --uk', parseNonEmpty)
     .option("--re <code>", "Bundesland code (re), e.g. BAY, NRW, THÜ; comma-separated for several", parseNonEmpty)
-    .option("--uk <radius>", 'radius: "Bundesweit" or 10, 25, 50, 100 (km)', parseNonEmpty)
+    .option("--uk <radius>", 'radius around --orte: 10, 25, 50, 100 (km), or "Bundesweit" (uk); a km radius needs --orte', parseNonEmpty)
     .option("--ids <id>", "occupation id(s), the dkzId from angebot.systematiken[]; comma-separated for several (ids)", parseNonEmpty)
     .option("--bart <type>", "training type (bart)", parseNonEmpty)
     .option("--bg", "only offers eligible for an education voucher (bg)")
@@ -20,6 +44,7 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     .option("--size <n>", "page size (1..2000; the server returns at most 20 rows)", parseSizeArg)
     .action(
       action(deps, async ({ client, global, opts }) => {
+        checkPlaceAndRadius(opts["orte"] as string | undefined, opts["uk"] as string | undefined);
         const params: AusbildungSearchParams = {
           sw: opts["sw"] as string | undefined,
           sty: opts["sty"] as number | undefined,

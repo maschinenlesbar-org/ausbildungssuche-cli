@@ -97,7 +97,9 @@ validation error, before any request).
 **Location (`orte`).** The place used to scope a search, written as
 `Name_lon_lat` with the **longitude first**, e.g. `Köln_6.957_50.938`. With the
 latitude first the API silently returns 0 results. On a place search each offer
-carries its distance from the place in `abstaende[].abstandInKm`.
+carries its distance from the place in `abstaende[].abstandInKm`. A place only
+restricts the search together with a radius (`uk`); on its own it just adds the
+distances, so the CLI requires `--uk` next to `--orte`.
 
 **Profession id (`ids`).** Identifier(s) of a profession/occupation used to scope
 a search: the `dkzId` in an offer's `angebot.systematiken[]` (e.g. `9162`,
@@ -120,7 +122,9 @@ offer/search. The API rejects `4` with HTTP 400.
 **Radius (`uk`, Umkreis).** The search radius around the location, in
 **kilometres** — `10`, `25`, `50` or `100` — or the literal string `Bundesweit`
 ("nationwide") to search the whole country with no radius limit. Other values
-(e.g. `30`, `150`, `200`) get HTTP 400.
+(e.g. `30`, `150`, `200`) get HTTP 400. A kilometre radius needs a location
+(`orte`): without one the API ignores it, so the CLI rejects `--uk 25` without
+`--orte`.
 
 **Training type (`bart`, Bildungsart).** The category of training/education being
 searched.

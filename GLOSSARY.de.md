@@ -97,7 +97,9 @@ Validierungsfehler ab, bevor eine Anfrage gesendet wird).
 **Ort (`orte`).** Der Ort, auf den eine Suche eingegrenzt wird, geschrieben als
 `Name_lon_lat` mit dem **Längengrad zuerst**, z. B. `Köln_6.957_50.938`. Steht der
 Breitengrad vorn, liefert die API stillschweigend 0 Treffer. Bei einer Ortssuche trägt
-jedes Angebot seine Entfernung vom Ort in `abstaende[].abstandInKm`.
+jedes Angebot seine Entfernung vom Ort in `abstaende[].abstandInKm`. Ein Ort grenzt die
+Suche nur zusammen mit einem Umkreis (`uk`) ein; allein ergänzt er nur die Entfernungen,
+daher verlangt die CLI neben `--orte` auch `--uk`.
 
 **Berufs-ID (`ids`).** Kennung(en) eines Berufs, auf den eine Suche eingegrenzt
 wird: die `dkzId` in `angebot.systematiken[]` eines Angebots (z. B. `9162`,
@@ -119,7 +121,9 @@ Angebots bzw. der Suche auswählt. Den Wert `4` lehnt die API mit HTTP 400 ab.
 
 **Umkreis (`uk`).** Der Suchradius um den Ort in **Kilometern** – `10`, `25`, `50` oder
 `100` – oder die Zeichenkette `Bundesweit`, um ohne Radiusbegrenzung im ganzen Land zu
-suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400.
+suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400. Ein Umkreis in
+Kilometern braucht einen Ort (`orte`): ohne ihn ignoriert die API den Umkreis, daher lehnt
+die CLI `--uk 25` ohne `--orte` ab.
 
 **Bildungsart (`bart`).** Die Kategorie der gesuchten Ausbildung bzw. Bildung.
 

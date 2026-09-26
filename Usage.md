@@ -64,6 +64,9 @@ so you know how many pages exist before paging through them.
 Scope a search to a place (`--orte`, a `Name_lon_lat` location string with the
 **longitude first**) and a `--uk` radius in kilometres (`10`, `25`, `50` or
 `100`; other values get HTTP 400) — useful when a trainee can only travel so far.
+The two only filter together: the API ignores a km radius without a place, and a
+place without a radius does not restrict the search at all, so the CLI rejects
+either one alone (exit `2`).
 
 ```bash
 ausbildungssuche search --ids 9162 --orte "Köln_6.957_50.938" --uk 50
@@ -74,10 +77,12 @@ results. On a place search each offer carries its distance from the place in
 `abstaende[].abstandInKm`.
 
 `--uk` accepts the literal `Bundesweit` to search the whole country with no
-radius limit:
+radius limit — on its own it is the same as leaving `--uk` out, and next to
+`--orte` it keeps each offer's distance from the place:
 
 ```bash
 ausbildungssuche search --ids 9162 --uk Bundesweit
+ausbildungssuche search --ids 9162 --orte "Köln_6.957_50.938" --uk Bundesweit
 ```
 
 ### 4. Page through a large result set
@@ -231,7 +236,7 @@ These apply to every command and may be given before *or* after the subcommand:
 | `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
 | `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*) |
 | `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ` (*Region*) |
-| `--uk <radius>` | radius: `Bundesweit` or `10`, `25`, `50`, `100` km (*Umkreis*) |
+| `--uk <radius>` | radius around `--orte`: `10`, `25`, `50`, `100` km, or `Bundesweit` (*Umkreis*); a km radius needs `--orte` |
 | `--ids <id>` | occupation id(s), comma-separated (*Berufs-id*, the `dkzId`) |
 | `--bart <type>` | training type (*Bildungsart*) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |

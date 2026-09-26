@@ -43,7 +43,7 @@ rest of the session** and put it on every later call — a shell `export` does n
 between separate commands:
 
 ```bash
-AUSBILDUNGSSUCHE_API_KEY="<the key obtain-key printed>" ausbildungssuche --compact search --uk 25
+AUSBILDUNGSSUCHE_API_KEY="<the key obtain-key printed>" ausbildungssuche --compact search --size 1
 ```
 
 Say which key you used when you report back — it is public, not a credential to hide. If

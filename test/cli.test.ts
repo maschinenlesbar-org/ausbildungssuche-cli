@@ -192,3 +192,29 @@ for (const id of ["..", ".", "%2e%2e", ".%2e"]) {
     assert.equal(cli.mt.calls.length, 0, "no request may be sent");
   });
 }
+
+test("--uk with a km radius but no --orte is a usage error, before any request", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["search", "--ids", "9162", "--uk", "10"], cli.deps), 2);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /--uk 10 needs --orte/);
+});
+
+test("--orte without --uk is a usage error, before any request", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["search", "--orte", "Köln_6.957_50.938"], cli.deps), 2);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /--orte needs --uk/);
+});
+
+test("--uk Bundesweit alone, and --orte with --uk, are sent", async () => {
+  for (const argv of [
+    ["search", "--ids", "9162", "--uk", "Bundesweit"],
+    ["search", "--orte", "Köln_6.957_50.938", "--uk", "25"],
+    ["search", "--orte", "Köln_6.957_50.938", "--uk", "Bundesweit"],
+  ]) {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run(argv, cli.deps), 0, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 1);
+  }
+});

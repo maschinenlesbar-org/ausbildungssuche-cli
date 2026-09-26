@@ -39,11 +39,17 @@ export interface AusbildungSearchParams {
   sty?: number;
   /** Occupation id(s): the `dkzId` from `angebot.systematiken[]`, comma-separated for several. */
   ids?: string;
-  /** Location as `Name_lon_lat` (longitude first), e.g. `Köln_6.957_50.938`. */
+  /**
+   * Location as `Name_lon_lat` (longitude first), e.g. `Köln_6.957_50.938`. Only
+   * restricts the search together with a radius `uk`; alone it just adds distances.
+   */
   orte?: string;
   /** Bundesland code (`BAW`, `BAY`, … `THÜ`), comma-separated for several. */
   re?: string;
-  /** Radius: "Bundesweit" or 10, 25, 50, 100 (km); other values get HTTP 400. */
+  /**
+   * Radius: "Bundesweit" or 10, 25, 50, 100 (km); other values get HTTP 400. A km
+   * radius is ignored by the API without a place `orte`.
+   */
   uk?: string;
   /** Training type. */
   bart?: string;
