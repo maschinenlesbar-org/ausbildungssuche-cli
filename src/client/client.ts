@@ -43,6 +43,9 @@ export interface AusbildungssucheClientOptions extends EngineOptions {
  * X-API-Key header attached) to an arbitrary path on the chosen origin. Reject
  * any id that carries these structural characters before deciding to skip
  * encoding; a genuine already-encoded id has them as `%2F`/`%3F`/`%23`.
+ *
+ * Neither branch touches "." / ".." (or their `%2e` forms); the engine rejects
+ * those (see RequestEngine.buildUrl), so they cannot re-target a request.
  */
 function encodePathSegment(id: string): string {
   const isAlreadyEncoded = /%[0-9A-Fa-f]{2}/.test(id) && !/%(?![0-9A-Fa-f]{2})/.test(id);

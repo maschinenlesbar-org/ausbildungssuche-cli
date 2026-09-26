@@ -4,7 +4,12 @@
 
 import { nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { AusbildungApiError, AusbildungNetworkError, AusbildungParseError } from "./errors.js";
+import {
+  AusbildungApiError,
+  AusbildungNetworkError,
+  AusbildungParseError,
+  AusbildungValidationError,
+} from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
 const DEFAULT_USER_AGENT = "ausbildungssuche-cli";
@@ -174,9 +179,25 @@ export class RequestEngine {
     this.sleep = options.sleep ?? realSleep;
   }
 
-  /** Build a fully-qualified URL from a path and optional query parameters. */
+  /**
+   * Build a fully-qualified URL from a path and optional query parameters.
+   *
+   * Throws an AusbildungValidationError for a path with a "." or ".." segment,
+   * percent-encoded forms included ("%2e", ".%2e", "%2E%2E"). `details` puts the id
+   * into the path with `encodeURIComponent`, which leaves "." and ".." unchanged,
+   * and passes an already-encoded id through verbatim; URL parsing then resolves
+   * either form as a dot segment, so `details ..` would request `/pc/v1/` with the
+   * X-API-Key attached. Neither can name an offer. The check sits here, not in the
+   * resource method, so every caller is covered and it surfaces as a rejection.
+   */
   buildUrl(path: string, query?: QueryParams): string {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const dotSegment = normalizedPath.split("/").find((s) => /^(?:\.|%2e){1,2}$/i.test(s));
+    if (dotSegment !== undefined) {
+      throw new AusbildungValidationError(
+        `Invalid path segment "${dotSegment}" in ${normalizedPath}: "." and ".." cannot be used as an id.`,
+      );
+    }
     const qs = query ? buildQueryString(query) : "";
     return `${this.baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
   }

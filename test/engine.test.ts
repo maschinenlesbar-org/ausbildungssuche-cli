@@ -5,6 +5,7 @@ import {
   AusbildungApiError,
   AusbildungParseError,
   AusbildungNetworkError,
+  AusbildungValidationError,
 } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
 
@@ -267,4 +268,24 @@ test("parseRetryAfter reads delay-seconds and IMF-fixdate HTTP-dates", () => {
     assert.equal(parseRetryAfter(bad, now), undefined, String(bad));
   }
   assert.equal(MAX_RETRY_AFTER_MS, 30_000);
+});
+
+test("a . or .. path segment (percent-encoded forms included) is rejected without a request", async () => {
+  for (const seg of [".", "..", "%2e", "%2e%2e", ".%2e", "%2E.", "%2E%2E"]) {
+    const mt = makeMockTransport(() => jsonResponse({}));
+    const e = new RequestEngine({ transport: mt.transport });
+    await assert.rejects(
+      () => e.getJson(`/infosysbub/absuche/pc/v1/ausbildungsangebot/${seg}`),
+      (err: unknown) =>
+        err instanceof AusbildungValidationError &&
+        err.message ===
+          `Invalid path segment "${seg}" in /infosysbub/absuche/pc/v1/ausbildungsangebot/${seg}: "." and ".." cannot be used as an id.`,
+      seg,
+    );
+    assert.equal(mt.calls.length, 0, seg);
+  }
+  // Longer dot runs and dotted ids are ordinary segments.
+  const e = new RequestEngine({ baseUrl: "https://example.test" });
+  assert.equal(e.buildUrl("/x/..."), "https://example.test/x/...");
+  assert.equal(e.buildUrl("/x/1.0.0"), "https://example.test/x/1.0.0");
 });

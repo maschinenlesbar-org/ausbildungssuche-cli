@@ -184,3 +184,11 @@ test("--max-retries is bounded to 0..10", async () => {
     if (!ok) assert.match(cli.err.join("\n"), /between 0 and 10/);
   }
 });
+
+for (const id of ["..", ".", "%2e%2e", ".%2e"]) {
+  test(`details ${id} exits 2 without a request instead of walking up the path`, async () => {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run(["details", "--", id], cli.deps), 2);
+    assert.equal(cli.mt.calls.length, 0, "no request may be sent");
+  });
+}
