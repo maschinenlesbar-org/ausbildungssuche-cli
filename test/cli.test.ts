@@ -327,3 +327,22 @@ test("--size is capped at 20, the most the server serves per page", async () => 
     assert.match(cli.err.join("\n"), /between 1 and 20/);
   }
 });
+
+for (const [bad, message] of [
+  ["http://127.0.0.1:1/echo#frag", /query \(\?\) or fragment \(#\)/],
+  ["http://127.0.0.1:1/echo?x=1", /query \(\?\) or fragment \(#\)/],
+  [" http://127.0.0.1:1/echo", /surrounding whitespace/],
+] as const) {
+  test(`--base-url ${JSON.stringify(bad)} is rejected before any request`, async () => {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run(["--base-url", bad, "details", "1"], cli.deps), 2);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), message);
+  });
+}
+
+test("a --base-url with a path prefix still works", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["--base-url", "http://127.0.0.1:1/mirror/", "details", "1"], cli.deps), 0);
+  assert.equal(cli.mt.last().url, "http://127.0.0.1:1/mirror/infosysbub/absuche/pc/v1/ausbildungsangebot/1");
+});

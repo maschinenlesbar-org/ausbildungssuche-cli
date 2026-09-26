@@ -289,3 +289,13 @@ test("a . or .. path segment (percent-encoded forms included) is rejected withou
   assert.equal(e.buildUrl("/x/..."), "https://example.test/x/...");
   assert.equal(e.buildUrl("/x/1.0.0"), "https://example.test/x/1.0.0");
 });
+
+test("a base URL with a query or fragment is rejected at construction", () => {
+  for (const baseUrl of ["https://example.test/x?y=1", "https://example.test/x#f"]) {
+    assert.throws(
+      () => new RequestEngine({ baseUrl }),
+      (e: unknown) => e instanceof AusbildungNetworkError && /query or fragment/.test((e as Error).message),
+      baseUrl,
+    );
+  }
+});
