@@ -16,6 +16,7 @@ export {
   AusbildungNetworkError,
   AusbildungParseError,
   AusbildungValidationError,
+  redactUrl,
 } from "./errors.js";
 
 export * from "./types.js";

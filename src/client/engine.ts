@@ -9,6 +9,7 @@ import {
   AusbildungNetworkError,
   AusbildungParseError,
   AusbildungValidationError,
+  redactUrl,
 } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
@@ -160,11 +161,11 @@ function assertHttpScheme(baseUrl: string): void {
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new AusbildungNetworkError(
-      `Unsupported protocol "${url.protocol}" in base URL: ${baseUrl}`,
+      `Unsupported protocol "${url.protocol}" in base URL: ${redactUrl(baseUrl)}`,
     );
   }
   if (/[?#]/.test(baseUrl)) {
-    throw new AusbildungNetworkError(`Base URL must not contain a query or fragment: ${baseUrl}`);
+    throw new AusbildungNetworkError(`Base URL must not contain a query or fragment: ${redactUrl(baseUrl)}`);
   }
 }
 

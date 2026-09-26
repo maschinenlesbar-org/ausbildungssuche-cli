@@ -317,3 +317,15 @@ test("error detail loses line breaks and bidi controls: one line on stderr", asy
     },
   );
 });
+
+test("redactUrl hides userinfo and leaves other URLs unchanged", async () => {
+  const { redactUrl } = await import("../src/client/errors.js");
+  assert.equal(redactUrl("http://u:p@h.test/x?y=1"), "http://***@h.test/x?y=1");
+  assert.equal(redactUrl("http://u@h.test/"), "http://***@h.test/");
+  assert.equal(redactUrl("http://h.test/x"), "http://h.test/x");
+  assert.equal(redactUrl("not a url"), "not a url");
+  assert.throws(
+    () => new RequestEngine({ baseUrl: "ftp://u:secret@h.test/" }),
+    (e: unknown) => e instanceof AusbildungNetworkError && !(e as Error).message.includes("secret"),
+  );
+});

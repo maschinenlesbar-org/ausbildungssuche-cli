@@ -387,3 +387,14 @@ test("bidi controls in server data are escaped in the JSON output", async () => 
   assert.match(text, /a\\u202eb\\u2066c/);
   assert.deepEqual(JSON.parse(text), served);
 });
+
+test("userinfo in --base-url is redacted from error messages but still sent", async () => {
+  const cli = makeCli(() => jsonResponse({}, 404));
+  const code = await run(["--base-url", "http://user:s3cret@127.0.0.1:1/p", "details", "1"], cli.deps);
+  assert.equal(code, 4);
+  const err = cli.err.join("\n");
+  assert.ok(!err.includes("s3cret"), err);
+  assert.ok(!err.includes("user:"), err);
+  assert.match(err, /HTTP 404 for GET http:\/\/\*\*\*@127\.0\.0\.1:1\/p\//);
+  assert.equal(new URL(cli.mt.last().url).password, "s3cret");
+});
