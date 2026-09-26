@@ -15,7 +15,7 @@ full record for any offer — as clean JSON you can pipe straight into
 
 - **One key to supply** — pass the public, documented API key with `--api-key` or the `AUSBILDUNGSSUCHE_API_KEY` env var. No key is bundled.
 - **Clean JSON output** — pretty-printed by default, `--compact` for one-line/scripting.
-- **Just two commands** — `search` and `details`.
+- **Just three commands** — `obtain-key` to get the public key once, then `search` and `details`.
 - **Nothing personal to leak** — the API's documented key is a public value; no personal credentials are involved.
 
 > Want to use this as a TypeScript library or understand how it's built?
@@ -102,8 +102,9 @@ ausbildungssuche details 365241044
 ## Commands
 
 ```text
-search   [filters…]   search training offers
-details  <id>         full details for one offer
+obtain-key [--export]  print the public API key (see Obtain key)
+search     [filters…]  search training offers
+details    <id>        full details for one offer
 ```
 
 ### `search` filters

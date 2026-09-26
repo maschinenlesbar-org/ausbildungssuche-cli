@@ -17,11 +17,12 @@ is bundled: supply the public, documented `X-API-Key` via `--api-key` or the
 Output is pretty-printed JSON on stdout (`--compact` for a single line), which
 makes the examples pipe cleanly into [`jq`](https://jqlang.github.io/jq/).
 
-The two commands are:
+The three commands are:
 
 ```text
-ausbildungssuche search   [filters…]   # search offers (HAL+JSON envelope)
-ausbildungssuche details  <id>         # full details for one offer
+ausbildungssuche obtain-key [--export]  # print the public API key (run once first)
+ausbildungssuche search     [filters…]  # search offers (HAL+JSON envelope)
+ausbildungssuche details    <id>        # full details for one offer
 ```
 
 ## Use cases
