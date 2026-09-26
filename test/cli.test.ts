@@ -378,3 +378,12 @@ test("a control character in the AUSBILDUNGSSUCHE_API_KEY env var is a usage err
   assert.equal(cli.mt.calls.length, 0);
   assert.match(cli.err.join("\n"), /AUSBILDUNGSSUCHE_API_KEY: Value contains control characters/);
 });
+
+test("bidi controls in server data are escaped in the JSON output", async () => {
+  const served = { titel: `a${String.fromCharCode(0x202e)}b${String.fromCharCode(0x2066)}c` };
+  const cli = makeCli(() => jsonResponse(served));
+  assert.equal(await run(["details", "1"], cli.deps), 0);
+  const text = cli.out.join("\n");
+  assert.match(text, /a\\u202eb\\u2066c/);
+  assert.deepEqual(JSON.parse(text), served);
+});

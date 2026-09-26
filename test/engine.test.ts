@@ -299,3 +299,21 @@ test("a base URL with a query or fragment is rejected at construction", () => {
     );
   }
 });
+
+test("error detail loses line breaks and bidi controls: one line on stderr", async () => {
+  const RLO = String.fromCharCode(0x202e);
+  const evil = `bad\nError: fake second line\r\n\tmore${RLO}txt.exe end`;
+  const mt = makeMockTransport(() =>
+    rawResponse(JSON.stringify({ detail: evil }), "application/json", 400),
+  );
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => {
+      assert.ok(err instanceof AusbildungApiError);
+      assert.equal(err.detail, "bad Error: fake second line moretxt.exe end");
+      assert.ok(!/[\n\r]/.test(err.message));
+      return true;
+    },
+  );
+});
