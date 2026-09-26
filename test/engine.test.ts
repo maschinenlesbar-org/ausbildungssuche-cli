@@ -329,3 +329,59 @@ test("redactUrl hides userinfo and leaves other URLs unchanged", async () => {
     (e: unknown) => e instanceof AusbildungNetworkError && !(e as Error).message.includes("secret"),
   );
 });
+
+// ---- redirect edge cases ----
+
+async function apiErrorFor(responder: () => ReturnType<typeof redirectResponse>) {
+  const mt = makeMockTransport(responder);
+  const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport });
+  let caught: unknown;
+  await e.getJson("/x").catch((err: unknown) => {
+    caught = err;
+  });
+  assert.ok(caught instanceof AusbildungApiError, String(caught));
+  return { err: caught, calls: mt.calls.length };
+}
+
+test("a malformed redirect Location surfaces as an API error naming it, not a TypeError", async () => {
+  for (const loc of ["http://[::1", "http://127.0.0.1:99999/x"]) {
+    const { err, calls } = await apiErrorFor(() => redirectResponse(loc));
+    assert.equal(calls, 1, loc);
+    assert.equal(err.status, 302);
+    assert.equal(err.location, loc);
+    assert.match(err.message, new RegExp(`redirect to ${loc.replace(/[[\].]/g, "\\$&")} not followed$`));
+  }
+});
+
+test("a redirect loop ends naming the target instead of a bare HTTP 302", async () => {
+  const { err, calls } = await apiErrorFor(() => redirectResponse("/x"));
+  assert.equal(calls, 6); // initial + maxRedirects (5)
+  assert.equal(
+    err.message,
+    "HTTP 302 for GET https://example.test/x: redirect to https://example.test/x not followed",
+  );
+});
+
+test("a 3xx without Location says so", async () => {
+  const { err } = await apiErrorFor(() => ({ status: 302, headers: {}, body: Buffer.alloc(0) }));
+  assert.match(err.message, /: redirect not followed \(no Location header\)$/);
+  assert.equal(err.location, undefined);
+});
+
+test("300, 304 and 305 are not followed", async () => {
+  for (const status of [300, 304, 305]) {
+    const { err, calls } = await apiErrorFor(() => redirectResponse("/elsewhere", status));
+    assert.equal(calls, 1, String(status));
+    assert.equal(err.status, status);
+    assert.match(err.message, /redirect to https:\/\/example\.test\/elsewhere not followed/);
+  }
+});
+
+test("a not-followed Location is sanitised and its userinfo redacted", async () => {
+  const { err } = await apiErrorFor(() =>
+    redirectResponse(`https://u:pw@evil.test/a${ESC}[2J\nError: x`, 300),
+  );
+  assert.ok(!err.message.includes("pw"));
+  assert.ok(!hasControlChars(err.message) && !err.message.includes("\n"));
+  assert.match(err.message, /redirect to https:\/\/\*\*\*@evil\.test\/a/);
+});
