@@ -168,7 +168,11 @@ so a private key is never forwarded to another host. Same-origin redirects keep
 the key.
 
 **Retry / backoff.** Transient `429` (rate limit) and `503` responses are
-retried automatically with backoff, up to `--max-retries`. `AusbildungApiError`
+retried automatically, up to `--max-retries` (`0`..`10`). Each retry waits the
+response's `Retry-After` (delay-seconds or an IMF-fixdate HTTP-date, parsed by the
+exported `parseRetryAfter`); without a usable one it backs off linearly
+(`retryDelayMs * attempt`). A `Retry-After` above `MAX_RETRY_AFTER_MS` (30 s) is
+not retried at all: the error surfaces at once. `AusbildungApiError`
 exposes `isRetryable` (true for `429`/`503`).
 
 **maxResponseBytes.** A cap on the response body size in bytes (`0` = unlimited;

@@ -175,3 +175,12 @@ for (const bad of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
     assert.match(cli.err.join("\n"), /--base-url/);
   });
 }
+
+test("--max-retries is bounded to 0..10", async () => {
+  for (const [value, ok] of [["0", true], ["10", true], ["11", false], ["1000000", false]] as const) {
+    const cli = makeCli(() => jsonResponse({}));
+    const code = await run(["--max-retries", value, "details", "12345"], cli.deps);
+    assert.equal(code, ok ? 0 : 2, value);
+    if (!ok) assert.match(cli.err.join("\n"), /between 0 and 10/);
+  }
+});

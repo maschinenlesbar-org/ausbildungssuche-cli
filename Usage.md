@@ -218,7 +218,7 @@ These apply to every command and may be given before *or* after the subcommand:
 | `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled |
 | `--timeout <ms>` | Time limit per request in milliseconds, reading the whole response included (at most `2147483647`) |
 | `--user-agent <ua>` | `User-Agent` header value |
-| `--max-retries <n>` | Retries for transient `429`/`503` responses |
+| `--max-retries <n>` | Retries for transient `429`/`503` responses (`0`..`10`); each waits the server's `Retry-After`, up to 30 s |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `-h, --help` | Show help for the program or a command |
