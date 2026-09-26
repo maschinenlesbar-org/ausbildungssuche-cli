@@ -45,10 +45,10 @@ test("--api-key overrides the header", async () => {
 
 test("details builds the per-id path", async () => {
   const cli = makeCli(() => jsonResponse({}));
-  await run(["details", "abc123"], cli.deps);
+  await run(["details", "365241044"], cli.deps);
   assert.equal(
     new URL(cli.mt.last().url).pathname,
-    `${SERVICE}/pc/v1/ausbildungsangebot/abc123`,
+    `${SERVICE}/pc/v1/ausbildungsangebot/365241044`,
   );
 });
 
@@ -81,7 +81,7 @@ test("--timeout accepts up to the largest timer Node supports", async () => {
 
 test("a 404 from the API maps to exit code 4", async () => {
   const cli = makeCli(() => jsonResponse({}, 404));
-  const code = await run(["details", "nope"], cli.deps);
+  const code = await run(["details", "999"], cli.deps);
   assert.equal(code, 4);
 });
 
@@ -256,4 +256,55 @@ test("repeating --orte or --uk is a usage error", async () => {
     assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
     assert.equal(cli.mt.calls.length, 0);
   }
+});
+
+// Values outside the API's closed value sets are usage errors at parse time (exit 2,
+// nothing sent) instead of a bare HTTP 400/500 from the API.
+const invalidValues: Array<[string, string[]]> = [
+  ["--sty 4", ["search", "--sty", "4"]],
+  ["--uk 30", ["search", "--orte", "K_6.9_50.9", "--uk", "30"]],
+  ["--uk 150", ["search", "--orte", "K_6.9_50.9", "--uk", "150"]],
+  ["--re BW", ["search", "--re", "BW"]],
+  ["--re NRW,", ["search", "--re", "NRW,"]],
+  ["--bt 7", ["search", "--bt", "7"]],
+  ["--bt 113", ["search", "--bt", "113"]],
+  ["--bt 2026-10-01", ["search", "--bt", "2026-10-01"]],
+  ["--orte X_200_100", ["search", "--orte", "X_200_100", "--uk", "10"]],
+  ["--orte Köln (no coordinates)", ["search", "--orte", "Köln", "--uk", "10"]],
+  ["--orte _6.9_50.9 (no name)", ["search", "--orte", "_6.9_50.9", "--uk", "10"]],
+  ["--page 500 (default size 20)", ["search", "--page", "500"]],
+  ["--page 10000 --size 1", ["search", "--page", "10000", "--size", "1"]],
+  ["details abc", ["details", "abc"]],
+  ["details 12a", ["details", "12a"]],
+];
+for (const [name, argv] of invalidValues) {
+  test(`${name} is a usage error, before any request`, async () => {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run(argv, cli.deps), 2);
+    assert.equal(cli.mt.calls.length, 0, "no request may be sent");
+  });
+}
+
+test("valid closed-set values are sent, normalised where the API is case-sensitive", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  const code = await run(
+    ["search", "--sty", "3", "--re", "nrw,thü", "--bt", "0,2,112", "--orte", "Köln_6.957_50.938",
+      "--uk", "bundesweit", "--page", "499"],
+    cli.deps,
+  );
+  assert.equal(code, 0);
+  const q = new URL(cli.mt.last().url).searchParams;
+  assert.equal(q.get("re"), "NRW,THÜ");
+  assert.equal(q.get("uk"), "Bundesweit");
+  assert.equal(q.get("bt"), "0,2,112");
+  assert.equal(q.get("page"), "499");
+
+  const last = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["search", "--page", "9999", "--size", "1"], last.deps), 0);
+});
+
+test("a page past the 10000-result window names the last page", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["search", "--page", "500", "--size", "20"], cli.deps), 2);
+  assert.match(cli.err.join("\n"), /10000-result window.*last page is 499/);
 });

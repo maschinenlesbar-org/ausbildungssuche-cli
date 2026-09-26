@@ -63,7 +63,7 @@ so you know how many pages exist before paging through them.
 
 Scope a search to a place (`--orte`, a `Name_lon_lat` location string with the
 **longitude first**) and a `--uk` radius in kilometres (`10`, `25`, `50` or
-`100`; other values get HTTP 400) — useful when a trainee can only travel so far.
+`100`; the CLI rejects other values, which the API would answer with HTTP 400) — useful when a trainee can only travel so far.
 The two only filter together: the API ignores a km radius without a place, and a
 place without a radius does not restrict the search at all, so the CLI rejects
 either one alone (exit `2`).

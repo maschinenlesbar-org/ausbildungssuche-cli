@@ -96,7 +96,7 @@ ausbildungssuche --compact search --ids 132173 --re NRW --size 1 | jq '.page.tot
 Pick what the user is comparing and sweep one filter while holding the occupation ids constant:
 
 - **By region** — sweep `--re` over the API's **3-letter `land.code`** values (NOT the
-  common 2-letter abbreviation — `BW`/`BY`/`SH` return **HTTP 400**). The 16 codes:
+  common 2-letter abbreviation — `BW`/`BY`/`SH` are rejected, exit `2`). The 16 codes:
   `BAW` Baden-Württ., `BAY` Bayern, `BER` Berlin, `BRA` Brandenburg, `BRE` Bremen,
   `HAM` Hamburg, `HES` Hessen, `MBV` Mecklenb.-Vorp., `NDS` Niedersachsen, `NRW`,
   `RPF` Rheinl.-Pfalz, `SAA` Saarland, `SAC` Sachsen, `SAN` Sachsen-Anhalt,
@@ -107,7 +107,7 @@ Pick what the user is comparing and sweep one filter while holding the occupatio
   limited to `10/25/50/100/Bundesweit`. `--re` is the clean per-state axis.
 - **By training type** — sweep `--bart`: `101` Berufliche Grundqualifikation, `102`
   Berufsausbildung, `104` Fortbildung/Qualifizierung.
-- **By offer type** — sweep `--sty` over `0,1,2,3` (**`4` returns HTTP 400 — skip it**).
+- **By offer type** — sweep `--sty` over `0,1,2,3` (**`4` is rejected — skip it**).
 - **By funding** — run the query with and without `--bg` to get the
   Bildungsgutschein-eligible share.
 
@@ -145,8 +145,8 @@ say so.
 > - `--sw` is **ignored** — a keyword count is the whole catalogue for that filter. Only
 >   `--ids` narrows by occupation.
 > - A 0-result query has **no `_embedded`** block (only `page`); guard for it.
-> - Out-of-range `--orte` coordinates make the server return **HTTP 500** — another reason
->   to size the market with `--re`, not coordinates.
+> - Out-of-range `--orte` coordinates are rejected (exit `2`; the server would answer
+>   HTTP 500) — another reason to size the market with `--re`, not coordinates.
 
 ## Step 3 — Build the comparison
 

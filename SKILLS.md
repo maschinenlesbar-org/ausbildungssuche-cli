@@ -103,10 +103,11 @@ skills encode the non-obvious parts of this API, all verified against the live s
   offer carries its distance in `abstaende[].abstandInKm`; the coordinates are the town
   centroid;
 - **`--uk` accepts only `10`, `25`, `50`, `100`, `Bundesweit`** — `30`/`75`/`150`/`200`
-  return HTTP 400. Out-of-range `--orte` coordinates make the server return HTTP 500;
+  are rejected (exit `2`; the API would answer HTTP 400). Out-of-range `--orte`
+  coordinates are rejected too (the server would answer HTTP 500);
 - **`--re` wants the API's 3-letter `land.code`** (`BAW`, `BAY`, `BER`, `BRA`, `BRE`,
   `HAM`, `HES`, `MBV`, `NDS`, `NRW`, `RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`), not the
-  usual 2-letter abbreviation — `BW`/`BY`/`SH` 400. `--sty` is `0..3` (`4` 400);
+  usual 2-letter abbreviation — `BW`/`BY`/`SH` are rejected. `--sty` is `0..3`;
 - **the server returns at most 20 offers per page**, whatever `--size` says, and
   **`page.totalElements` caps at exactly 10000** — a broad query reports `10000` whether
   there are 10001 or a million, and you cannot page past that window (see

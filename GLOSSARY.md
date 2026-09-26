@@ -91,8 +91,9 @@ this and does not double-encode it when building the details path.
 ## Identifiers
 
 **Offer id.** The identifier of one apprenticeship offer, passed to
-`details <id>`. Must be non-empty (an empty id is rejected client-side with a
-validation error, before any request).
+`details <id>`. Offer ids are numeric; the CLI rejects anything else (exit `2`,
+before any request), and the library rejects an empty id and a `.`/`..` id
+(percent-encoded forms included) with a validation error.
 
 **Location (`orte`).** The place used to scope a search, written as
 `Name_lon_lat` with the **longitude first**, e.g. `Köln_6.957_50.938`. With the
@@ -110,19 +111,22 @@ only working occupation filter: the API ignores the keyword `sw`.
 search: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
 `RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`. Several can be comma-separated. An
 offer's code is in `adresse.ortStrasse.land.code`; the 2-letter abbreviations
-(e.g. `BW`) get HTTP 400.
+(e.g. `BW`) get HTTP 400, so the CLI rejects any other code (exit `2`); it
+uppercases a lowercase one (`nrw` → `NRW`).
 
 ---
 
 ## Filter values, units & enums
 
 **Offer type (`sty`).** A small integer code `0`..`3` selecting the kind of
-offer/search. The API rejects `4` with HTTP 400.
+offer/search. The API rejects `4` with HTTP 400; the CLI rejects anything outside
+`0`..`3` (exit `2`).
 
 **Radius (`uk`, Umkreis).** The search radius around the location, in
 **kilometres** — `10`, `25`, `50` or `100` — or the literal string `Bundesweit`
 ("nationwide") to search the whole country with no radius limit. Other values
-(e.g. `30`, `150`, `200`) get HTTP 400. A kilometre radius needs a location
+(e.g. `30`, `150`, `200`) get HTTP 400, so the CLI rejects them (exit `2`);
+`bundesweit` in any case is sent as `Bundesweit`. A kilometre radius needs a location
 (`orte`): without one the API ignores it, so the CLI rejects `--uk 25` without
 `--orte`.
 
@@ -135,7 +139,10 @@ that funds an approved training measure.
 
 **Start date (`bt`, Beginntermin).** The desired training start date.
 
-**Page (`page`).** Zero-based page index for paging through search results.
+**Page (`page`).** Zero-based page index for paging through search results. The
+API serves at most 10000 results of a query, so `(page + 1) × size` must be at most
+`10000` (with the default size 20, the last page is `499`); a later page gets HTTP 500,
+so the CLI rejects it (exit `2`).
 
 **Page size (`size`).** Number of results per page, an integer `1`..`2000`.
 `MAX_PAGE_SIZE` is `2000`; the server silently overrides `size=0` (to 20) and

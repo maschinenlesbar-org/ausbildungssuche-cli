@@ -35,7 +35,7 @@ export type AusbildungDetails = JsonObject;
 export interface AusbildungSearchParams {
   /** "sw" — search keyword. Currently ignored by the API; filter by occupation with `ids`. */
   sw?: string;
-  /** Offer type (0..3; the API rejects 4 with HTTP 400). */
+  /** Offer type (0..3; the API rejects 4 with HTTP 400, the CLI anything outside 0..3). */
   sty?: number;
   /** Occupation id(s): the `dkzId` from `angebot.systematiken[]`, comma-separated for several. */
   ids?: string;

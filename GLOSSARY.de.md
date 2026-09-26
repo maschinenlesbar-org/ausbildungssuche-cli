@@ -91,8 +91,9 @@ erkennt das und kodiert sie beim Aufbau des Detail-Pfads nicht doppelt.
 ## Kennungen
 
 **Angebots-ID.** Die Kennung eines einzelnen Ausbildungsangebots, übergeben an
-`details <id>`. Darf nicht leer sein (eine leere ID lehnt der Client mit einem
-Validierungsfehler ab, bevor eine Anfrage gesendet wird).
+`details <id>`. Angebots-IDs sind numerisch; alles andere lehnt die CLI ab (Exit `2`,
+bevor eine Anfrage gesendet wird), und die Bibliothek lehnt eine leere ID sowie eine
+`.`/`..`-ID (auch prozentkodiert) mit einem Validierungsfehler ab.
 
 **Ort (`orte`).** Der Ort, auf den eine Suche eingegrenzt wird, geschrieben als
 `Name_lon_lat` mit dem **Längengrad zuerst**, z. B. `Köln_6.957_50.938`. Steht der
@@ -110,18 +111,21 @@ der einzige funktionierende Berufsfilter: Das Suchwort `sw` ignoriert die API.
 eingegrenzt wird: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
 `RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`. Mehrere Codes lassen sich durch Kommas trennen.
 Den Code eines Angebots enthält `adresse.ortStrasse.land.code`; die zweistelligen
-Abkürzungen (z. B. `BW`) führen zu HTTP 400.
+Abkürzungen (z. B. `BW`) führen zu HTTP 400, daher lehnt die CLI jeden anderen Code ab
+(Exit `2`); einen kleingeschriebenen schreibt sie groß (`nrw` → `NRW`).
 
 ---
 
 ## Filterwerte, Einheiten & Enums
 
 **Angebotstyp (`sty`).** Ein kleiner ganzzahliger Code `0`..`3`, der die Art des
-Angebots bzw. der Suche auswählt. Den Wert `4` lehnt die API mit HTTP 400 ab.
+Angebots bzw. der Suche auswählt. Den Wert `4` lehnt die API mit HTTP 400 ab;
+die CLI lehnt alles außerhalb von `0`..`3` ab (Exit `2`).
 
 **Umkreis (`uk`).** Der Suchradius um den Ort in **Kilometern** – `10`, `25`, `50` oder
 `100` – oder die Zeichenkette `Bundesweit`, um ohne Radiusbegrenzung im ganzen Land zu
-suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400. Ein Umkreis in
+suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400, daher lehnt die CLI sie ab
+(Exit `2`); `bundesweit` in beliebiger Schreibweise wird als `Bundesweit` gesendet. Ein Umkreis in
 Kilometern braucht einen Ort (`orte`): ohne ihn ignoriert die API den Umkreis, daher lehnt
 die CLI `--uk 25` ohne `--orte` ab.
 
@@ -134,6 +138,9 @@ ausgegebenen Gutschein, der eine zugelassene Bildungsmaßnahme finanziert.
 **Beginntermin (`bt`).** Das gewünschte Startdatum der Ausbildung.
 
 **Seite (`page`).** Seitenindex, beginnend bei 0, zum Blättern durch die Suchergebnisse.
+Die API liefert höchstens 10000 Ergebnisse einer Abfrage, daher darf `(page + 1) × size`
+höchstens `10000` sein (bei der Standardgröße 20 ist die letzte Seite `499`); eine spätere
+Seite führt zu HTTP 500, daher lehnt die CLI sie ab (Exit `2`).
 
 **Seitengröße (`size`).** Anzahl der Ergebnisse pro Seite, eine ganze Zahl `1`..`2000`.
 `MAX_PAGE_SIZE` ist `2000`; der Server ersetzt `size=0` stillschweigend (durch 20) und

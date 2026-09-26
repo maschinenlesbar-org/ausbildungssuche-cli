@@ -62,10 +62,10 @@ Map the request to `search` flags. The fields that matter most:
 | `--ids <dkzId>` | occupation filter | **the only filter that narrows by occupation.** Takes the `dkzId` from `angebot.systematiken[]`; comma-separate several (`--ids 132173,135349`). Resolve it first (Step 1b). |
 | `--sw <text>` | free-text keyword | **ignored by the API** — `--sw Pflege`, `--sw Qwxzy` and no `--sw` return the same offers in the same order. Never use it to filter; a "keyword" shortlist would just be the unfiltered catalogue. |
 | `--orte <Name_lon_lat>` | location anchor | **order is `Name_lon_lat` (longitude FIRST)**, not `Name_lat_lon` (see Step 2). **Needs `--uk`** — alone it does not restrict (the CLI rejects it, exit `2`). |
-| `--uk <radius>` | radius in km, or `Bundesweit` | **a km radius needs `--orte`** (the API ignores it alone; the CLI rejects it, exit `2`). **Only `10`, `25`, `50`, `100`, `Bundesweit` are valid.** `30`, `75`, `150`, `200` return HTTP 400 (exit `1`). |
-| `--sty <0..3>` | offer/search type | `0`,`1`,`2`,`3` only — **`4` returns HTTP 400.** `1` narrows hard (e.g. school-based), `3` is small/specialised. |
+| `--uk <radius>` | radius in km, or `Bundesweit` | **a km radius needs `--orte`** (the API ignores it alone; the CLI rejects it, exit `2`). **Only `10`, `25`, `50`, `100`, `Bundesweit` are valid.** `30`, `75`, `150`, `200` are rejected by the CLI (exit `2`; the API would answer HTTP 400). |
+| `--sty <0..3>` | offer/search type | `0`,`1`,`2`,`3` only — **`4` is rejected (exit `2`).** `1` narrows hard (e.g. school-based), `3` is small/specialised. |
 | `--bart <id>` | training type | filter by `bildungsart.id`: `101` Berufliche Grundqualifikation, `102` Berufsausbildung, `104` Fortbildung/Qualifizierung. |
-| `--re <code>` | Bundesland code | use the API's **3-letter `land.code`**, not the common 2-letter abbreviation: `BAW` Baden-Württ., `BAY` Bayern, `BER` Berlin, `BRA` Brandenburg, `BRE` Bremen, `HAM` Hamburg, `HES` Hessen, `MBV` Mecklenb.-Vorp., `NDS` Niedersachsen, `NRW`, `RPF` Rheinl.-Pfalz, `SAA` Saarland, `SAC` Sachsen, `SAN` Sachsen-Anhalt, `SLH` Schl.-Holst., `THÜ` Thüringen. Comma-separate several. Wrong codes (`BW`, `BY`, `SH`) return **HTTP 400**. |
+| `--re <code>` | Bundesland code | use the API's **3-letter `land.code`**, not the common 2-letter abbreviation: `BAW` Baden-Württ., `BAY` Bayern, `BER` Berlin, `BRA` Brandenburg, `BRE` Bremen, `HAM` Hamburg, `HES` Hessen, `MBV` Mecklenb.-Vorp., `NDS` Niedersachsen, `NRW`, `RPF` Rheinl.-Pfalz, `SAA` Saarland, `SAC` Sachsen, `SAN` Sachsen-Anhalt, `SLH` Schl.-Holst., `THÜ` Thüringen. Comma-separate several. Wrong codes (`BW`, `BY`, `SH`) are rejected (exit `2`); lowercase is uppercased for you. |
 | `--bg` | only Bildungsgutschein-eligible offers | boolean flag, no value. |
 | `--bt <0..2>` | start-date window | start-date code. |
 | `--size <n>` / `--page <n>` | paging | the CLI accepts `size` 1..2000, but **the server returns at most 20 rows per page** (`page.size` comes back as 20); `page` is 0-based. |
@@ -109,9 +109,9 @@ ausbildungssuche --compact search --orte "Köln_50.938_6.957" --uk 25 --size 1  
 Rules:
 - For German cities, **longitude is the smaller number (~6–15), latitude the larger
   (~47–55).** If you only have one ordering, put the smaller value first.
-- Don't invent coordinates wildly. Out-of-range values (e.g. `99_99`) make the server
-  return **HTTP 500**, not an empty result.
-- A bare city name or PLZ as `--orte` (no coords) returns **HTTP 400** — coords are
+- Don't invent coordinates wildly. Out-of-range values (longitude beyond ±180, latitude
+  beyond ±90) are rejected by the CLI (exit `2`); the server would answer HTTP 500.
+- A bare city name or PLZ as `--orte` (no coords) is rejected (exit `2`) — coords are
   mandatory when you scope by place.
 - For a nationwide search, skip `--orte` and use `--uk Bundesweit`.
 
