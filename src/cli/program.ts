@@ -55,7 +55,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`, parseHeaderValue)
     .option(
       "--timeout <ms>",
-      "time limit per request in milliseconds, whole response included",
+      "time limit per request in milliseconds, whole response included (default 30000; 0 = no limit)",
       parseBoundedInt(0, MAX_TIMEOUT_MS),
     )
     .option("--user-agent <ua>", "User-Agent header value", parseHeaderValue)

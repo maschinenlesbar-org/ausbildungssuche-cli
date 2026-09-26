@@ -219,7 +219,7 @@ These apply to every command and may be given before *or* after it:
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `--base-url <url>` | API base URL (default `https://rest.arbeitsagentur.de`) |
 | `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled |
-| `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`; at most `2147483647`) |
+| `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`; at most `2147483647`; `0` = no limit, so a hanging server blocks forever) |
 | `--user-agent <ua>` | `User-Agent` header value |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses (`0`..`10`, default `2`); each waits the server's `Retry-After`, up to 30 s |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |

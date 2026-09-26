@@ -420,3 +420,9 @@ test("a too deeply nested response is a clean error, not a stack overflow", asyn
     assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
   }
 });
+
+test("--help says what --timeout 0 means", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["--help"], cli.deps), 0);
+  assert.match(cli.out.join("\n"), /--timeout <ms>[\s\S]*0 = no\s+limit/);
+});
