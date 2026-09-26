@@ -59,6 +59,13 @@ ausbildungssuche search --ids 9162 | jq '.page'
 This prints `{ "size": …, "totalElements": …, "totalPages": …, "number": … }`,
 so you know how many pages exist before paging through them.
 
+`totalElements` is **capped at 10000**: the unfiltered catalogue and any broad
+filter report exactly `10000`, which means "10000 or more", not an exact count. Rows
+past the first 10000 cannot be fetched either — `(page + 1) × size` must stay at or
+below 10000 (the last page at the default size 20 is `499`); the CLI rejects a later
+page (exit `2`), which the API would answer with HTTP 500. Narrow the filters until
+the count drops below 10000 to get an exact figure.
+
 ### 3. Search near a location within a radius
 
 Scope a search to a place (`--orte`, a `Name_lon_lat` location string with the

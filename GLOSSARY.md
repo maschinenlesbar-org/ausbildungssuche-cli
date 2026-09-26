@@ -85,6 +85,8 @@ this and does not double-encode it when building the details path.
 
 **`page` (PageInfo).** HAL paging metadata for a search result:
 `size`, `totalElements`, `totalPages`, and `number` (the current 0-based page).
+`totalElements` is capped at `10000`: a broad query reports exactly `10000`, meaning
+"10000 or more", and only those first 10000 results can be paged through.
 
 ---
 

@@ -85,6 +85,8 @@ erkennt das und kodiert sie beim Aufbau des Detail-Pfads nicht doppelt.
 
 **`page` (PageInfo).** HAL-Metadaten zur Paginierung eines Suchergebnisses:
 `size`, `totalElements`, `totalPages` und `number` (die aktuelle Seite, beginnend bei 0).
+`totalElements` ist auf `10000` gedeckelt: Eine breite Abfrage meldet genau `10000`, also
+„10000 oder mehr“, und nur diese ersten 10000 Ergebnisse lassen sich durchblättern.
 
 ---
 

@@ -158,7 +158,8 @@ Every command prints **pretty JSON to stdout**. Errors and diagnostics go to
 stderr, so piping stdout into `jq` stays clean.
 
 ```bash
-# How many results does a query have? Read the page block.
+# How many results does a query have? Read the page block. totalElements is capped
+# at 10000: a reading of exactly 10000 means "10000 or more".
 ausbildungssuche search --ids 9162 | jq '.page'
 
 # Reshape a detail record (title + provider)
