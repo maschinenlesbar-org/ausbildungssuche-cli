@@ -55,7 +55,11 @@ export interface AusbildungSearchParams {
   bart?: string;
   /** Education-voucher filter. */
   bg?: boolean;
-  /** Start date. */
+  /**
+   * Start-date code(s), not a date: `2` = earlier dates, `101`..`112` = January..December
+   * of the following year (upstream OpenAPI); `0` and `1` are accepted too. Comma-separated
+   * for several.
+   */
   bt?: string;
   /** 0-based page. */
   page?: number;

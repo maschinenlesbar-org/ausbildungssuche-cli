@@ -20,7 +20,7 @@ abgekürzten Abfrageparameter der API.
 > | `ids` | Berufs-id(s) – Kennung(en) des Berufs |
 > | `bart` | Bildungsart |
 > | `bg` | Bildungsgutschein – Filter nach Bildungsgutschein |
-> | `bt` | Beginntermin |
+> | `bt` | Beginntermin – Code für den Beginn (`2`, `101`..`112`; kein Datum) |
 > | `page` | Seitenindex, beginnend bei 0 |
 > | `size` | Seitengröße (`1`..`2000`; der Server liefert höchstens 20) |
 
@@ -135,7 +135,11 @@ die CLI `--uk 25` ohne `--orte` ab.
 beschränkt, die mit einem *Bildungsgutschein* gefördert werden können – einem staatlich
 ausgegebenen Gutschein, der eine zugelassene Bildungsmaßnahme finanziert.
 
-**Beginntermin (`bt`).** Das gewünschte Startdatum der Ausbildung.
+**Beginntermin (`bt`).** Ein Code für den gewünschten Beginn der Ausbildung, kein Datum:
+Laut der Beschreibung der Upstream-API bedeutet `2` frühere Termine und `101`..`112`
+Januar..Dezember des Folgejahres. `0` und `1` werden ebenfalls akzeptiert (ihre Bedeutung
+ist nicht dokumentiert); jeder andere Wert führt zu HTTP 400, daher lehnt die CLI ihn ab
+(Exit `2`). Mehrere Codes können kommagetrennt angegeben werden.
 
 **Seite (`page`).** Seitenindex, beginnend bei 0, zum Blättern durch die Suchergebnisse.
 Die API liefert höchstens 10000 Ergebnisse einer Abfrage, daher darf `(page + 1) × size`

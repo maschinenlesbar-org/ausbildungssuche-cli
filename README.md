@@ -118,7 +118,7 @@ details  <id>         full details for one offer
 | `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
 | `--bart <type>` | training type (*Bildungsart*) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
-| `--bt <code>` | start-date code `0`..`2` (*Beginntermin*) |
+| `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0`, `1` also accepted (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
 | `--size <n>` | page size (`1`..`2000`; the server returns at most 20) |
 

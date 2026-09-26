@@ -73,7 +73,7 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     .option("--ids <id>", "occupation id(s), the dkzId from angebot.systematiken[]; comma-separated or repeated for several (ids)", commaList(parseNonEmpty))
     .option("--bart <type>", "training type (bart)", once(parseNonEmpty))
     .option("--bg", "only offers eligible for an education voucher (bg)")
-    .option("--bt <date>", "start date (bt)", commaList(parseStartCodes))
+    .option("--bt <code>", "start-date code(s) (bt): 2 = earlier dates, 101..112 = January..December of the following year, 0 and 1 also accepted; not a date. Comma-separated or repeated for several", commaList(parseStartCodes))
     .option("--page <n>", "0-based page", once(parseIntArg))
     .option("--size <n>", "page size (1..2000; the server returns at most 20 rows)", once(parseSizeArg))
     .action(

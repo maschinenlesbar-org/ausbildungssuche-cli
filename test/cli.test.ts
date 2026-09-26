@@ -308,3 +308,11 @@ test("a page past the 10000-result window names the last page", async () => {
   assert.equal(await run(["search", "--page", "500", "--size", "20"], cli.deps), 2);
   assert.match(cli.err.join("\n"), /10000-result window.*last page is 499/);
 });
+
+test("search --help describes --bt as a code, not a date", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["search", "--help"], cli.deps), 0);
+  const help = cli.out.join("\n");
+  assert.match(help, /--bt <code>\s+start-date code\(s\)/);
+  assert.doesNotMatch(help, /--bt <date>/);
+});

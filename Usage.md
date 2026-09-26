@@ -141,7 +141,9 @@ ausbildungssuche search --ids 9162 --bg
 
 Combine the structured filters: `--re` (Bundesland code, e.g. `SLH` for
 Schleswig-Holstein), `--sty` (offer type, `0`..`3`), `--bart` (training type,
-*Bildungsart*) and `--bt` (start-date code, *Beginntermin*: `0`..`2`).
+*Bildungsart*) and `--bt` (start-date code, *Beginntermin*: `2` for earlier dates,
+`101`..`112` for January..December of the following year, `0`/`1` also accepted —
+not a date).
 
 The `--re` codes are `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`,
 `NDS`, `NRW`, `RPF`, `SAA`, `SAC`, `SAN`, `SLH` and `THÜ`; several can be
@@ -240,7 +242,7 @@ These apply to every command and may be given before *or* after the subcommand:
 | `--ids <id>` | occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`) |
 | `--bart <type>` | training type (*Bildungsart*) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
-| `--bt <code>` | start-date code `0`..`2` (*Beginntermin*) |
+| `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0`, `1` also accepted (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
 | `--size <n>` | page size (`1`..`2000`; the server returns at most 20) |
 

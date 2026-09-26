@@ -20,7 +20,7 @@ abbreviated query parameters.
 > | `ids` | Berufs-id(s) — occupation id(s) |
 > | `bart` | Bildungsart — training/education type |
 > | `bg` | Bildungsgutschein — education-voucher filter |
-> | `bt` | Beginntermin — start date |
+> | `bt` | Beginntermin — start-date code (`2`, `101`..`112`; not a date) |
 > | `page` | 0-based page index |
 > | `size` | page size (`1`..`2000`; the server returns at most 20) |
 
@@ -137,7 +137,11 @@ searched.
 results to offers eligible for a *Bildungsgutschein* — a state-issued voucher
 that funds an approved training measure.
 
-**Start date (`bt`, Beginntermin).** The desired training start date.
+**Start date (`bt`, Beginntermin).** A code for the desired training start, not a
+date: per the upstream API description `2` means earlier dates and `101`..`112`
+January..December of the following year. `0` and `1` are accepted too (their meaning
+is undocumented); any other value gets HTTP 400, so the CLI rejects it (exit `2`).
+Several codes can be comma-separated.
 
 **Page (`page`).** Zero-based page index for paging through search results. The
 API serves at most 10000 results of a query, so `(page + 1) × size` must be at most
