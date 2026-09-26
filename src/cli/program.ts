@@ -9,7 +9,7 @@ import type { CliDeps } from "./io.js";
 import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
 import { AusbildungssucheClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
-import { parseBaseUrl, parseBoundedInt, parseIntArg } from "./shared.js";
+import { parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg } from "./shared.js";
 import { registerAusbildungCommands } from "./commands/ausbildung.js";
 import { registerObtainKeyCommands } from "./commands/obtain-key.js";
 import { nodeHttpTransport } from "../client/http.js";
@@ -52,13 +52,13 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     )
     .version(VERSION)
     .option("--base-url <url>", "API base URL", parseBaseUrl, "https://rest.arbeitsagentur.de")
-    .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`)
+    .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`, parseHeaderValue)
     .option(
       "--timeout <ms>",
       "time limit per request in milliseconds, whole response included",
       parseBoundedInt(0, MAX_TIMEOUT_MS),
     )
-    .option("--user-agent <ua>", "User-Agent header value")
+    .option("--user-agent <ua>", "User-Agent header value", parseHeaderValue)
     .option(
       "--max-retries <n>",
       "retries for transient 429/503 responses (0..10; each waits the server's Retry-After, up to 30 s)",

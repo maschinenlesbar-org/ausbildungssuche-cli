@@ -346,3 +346,35 @@ test("a --base-url with a path prefix still works", async () => {
   assert.equal(await run(["--base-url", "http://127.0.0.1:1/mirror/", "details", "1"], cli.deps), 0);
   assert.equal(cli.mt.last().url, "http://127.0.0.1:1/mirror/infosysbub/absuche/pc/v1/ausbildungsangebot/1");
 });
+
+// Header-valued globals: a blank value, a control character or a character above
+// U+00FF is a usage error before any request (not a request without the header, nor
+// "Unexpected error: Invalid character in header content").
+for (const [name, argv, message] of [
+  ["blank --api-key", ["--api-key", ""], /non-empty/],
+  ["whitespace --api-key", ["--api-key", "  "], /non-empty/],
+  ["blank --user-agent", ["--user-agent", ""], /non-empty/],
+  ["CR/LF in --user-agent", ["--user-agent", "a\r\nX-Evil: 1"], /control characters/],
+  ["LF in --api-key", ["--api-key", "k\nX-Evil: 1"], /control characters/],
+  ["non-Latin-1 --user-agent", ["--user-agent", "agent☃"], /outside Latin-1/],
+] as const) {
+  test(`${name} is a usage error, before any request`, async () => {
+    const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
+    assert.equal(await run([...argv, "details", "1"], cli.deps), 2);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), message);
+  });
+}
+
+test("tab and Latin-1 are fine in --user-agent", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["--user-agent", "a\tü", "details", "1"], cli.deps), 0);
+  assert.equal(cli.mt.last().headers?.["User-Agent"], "a\tü");
+});
+
+test("a control character in the AUSBILDUNGSSUCHE_API_KEY env var is a usage error", async () => {
+  const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: "k\u0001x" });
+  assert.equal(await run(["details", "1"], cli.deps), 2);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /AUSBILDUNGSSUCHE_API_KEY: Value contains control characters/);
+});

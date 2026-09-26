@@ -5,6 +5,8 @@ import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { AusbildungssucheClientOptions } from "../client/client.js";
+import { AusbildungValidationError } from "../client/errors.js";
+import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -32,6 +34,36 @@ export function parseNonEmpty(value: string): string {
   if (value.trim() === "") {
     throw new InvalidArgumentError("Expected a non-empty value.");
   }
+  return value;
+}
+
+/**
+ * Why a value cannot be sent in an HTTP header, or undefined if it can. Node's HTTP
+ * layer throws an opaque "Invalid character in header content" at request time for
+ * a CR/LF (or any other C0 control or DEL) and for any character above U+00FF,
+ * which surfaced as "Unexpected error". Tab is allowed, as in HTTP. Checked by char
+ * code so the source stays free of control bytes.
+ */
+export function headerValueProblem(value: string): string | undefined {
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if ((c < 0x20 && c !== 0x09) || c === 0x7f) return "Value contains control characters.";
+    if (c > 0xff) return "Value contains characters outside Latin-1 (above U+00FF).";
+  }
+  return undefined;
+}
+
+/**
+ * commander value-parser for a value that ends up in an HTTP header (`--api-key`,
+ * `--user-agent`): a blank value, and one Node cannot send (headerValueProblem),
+ * are usage errors rather than a request without the header or an "Unexpected
+ * error" at request time. A blank `--api-key` would otherwise override the env key
+ * and send no key at all.
+ */
+export function parseHeaderValue(value: string): string {
+  parseNonEmpty(value);
+  const problem = headerValueProblem(value);
+  if (problem !== undefined) throw new InvalidArgumentError(problem);
   return value;
 }
 
@@ -293,6 +325,12 @@ export function action(
     const command = args[args.length - 1] as Command;
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
+    // A --api-key flag went through parseHeaderValue; a key seeded from the env var
+    // did not, so check it here, before a request fails on it.
+    const keyProblem = global.apiKey === undefined ? undefined : headerValueProblem(global.apiKey);
+    if (keyProblem !== undefined) {
+      throw new AusbildungValidationError(`${API_KEY_ENV_VAR}: ${keyProblem}`);
+    }
     const client = deps.createClient(toEngineOptions(global));
     await fn({ client, global, opts: command.opts() }, positionals);
   };
