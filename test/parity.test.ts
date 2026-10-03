@@ -289,3 +289,37 @@ test("the library rejects a bad defaultHeaders name or value in the constructor"
     );
   }
 });
+
+// Finding #10 (PAT-1, PAT-2): the base URL's shape is checked by the library on the
+// raw value (new URL() would silently trim it), and a bad one is a validation
+// error, not a network error.
+for (const [name, baseUrl, message] of [
+  ["leading space", " https://h.example", /surrounding whitespace/],
+  ["trailing space", "https://h.example ", /surrounding whitespace/],
+  ["trailing space after the slash", "https://h.example/ ", /surrounding whitespace/],
+  ["a tab inside", "https://h.example/p\tq", /whitespace or control characters/],
+  ["a newline in the host", "https://h.exa\nmple", /whitespace or control characters/],
+  ["a query", "https://h.example/?a=1", /query \(\?\) or fragment \(#\)/],
+  ["a fragment", "https://h.example/#f", /query \(\?\) or fragment \(#\)/],
+  ["an ftp scheme", "ftp://h.example", /Unsupported scheme "ftp:"/],
+  ["no URL at all", "notaurl", /absolute http\(s\) URL/],
+  ["blank", "", /non-empty/],
+] as const) {
+  test(`parity: a base URL with ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(
+      await parity(["--base-url", baseUrl, "--api-key", KEY, "details", "1"], (t) =>
+        new AusbildungssucheClient({ transport: t, apiKey: KEY, baseUrl }).details("1"),
+      ),
+      message,
+    );
+  });
+}
+
+test("parity: a base URL with a path prefix and trailing slashes is sent identically", async () => {
+  const baseUrl = "http://127.0.0.1:1/mirror//";
+  assertSameRequest(
+    await parity(["--base-url", baseUrl, "--api-key", KEY, "details", "1"], (t) =>
+      new AusbildungssucheClient({ transport: t, apiKey: KEY, baseUrl }).details("1"),
+    ),
+  );
+});

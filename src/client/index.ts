@@ -7,6 +7,7 @@ export {
   DEFAULT_BASE_URL,
   DEFAULT_USER_AGENT,
   intOption,
+  validateBaseUrl,
   MAX_REDIRECTS,
   MAX_RETRIES,
   MAX_RETRY_AFTER_MS,
@@ -20,6 +21,7 @@ export type { ObtainKeyOptions, ObtainedKey } from "./obtain-key.js";
 export { buildQueryString } from "./query.js";
 export {
   assertValid,
+  baseUrlProblem,
   DEFAULT_PAGE_SIZE,
   headerNameProblem,
   headerValueProblem,

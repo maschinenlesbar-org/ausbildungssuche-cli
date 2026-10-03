@@ -6,6 +6,7 @@ import {
   MAX_RETRY_AFTER_MS,
   RequestEngine,
   parseRetryAfter,
+  validateBaseUrl,
 } from "../src/client/engine.js";
 import { MAX_TIMEOUT_MS } from "../src/client/http.js";
 import {
@@ -201,12 +202,12 @@ test("the engine surfaces a transport-level network error", async () => {
   await assert.rejects(() => e.getJson("/x"), AusbildungNetworkError);
 });
 
-test("a non-http(s) base URL is rejected at construction, before any request", () => {
+test("a non-http(s) base URL is rejected at construction as a validation error, before any request", () => {
   for (const baseUrl of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
     const mt = makeMockTransport(() => jsonResponse({}));
     assert.throws(
       () => new RequestEngine({ baseUrl, transport: mt.transport }),
-      AusbildungNetworkError,
+      (e: unknown) => e instanceof AusbildungValidationError && !(e instanceof AusbildungNetworkError),
     );
     assert.equal(mt.calls.length, 0);
   }
@@ -301,7 +302,7 @@ test("a base URL with a query or fragment is rejected at construction", () => {
   for (const baseUrl of ["https://example.test/x?y=1", "https://example.test/x#f"]) {
     assert.throws(
       () => new RequestEngine({ baseUrl }),
-      (e: unknown) => e instanceof AusbildungNetworkError && /query or fragment/.test((e as Error).message),
+      (e: unknown) => e instanceof AusbildungValidationError && /query \(\?\) or fragment/.test((e as Error).message),
       baseUrl,
     );
   }
@@ -333,7 +334,7 @@ test("redactUrl hides userinfo and leaves other URLs unchanged", async () => {
   assert.equal(redactUrl("not a url"), "not a url");
   assert.throws(
     () => new RequestEngine({ baseUrl: "ftp://u:secret@h.test/" }),
-    (e: unknown) => e instanceof AusbildungNetworkError && !(e as Error).message.includes("secret"),
+    (e: unknown) => e instanceof AusbildungValidationError && !(e as Error).message.includes("secret"),
   );
 });
 
@@ -403,4 +404,18 @@ test("the engine accepts its numeric options at both ends of their range", () =>
   assert.throws(() => new RequestEngine({ maxRetries: MAX_RETRIES + 1 }), AusbildungValidationError);
   assert.throws(() => new RequestEngine({ maxRedirects: MAX_REDIRECTS + 1 }), AusbildungValidationError);
   assert.throws(() => new RequestEngine({ timeoutMs: MAX_TIMEOUT_MS + 1 }), AusbildungValidationError);
+});
+
+test("the base URL is checked on the raw value; only undefined selects the default", () => {
+  for (const baseUrl of ["", " https://h.test", "https://h.test/ ", "https://h.test/a\tb", "https://h.te\nst"]) {
+    const mt = makeMockTransport(() => jsonResponse({}));
+    assert.throws(
+      () => new RequestEngine({ baseUrl, transport: mt.transport }),
+      AusbildungValidationError,
+      JSON.stringify(baseUrl),
+    );
+    assert.equal(mt.calls.length, 0);
+  }
+  assert.equal(validateBaseUrl("https://h.test/p//"), "https://h.test/p");
+  assert.equal(new RequestEngine().buildUrl("/x"), "https://rest.arbeitsagentur.de/x");
 });

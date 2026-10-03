@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertValid,
+  baseUrlProblem,
   headerNameProblem,
   headerValueProblem,
   intRangeProblem,
@@ -220,4 +221,22 @@ test("headerValueProblem rejects blank, control and non-Latin-1 values", () => {
 test("headerNameProblem wants an HTTP token", () => {
   for (const n of ["X-API-Key", "User-Agent", "x_y.z"]) assert.equal(headerNameProblem(n), undefined, n);
   for (const n of ["", "Bad Name", "a:b", "ä"]) assert.notEqual(headerNameProblem(n), undefined, n);
+});
+
+test("baseUrlProblem checks the raw value", () => {
+  for (const u of ["https://h.test", "http://127.0.0.1:1/mirror/", "https://u:p@h.test/p"]) {
+    assert.equal(baseUrlProblem(u), undefined, u);
+  }
+  const cases: Array<[string, string]> = [
+    ["", "Expected a non-empty value."],
+    [" https://h.test", "A base URL cannot have surrounding whitespace."],
+    ["https://h.test/\n", "A base URL cannot have surrounding whitespace."],
+    ["https://h.test/a b", "A base URL cannot contain whitespace or control characters."],
+    ["https://h.te\u007fst", "A base URL cannot contain whitespace or control characters."],
+    ["notaurl", "Expected an absolute http(s) URL."],
+    ["file:///etc/passwd", 'Unsupported scheme "file:". Expected an http(s) URL.'],
+    ["https://h.test/?a=1", "A base URL cannot have a query (?) or fragment (#)."],
+    ["https://h.test/#f", "A base URL cannot have a query (?) or fragment (#)."],
+  ];
+  for (const [u, reason] of cases) assert.equal(baseUrlProblem(u), reason, JSON.stringify(u));
 });

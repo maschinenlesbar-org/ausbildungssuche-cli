@@ -96,6 +96,7 @@ run them up front.
   would return the nationwide set, so `search()` rejects it
   (`placeAndRadiusProblem`). `uk: "Bundesweit"` alone stays allowed.
 - **Engine options out of range** (constructor): see *Engine option ranges* below.
+- **A malformed base URL** (constructor): see *`--base-url` scheme allowlist* below.
 - **Header values that cannot be sent** (constructor, and `obtainKey()`). `apiKey`,
   `userAgent` and every `defaultHeaders` value must be non-blank, free of C0 control
   characters (tab allowed) and DEL, and within Latin-1 (`headerValueProblem`);
@@ -189,14 +190,20 @@ maps errors. Sits between the client and the transport. `DEFAULT_BASE_URL` is
 ([`http.ts`](src/client/http.ts)). The default (`nodeHttpTransport`) uses Node's
 built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
 
-**`--base-url` scheme allowlist.** A non-http(s) or malformed `--base-url`
-(`file:`, `ftp:`, `notaurl`) is rejected at three layers: the commander value-parser
-`parseBaseUrl` ([`shared.ts`](src/cli/shared.ts)) makes it a usage error (exit `2`)
-before any client is built; the `RequestEngine` constructor rejects a non-http(s)
-base URL with an `AusbildungNetworkError`, so a library consumer's custom transport
-never receives one; and the default transport rejects any non-http(s) URL on every
-request — including redirect targets, so a redirect to `file:`/`data:` is refused
-mid-flight. No user-supplied URL ever reaches a non-http(s) scheme.
+**`--base-url` scheme allowlist.** A non-http(s) or malformed base URL
+(`file:`, `ftp:`, `notaurl`), and one with surrounding whitespace, inner whitespace
+or control characters, a query or a fragment, is rejected by one rule,
+`baseUrlProblem` ([`validate.ts`](src/client/validate.ts)), checked on the raw value
+(`new URL()` would silently trim it). The `RequestEngine` constructor applies it
+through `validateBaseUrl` and throws an `AusbildungValidationError`, so a library
+consumer's custom transport never receives a bad base URL; the CLI's `parseBaseUrl`
+([`shared.ts`](src/cli/shared.ts)) calls the same rule and makes it a usage error
+(exit `2`) before any client is built. Only `undefined` selects `DEFAULT_BASE_URL`.
+The default transport additionally rejects any non-http(s) URL on every request with
+an `AusbildungNetworkError` — including redirect targets, so a redirect to
+`file:`/`data:` is refused mid-flight. No user-supplied URL ever reaches a
+non-http(s) scheme. Userinfo (`https://user:pass@host`) is allowed and redacted
+from every message.
 
 **Default headers / Accept negotiation.** The engine merges `defaultHeaders` into
 every request — the seam that injects `X-API-Key`. The `Accept` header is chosen

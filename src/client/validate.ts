@@ -73,6 +73,37 @@ export const headerValueProblem: Problem = (value) => {
   return undefined;
 };
 
+/**
+ * A base URL (`baseUrl`, `--base-url`): an absolute http(s) URL, checked on the RAW
+ * value. new URL() silently trims surrounding whitespace and drops tab/CR/LF, but
+ * the engine appends request paths to the raw string, so a padded value would
+ * request `/%20/...` or reach a custom transport unparsed. A query or fragment
+ * would swallow every request path (`http://h/#f` requests `/` for every call).
+ * Userinfo is allowed (it is redacted from every message). The reasons never echo
+ * the value, so a credential in it cannot leak.
+ */
+export const baseUrlProblem: Problem = (value) => {
+  if (typeof value !== "string") return "Expected an absolute http(s) URL.";
+  const blank = nonEmptyProblem(value);
+  if (blank !== undefined) return blank;
+  if (value !== value.trim()) return "A base URL cannot have surrounding whitespace.";
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if (c <= 0x20 || c === 0x7f) return "A base URL cannot contain whitespace or control characters.";
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return "Expected an absolute http(s) URL.";
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
+  }
+  if (/[?#]/.test(value)) return "A base URL cannot have a query (?) or fragment (#).";
+  return undefined;
+};
+
 /** An HTTP header name: an RFC 9110 token. */
 export const headerNameProblem: Problem = (name) =>
   typeof name === "string" && /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name)

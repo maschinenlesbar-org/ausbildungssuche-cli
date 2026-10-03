@@ -9,6 +9,7 @@ import { AusbildungError, AusbildungValidationError } from "../client/errors.js"
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 import { isBidiControl } from "../client/engine.js";
 import {
+  baseUrlProblem,
   headerValueProblem,
   intRangeProblem,
   nonEmptyProblem,
@@ -60,33 +61,12 @@ export function parseHeaderValue(value: string): string {
 }
 
 /**
- * commander value-parser for `--base-url`: an absolute http(s) URL. A `file:`,
- * `ftp:` or malformed value is a usage error at parse time rather than reaching
- * the client (an injected custom transport does no scheme check of its own).
+ * commander value-parser for `--base-url`: the library's baseUrlProblem (an
+ * absolute http(s) URL, no surrounding whitespace, control characters, query or
+ * fragment). A bad value is a usage error at parse time.
  */
 export function parseBaseUrl(value: string): string {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new InvalidArgumentError("Expected an absolute http(s) URL.");
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new InvalidArgumentError(
-      `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`,
-    );
-  }
-  // Paths are appended to the base URL as a string, so a query or fragment would
-  // swallow every request path ("http://h/#f" requests "/" for every command).
-  if (/[?#]/.test(value)) {
-    throw new InvalidArgumentError("A base URL cannot have a query (?) or fragment (#).");
-  }
-  // new URL() trims surrounding whitespace silently; the raw value is what the
-  // engine uses, so reject it rather than guess.
-  if (value !== value.trim()) {
-    throw new InvalidArgumentError("A base URL cannot have surrounding whitespace.");
-  }
-  return value;
+  return parserOf(baseUrlProblem)(value);
 }
 
 /**
