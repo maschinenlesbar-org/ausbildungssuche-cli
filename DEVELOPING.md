@@ -111,6 +111,7 @@ src/
   client/
     types.ts     # AusbildungSearchResult (HAL) + search params
     query.ts     # dependency-free query-string builder
+    validate.ts  # input rules (Problem functions) + assertValid, shared by library and CLI
     http.ts      # the Transport interface + default node:http/https transport
     engine.ts    # URL building, retry/backoff, redirects, default headers (auth), decoding, errors
     errors.ts    # AusbildungError / AusbildungApiError / AusbildungNetworkError / AusbildungParseError
@@ -190,6 +191,16 @@ as `true`/`false`, dates as ISO-8601, and encodes spaces as `%20` (not `+`).
 an injectable `env` (for `AUSBILDUNGSSUCHE_API_KEY`). Lets the whole CLI run in
 tests with a mocked client and captured output — no subprocess.
 
+**Input validation.** [`validate.ts`](src/client/validate.ts) — the library owns
+every rule about what a request may contain. A rule is a pure, exported
+`…Problem(value)` function that returns the reason a value is invalid (or
+`undefined`); `assertValid(name, value, problem)` turns a reason into an
+`AusbildungValidationError` with the message `Invalid <name>: <reason>`. Client
+methods check their input before any request, and a method that returns a promise
+rejects rather than throwing synchronously. The CLI's value-parsers call the same
+functions, and `run.ts` maps an `AusbildungValidationError` to exit `2`
+(`Error: <message>`), so CLI and library accept and reject the same inputs.
+
 **Error types.** [`errors.ts`](src/client/errors.ts): `AusbildungApiError`
 (non-2xx, carries `status`/`detail`), `AusbildungNetworkError` (transport
 failure/timeout), `AusbildungParseError` (bad JSON), `AusbildungValidationError`
@@ -207,6 +218,7 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirect following + `maxRedirects`, cross-origin credential stripping, network-error propagation, `maxResponseBytes=0` — mocked transport.
 - **`client.test.ts`** — the X-API-Key header, the `Accept: application/hal+json` override, search params and the details path — mocked transport.
 - **`cli.test.ts`** — command parsing, `--api-key` override, env-var precedence, 401/403/404/406 exit codes — mocked client.
+- **`validate.test.ts`** — `assertValid`, the exit-2 mapping of `AusbildungValidationError`, and the CLI ↔ library parity tests. `parity()` in `test/helpers.ts` runs one input through `run()` and through the library on one recording mock transport; a parity test asserts both reject without a request, or both send the identical request.
 
 ## Continuous integration
 
