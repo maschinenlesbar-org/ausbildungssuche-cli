@@ -137,6 +137,15 @@ export const radiusProblem: Problem = (uk) =>
   nonEmptyProblem(uk) ??
   ((RADII as readonly string[]).includes(uk) ? undefined : "Expected 10, 25, 50, 100 (km) or Bundesweit.");
 
+/**
+ * The radius (`uk`) in the form the API accepts: `bundesweit` in any case becomes
+ * `Bundesweit` (the API answers the lowercase form with HTTP 400). Any other value
+ * is returned unchanged for radiusProblem to judge. Idempotent.
+ */
+export function normalizeRadius(uk: string): string {
+  return uk.toLowerCase() === "bundesweit" ? "Bundesweit" : uk;
+}
+
 /** The 3-letter Bundesland codes (`re`) the API accepts, in the uppercase it requires. */
 export const REGION_CODES = [
   "BAW", "BAY", "BER", "BRA", "BRE", "HAM", "HES", "MBV",
@@ -148,6 +157,20 @@ export const regionCodeProblem: Problem = (code) =>
   (REGION_CODES as readonly string[]).includes(code)
     ? undefined
     : `Unknown Bundesland code "${code}". Expected one or more of ${REGION_CODES.join(", ")}, comma-separated.`;
+
+/**
+ * One Bundesland code in the form the API accepts: trimmed, NFC-normalised (an NFD
+ * `THÜ` becomes the listed `THÜ`) and uppercased (the API answers `nrw` with HTTP
+ * 400). Idempotent.
+ */
+export function normalizeRegionCode(code: string): string {
+  return code.trim().normalize("NFC").toUpperCase();
+}
+
+/** The region filter (`re`), each comma-separated code normalised (normalizeRegionCode). Idempotent. */
+export function normalizeRegions(re: string): string {
+  return re.split(",").map(normalizeRegionCode).join(",");
+}
 
 /** The region filter (`re`): one or more comma-separated REGION_CODES. */
 export const regionsProblem: Problem = (re) => nonEmptyProblem(re) ?? firstProblem(re.split(","), regionCodeProblem);
@@ -259,6 +282,27 @@ function firstProblem(values: readonly string[], problem: Problem): string | und
     if (reason !== undefined) return reason;
   }
   return undefined;
+}
+
+/**
+ * Search parameters in the form the API accepts: `re` through normalizeRegions and
+ * `uk` through normalizeRadius (string values, also inside an array); everything
+ * else unchanged. Returns a new object. search() applies it before
+ * validateSearchParams, so `re: " nrw"` and `uk: "bundesweit"` are sent as
+ * `NRW` and `Bundesweit`, as the CLI sends them.
+ */
+export function normalizeSearchParams(params: AusbildungSearchParams): AusbildungSearchParams {
+  const out: AusbildungSearchParams = { ...params };
+  if (params.re !== undefined) out.re = mapStrings(params.re, normalizeRegions);
+  if (params.uk !== undefined) out.uk = mapStrings(params.uk, normalizeRadius);
+  return out;
+}
+
+/** Apply `fn` to a string, or to each string element of an array; leave anything else alone. */
+function mapStrings(value: string, fn: (s: string) => string): string {
+  const one = (v: unknown): unknown => (typeof v === "string" ? fn(v) : v);
+  // A JS caller may pass an array; the query builder sends each element.
+  return (Array.isArray(value) ? (value as unknown[]).map(one) : one(value)) as string;
 }
 
 /**

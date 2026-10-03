@@ -95,6 +95,12 @@ run them up front.
   the API, and a place without a radius does not narrow the search; either alone
   would return the nationwide set, so `search()` rejects it
   (`placeAndRadiusProblem`). `uk: "Bundesweit"` alone stays allowed.
+- **Canonical forms first.** Before these checks `search()` puts `re` and `uk` into
+  the form the API accepts (`normalizeSearchParams`): each `re` code is trimmed,
+  NFC-normalised and uppercased (`normalizeRegions`, `" bay, nrw"` → `BAY,NRW`),
+  and `bundesweit` in any case becomes `Bundesweit` (`normalizeRadius`). The API
+  answers the lowercase forms with HTTP 400; the CLI's `--re`/`--uk` parsers call
+  the same functions, so both send the same request.
 - **Engine options out of range** (constructor): see *Engine option ranges* below.
 - **A malformed base URL** (constructor): see *`--base-url` scheme allowlist* below.
 - **Header values that cannot be sent** (constructor, and `obtainKey()`). `apiKey`,

@@ -45,10 +45,14 @@ export interface AusbildungSearchParams {
    * together with a radius `uk`, so it is rejected without one (`placeAndRadiusProblem`).
    */
   orte?: string;
-  /** Bundesland code from `REGION_CODES` (`BAW`, `BAY`, … `THÜ`, uppercase), comma-separated for several. */
+  /**
+   * Bundesland code from `REGION_CODES` (`BAW`, `BAY`, … `THÜ`), comma-separated for several.
+   * Each code is trimmed, NFC-normalised and uppercased before it is sent (`normalizeRegions`).
+   */
   re?: string;
   /**
-   * Radius from `RADII`: "Bundesweit" or 10, 25, 50, 100 (km); other values get HTTP 400. A km
+   * Radius from `RADII`: "Bundesweit" (in any case, `normalizeRadius`) or 10, 25, 50, 100 (km);
+   * other values get HTTP 400. A km
    * radius is ignored by the API without a place `orte`, so it is rejected without one.
    */
   uk?: string;

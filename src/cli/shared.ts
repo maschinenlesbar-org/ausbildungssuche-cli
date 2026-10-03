@@ -13,6 +13,9 @@ import {
   headerValueProblem,
   intRangeProblem,
   nonEmptyProblem,
+  normalizeRadius,
+  normalizeRegionCode,
+  normalizeRegions,
   offerIdProblem,
   placeProblem,
   radiusProblem,
@@ -135,34 +138,28 @@ function parserOf(problem: Problem): (value: string) => string {
 }
 
 /**
- * commander value-parser for `--uk`: the library's radiusProblem. `bundesweit` in
- * any case is first normalised to the `Bundesweit` the API expects (lowercase gets
- * HTTP 400).
+ * commander value-parser for `--uk`: the library's normalizeRadius (`bundesweit` in
+ * any case becomes the `Bundesweit` the API expects; lowercase gets HTTP 400), then
+ * its radiusProblem.
  */
 export function parseRadius(value: string): string {
-  parseNonEmpty(value);
-  if (value.toLowerCase() === "bundesweit") return "Bundesweit";
-  return parserOf(radiusProblem)(value);
+  return parserOf(radiusProblem)(normalizeRadius(value));
 }
 
 /**
  * commander value-parser for `--re`: one or more comma-separated Bundesland codes
- * (the library's regionCodeProblem), in any case: the API wants uppercase and
- * answers `nrw` with a bare HTTP 400, so each code is normalised first. The message
- * names the code as the user typed it.
+ * in any case, each normalised by the library's normalizeRegionCode (the API wants
+ * uppercase and answers `nrw` with a bare HTTP 400) and checked by its
+ * regionCodeProblem. The message names the code as the user typed it.
  */
 export function parseRegions(value: string): string {
   parseNonEmpty(value);
-  return value
-    .split(",")
-    .map((item) => {
-      const code = item.trim().normalize("NFC").toUpperCase();
-      if (regionCodeProblem(code) !== undefined) {
-        throw new InvalidArgumentError(regionCodeProblem(item) ?? "");
-      }
-      return code;
-    })
-    .join(",");
+  for (const item of value.split(",")) {
+    if (regionCodeProblem(normalizeRegionCode(item)) !== undefined) {
+      throw new InvalidArgumentError(regionCodeProblem(item) ?? "");
+    }
+  }
+  return normalizeRegions(value);
 }
 
 /** commander value-parser for `--bt`: the library's startCodesProblem (0, 1, 2 or 101..112). */

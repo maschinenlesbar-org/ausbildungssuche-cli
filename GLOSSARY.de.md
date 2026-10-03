@@ -116,8 +116,8 @@ eingegrenzt wird: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`,
 `RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`. Mehrere Codes lassen sich durch Kommas trennen.
 Den Code eines Angebots enthält `adresse.ortStrasse.land.code`; die zweistelligen
 Abkürzungen (z. B. `BW`) führen zu HTTP 400, daher lehnen die CLI (Exit `2`) und die
-Bibliothek jeden anderen Code ab, bevor eine Anfrage gesendet wird. Die CLI schreibt einen
-kleingeschriebenen Code außerdem groß (`nrw` → `NRW`).
+Bibliothek jeden anderen Code ab, bevor eine Anfrage gesendet wird. Beide entfernen vorher
+umgebende Leerzeichen, normalisieren jeden Code nach NFC und schreiben ihn groß (`nrw` → `NRW`).
 
 ---
 
@@ -130,7 +130,7 @@ die CLI (Exit `2`) und die Bibliothek lehnen alles außerhalb von `0`..`3` ab.
 **Umkreis (`uk`).** Der Suchradius um den Ort in **Kilometern** – `10`, `25`, `50` oder
 `100` – oder die Zeichenkette `Bundesweit`, um ohne Radiusbegrenzung im ganzen Land zu
 suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400, daher lehnen die CLI
-(Exit `2`) und die Bibliothek sie ab; die CLI sendet `bundesweit` in beliebiger Schreibweise
+(Exit `2`) und die Bibliothek sie ab; beide senden `bundesweit` in beliebiger Schreibweise
 als `Bundesweit`. Ein Umkreis in
 Kilometern braucht einen Ort (`orte`): ohne ihn ignoriert die API den Umkreis, daher lehnen
 CLI und Bibliothek `uk` `25` ohne `orte` ab.

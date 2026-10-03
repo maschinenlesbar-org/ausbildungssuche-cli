@@ -11,7 +11,13 @@
 //   client.details(id)
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { assertValid, headerValueProblem, offerIdProblem, validateSearchParams } from "./validate.js";
+import {
+  assertValid,
+  headerValueProblem,
+  normalizeSearchParams,
+  offerIdProblem,
+  validateSearchParams,
+} from "./validate.js";
 import type { QueryParams } from "./query.js";
 import type {
   AusbildungSearchResult,
@@ -64,16 +70,18 @@ export class AusbildungssucheClient {
   }
 
   /**
-   * Search apprenticeship offers (HAL+JSON result). Rejects with an
-   * AusbildungValidationError, before any request, when the parameters break a
-   * rule of validateSearchParams (e.g. a blank filter).
+   * Search apprenticeship offers (HAL+JSON result). `re` and `uk` are first put
+   * into the form the API accepts (normalizeSearchParams: `" nrw"` → `NRW`,
+   * `bundesweit` → `Bundesweit`). Rejects with an AusbildungValidationError, before
+   * any request, when the parameters break a rule of validateSearchParams (e.g. a
+   * blank filter).
    */
   async search(params: AusbildungSearchParams = {}): Promise<AusbildungSearchResult> {
-    validateSearchParams(params);
+    const normalized = validateSearchParams(normalizeSearchParams(params));
     // The search collection serves HAL+JSON and 406s on plain application/json.
     return this.engine.getJson(
       `${SERVICE}/pc/v1/ausbildungsangebot`,
-      prune({ ...params }),
+      prune({ ...normalized }),
       "application/hal+json",
     );
   }

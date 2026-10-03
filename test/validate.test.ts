@@ -8,6 +8,10 @@ import {
   intRangeProblem,
   isBlank,
   nonEmptyProblem,
+  normalizeRadius,
+  normalizeRegionCode,
+  normalizeRegions,
+  normalizeSearchParams,
   offerIdProblem,
   pageProblem,
   placeAndRadiusProblem,
@@ -123,6 +127,36 @@ test("regionsProblem accepts comma-separated uppercase Bundesland codes", () => 
   assert.match(regionsProblem("BW") ?? "", /^Unknown Bundesland code "BW"\. Expected one or more of BAW, /);
   assert.match(regionsProblem("NRW,") ?? "", /^Unknown Bundesland code ""/);
   assert.match(regionsProblem("nrw") ?? "", /^Unknown Bundesland code "nrw"/);
+});
+
+test("normalizeRadius maps bundesweit in any case to Bundesweit and is idempotent", () => {
+  for (const uk of ["bundesweit", "BUNDESWEIT", "BundesWeit", "Bundesweit"]) {
+    assert.equal(normalizeRadius(uk), "Bundesweit", uk);
+  }
+  // Anything else is left as it is, for radiusProblem to judge.
+  for (const uk of ["25", " 25", "30", ""]) assert.equal(normalizeRadius(uk), uk, uk);
+  for (const uk of ["bundesweit", "25"]) assert.equal(normalizeRadius(normalizeRadius(uk)), normalizeRadius(uk));
+});
+
+test("normalizeRegions trims, NFC-normalises and uppercases each code, and is idempotent", () => {
+  assert.equal(normalizeRegionCode(" nrw "), "NRW");
+  assert.equal(normalizeRegionCode("TH" + "U\u0308"), "THÜ");
+  assert.equal(normalizeRegions(" bay, nrw"), "BAY,NRW");
+  assert.equal(normalizeRegions("nrw,thü"), "NRW,THÜ");
+  assert.equal(normalizeRegions("NRW,"), "NRW,");
+  assert.equal(normalizeRegions("\t"), "");
+  for (const re of [" bay, nrw", "thu\u0308", "BW"]) {
+    assert.equal(normalizeRegions(normalizeRegions(re)), normalizeRegions(re), re);
+  }
+});
+
+test("normalizeSearchParams canonicalises re and uk only, without mutating its input", () => {
+  const params = { re: " nrw", uk: "bundesweit", sw: " Koch " };
+  assert.deepEqual(normalizeSearchParams(params), { re: "NRW", uk: "Bundesweit", sw: " Koch " });
+  assert.deepEqual(params, { re: " nrw", uk: "bundesweit", sw: " Koch " });
+  assert.deepEqual(normalizeSearchParams({ re: ["nrw", "bay"] as unknown as string }), { re: ["NRW", "BAY"] });
+  assert.deepEqual(normalizeSearchParams({ uk: 25 as unknown as string }), { uk: 25 });
+  assert.deepEqual(normalizeSearchParams({}), {});
 });
 
 test("startCodesProblem accepts 0, 1, 2 and 101..112, comma-separated", () => {

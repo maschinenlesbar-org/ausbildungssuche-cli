@@ -184,6 +184,25 @@ for (const [name, argv, params] of [
   });
 }
 
+// Finding #5 (PAT-16): the library canonicalises re (trim, NFC, uppercase per code)
+// and uk (any-case bundesweit -> Bundesweit) as the CLI does; the API answers the
+// lowercase forms with HTTP 400.
+const NFD_THUE = "THU\u0308";
+for (const [name, argv, params, sent] of [
+  ["uk bundesweit", ["--uk", "bundesweit"], { uk: "bundesweit" }, "uk=Bundesweit"],
+  ["uk BUNDESWEIT", ["--uk", "BUNDESWEIT"], { uk: "BUNDESWEIT" }, "uk=Bundesweit"],
+  ["re nrw", ["--re", "nrw"], { re: "nrw" }, "re=NRW"],
+  ["re ' bay, nrw'", ["--re", " bay, nrw"], { re: " bay, nrw" }, "re=BAY%2CNRW"],
+  ["re THÜ in NFD", ["--re", NFD_THUE], { re: NFD_THUE }, "re=TH%C3%9C"],
+  ["re nrw,thü", ["--re", "nrw,thü"], { re: "nrw,thü" }, "re=NRW%2CTH%C3%9C"],
+] as const) {
+  test(`parity: search ${name} is normalised and sent identically`, async () => {
+    const result = await search([...argv], params);
+    assertSameRequest(result);
+    assert.ok(result.lib.requests[0]?.url.endsWith(`?${sent}`), String(result.lib.requests[0]?.url));
+  });
+}
+
 // Finding #7 (PAT-8): the engine's numeric options are range-checked by the
 // library, not only by the CLI's parsers.
 const withOptions = (argv: string[], options: Record<string, number>) =>

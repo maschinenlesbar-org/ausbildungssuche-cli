@@ -116,7 +116,8 @@ search: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
 `RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`. Several can be comma-separated. An
 offer's code is in `adresse.ortStrasse.land.code`; the 2-letter abbreviations
 (e.g. `BW`) get HTTP 400, so the CLI (exit `2`) and the library reject any other
-code before any request. The CLI also uppercases a lowercase one (`nrw` → `NRW`).
+code before any request. Both first trim, NFC-normalise and uppercase each code
+(`nrw` → `NRW`).
 
 ---
 
@@ -130,7 +131,7 @@ reject anything outside `0`..`3`.
 **kilometres** — `10`, `25`, `50` or `100` — or the literal string `Bundesweit`
 ("nationwide") to search the whole country with no radius limit. Other values
 (e.g. `30`, `150`, `200`) get HTTP 400, so the CLI (exit `2`) and the library reject
-them; the CLI sends `bundesweit` in any case as `Bundesweit`. A kilometre radius needs a location
+them; both send `bundesweit` in any case as `Bundesweit`. A kilometre radius needs a location
 (`orte`): without one the API ignores it, so the CLI and the library reject `uk` `25`
 without `orte`.
 
