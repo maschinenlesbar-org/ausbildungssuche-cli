@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertValid,
+  intRangeProblem,
   isBlank,
   nonEmptyProblem,
   offerIdProblem,
@@ -189,4 +190,16 @@ test("search() names the pairing rule when orte or uk comes alone", () => {
     () => validateSearchParams({ uk: "25" }),
     (err) => err instanceof AusbildungValidationError && /^Invalid orte and uk: uk 25 needs orte/.test(err.message),
   );
+});
+
+test("intRangeProblem accepts safe integers in range only", () => {
+  const p = intRangeProblem(0, 10);
+  for (const n of [0, 5, 10]) assert.equal(p(n), undefined, String(n));
+  for (const n of [-1, 11, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(p(n), "Expected an integer between 0 and 10.", String(n));
+  }
+  assert.equal(p("5" as unknown as number), "Expected an integer between 0 and 10.");
+  const nonNegative = intRangeProblem(0, Number.MAX_SAFE_INTEGER);
+  assert.equal(nonNegative(-1), "Expected a non-negative integer.");
+  assert.equal(nonNegative(2 ** 53), "Expected a non-negative integer.");
 });

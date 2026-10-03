@@ -2,7 +2,8 @@
 // requests via a Transport, applies retry/backoff for transient statuses
 // (429, 503), and decodes responses.
 
-import { nodeHttpTransport, type Transport } from "./http.js";
+import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
+import { assertValid, intRangeProblem } from "./validate.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import {
   AusbildungApiError,
@@ -13,6 +14,12 @@ import {
 } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
+
+/** Most retries `maxRetries` may ask for (each may wait up to MAX_RETRY_AFTER_MS). */
+export const MAX_RETRIES = 10;
+
+/** Most redirects `maxRedirects` may ask the engine to follow. */
+export const MAX_REDIRECTS = 10;
 const DEFAULT_USER_AGENT = "ausbildungssuche-cli";
 
 export interface RawResponse {
@@ -32,26 +39,33 @@ export interface EngineOptions {
   defaultHeaders?: Record<string, string>;
   /**
    * Time limit per request in milliseconds, covering the whole response body, not
-   * only idle gaps (0 disables; capped at `MAX_TIMEOUT_MS`, 2^31 - 1 ms).
+   * only idle gaps: an integer 0..`MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables.
+   * Defaults to 30000.
    */
   timeoutMs?: number;
   /**
-   * Number of automatic retries for transient (429/503) responses. Each waits the
-   * response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a longer one is not
-   * retried), or else `retryDelayMs * attempt`.
+   * Number of automatic retries for transient (429/503) responses, an integer
+   * 0..`MAX_RETRIES` (10); defaults to 2. Each waits the response's `Retry-After`
+   * (up to `MAX_RETRY_AFTER_MS`; a longer one is not retried), or else
+   * `retryDelayMs * attempt`.
    */
   maxRetries?: number;
-  /** Base backoff between retries in milliseconds (grows linearly); used without a Retry-After. */
+  /**
+   * Base backoff between retries in milliseconds (grows linearly), a non-negative
+   * integer; used without a Retry-After. Defaults to 200.
+   */
   retryDelayMs?: number;
   /**
-   * Number of HTTP redirects (301/302/303/307/308) to follow. Defaults to 5. Any
-   * other 3xx, one with a missing or malformed Location, and one past this limit
-   * surface as an AusbildungApiError naming the target.
+   * Number of HTTP redirects (301/302/303/307/308) to follow, an integer
+   * 0..`MAX_REDIRECTS` (10); defaults to 5. Any other 3xx, one with a missing or
+   * malformed Location, and one past this limit surface as an AusbildungApiError
+   * naming the target.
    */
   maxRedirects?: number;
   /**
    * Hard cap on response body size in bytes (defends against memory exhaustion
-   * from a hostile/buggy endpoint). Defaults to 100 MiB; set to 0 for no limit.
+   * from a hostile/buggy endpoint), a non-negative integer. Defaults to 100 MiB;
+   * set to 0 for no limit.
    */
   maxResponseBytes?: number;
   /** Injectable sleep, primarily for deterministic tests. */
@@ -180,6 +194,15 @@ function assertHttpScheme(baseUrl: string): void {
   }
 }
 
+/**
+ * A numeric engine option: `fallback` when undefined, else an integer in 0..max,
+ * or an AusbildungValidationError (`Invalid <name>: ...`). Exported so side
+ * fetchers (obtainKey) apply the same rule.
+ */
+export function intOption(name: string, value: number | undefined, max: number, fallback: number): number {
+  return value === undefined ? fallback : assertValid(name, value, intRangeProblem(0, max));
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -213,11 +236,19 @@ export class RequestEngine {
     this.transport = options.transport ?? nodeHttpTransport;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
     this.defaultHeaders = options.defaultHeaders ?? {};
-    this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.maxRetries = options.maxRetries ?? 2;
-    this.retryDelayMs = options.retryDelayMs ?? 200;
-    this.maxRedirects = options.maxRedirects ?? 5;
-    this.maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    // Range-check the numeric options: a negative, NaN or fractional value would
+    // otherwise silently disable the timeout or the size cap, and an unbounded
+    // maxRetries would keep retrying.
+    this.timeoutMs = intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 30_000);
+    this.maxRetries = intOption("maxRetries", options.maxRetries, MAX_RETRIES, 2);
+    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, Number.MAX_SAFE_INTEGER, 200);
+    this.maxRedirects = intOption("maxRedirects", options.maxRedirects, MAX_REDIRECTS, 5);
+    this.maxResponseBytes = intOption(
+      "maxResponseBytes",
+      options.maxResponseBytes,
+      Number.MAX_SAFE_INTEGER,
+      DEFAULT_MAX_RESPONSE_BYTES,
+    );
     this.sleep = options.sleep ?? realSleep;
   }
 

@@ -95,6 +95,7 @@ run them up front.
   the API, and a place without a radius does not narrow the search; either alone
   would return the nationwide set, so `search()` rejects it
   (`placeAndRadiusProblem`). `uk: "Bundesweit"` alone stays allowed.
+- **Engine options out of range** (constructor): see *Engine option ranges* below.
 - **Paging outside the server's bounds.** `page` must be a non-negative integer,
   `size` an integer `1`..`MAX_PAGE_SIZE` (20; the server silently clamps a larger
   size and overrides `0`), and `(page + 1) × size` (size defaulting to
@@ -202,7 +203,7 @@ so a private key is never forwarded to another host. Same-origin redirects keep
 the key.
 
 **Retry / backoff.** Transient `429` (rate limit) and `503` responses are
-retried automatically, up to `--max-retries` (`0`..`10`). Each retry waits the
+retried automatically, up to `maxRetries` / `--max-retries` (`0`..`MAX_RETRIES`, 10). Each retry waits the
 response's `Retry-After` (delay-seconds or an IMF-fixdate HTTP-date, parsed by the
 exported `parseRetryAfter`); without a usable one it backs off linearly
 (`retryDelayMs * attempt`). A `Retry-After` above `MAX_RETRY_AFTER_MS` (30 s) is
@@ -211,6 +212,15 @@ exposes `isRetryable` (true for `429`/`503`).
 
 **maxResponseBytes.** A cap on the response body size in bytes (`0` = unlimited;
 default 100 MiB), guarding against unbounded responses.
+
+**Engine option ranges.** The `RequestEngine` constructor (and so
+`new AusbildungssucheClient(...)`) throws an `AusbildungValidationError` for a
+numeric option that is not an integer in its range: `timeoutMs` `0`..`MAX_TIMEOUT_MS`,
+`maxRetries` `0`..`MAX_RETRIES` (10), `maxRedirects` `0`..`MAX_REDIRECTS` (10),
+`maxResponseBytes` and `retryDelayMs` any non-negative integer (`intOption`,
+`intRangeProblem`). `obtainKey()` applies the same rule to its `timeoutMs`. A NaN,
+negative or fractional value would otherwise silently disable the timeout or the
+size cap. The CLI's `--timeout`/`--max-retries` parsers use the same constants.
 
 **RawResponse.** The engine's raw-response shape (`data`/`contentType`/`status`)
 — exported for completeness; the offer endpoints return decoded JSON.

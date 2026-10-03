@@ -14,7 +14,9 @@
 
 import type { Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
+import { MAX_TIMEOUT_MS } from "./http.js";
 import { AusbildungError, AusbildungParseError } from "./errors.js";
+import { intOption } from "./engine.js";
 
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "AUSBILDUNGSSUCHE_API_KEY";
@@ -31,6 +33,7 @@ export interface ObtainKeyOptions {
   transport?: Transport;
   /** Override the source document (tests, mirrors). */
   sourceUrl?: string;
+  /** Time limit in milliseconds, an integer 0..`MAX_TIMEOUT_MS` (0 = none). */
   timeoutMs?: number;
   userAgent?: string;
 }
@@ -49,6 +52,7 @@ export interface ObtainedKey {
  * no longer states a key, so a caller never proceeds with a made-up value.
  */
 export async function obtainKey(options: ObtainKeyOptions = {}): Promise<ObtainedKey> {
+  if (options.timeoutMs !== undefined) intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 0);
   const sourceUrl = options.sourceUrl ?? KEY_SOURCE_URL;
   const transport = options.transport ?? nodeHttpTransport;
 

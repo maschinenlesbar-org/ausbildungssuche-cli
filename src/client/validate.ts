@@ -27,6 +27,20 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
   return value;
 }
 
+/**
+ * An integer in min..max (a safe integer; NaN, Infinity and fractions are
+ * invalid). With min 0 and max Number.MAX_SAFE_INTEGER the reason reads "Expected a
+ * non-negative integer.".
+ */
+export function intRangeProblem(min: number, max: number): Problem<number> {
+  const reason =
+    min === 0 && max === Number.MAX_SAFE_INTEGER
+      ? "Expected a non-negative integer."
+      : `Expected an integer between ${min} and ${max}.`;
+  return (n) =>
+    typeof n === "number" && Number.isSafeInteger(n) && n >= min && n <= max ? undefined : reason;
+}
+
 /** True for a string that is empty or only whitespace. */
 export function isBlank(value: string): boolean {
   return value.trim() === "";
@@ -56,10 +70,7 @@ export const STY_MIN = 0;
 export const STY_MAX = 3;
 
 /** The offer type (`sty`): an integer in STY_MIN..STY_MAX. */
-export const styProblem: Problem<number> = (sty) =>
-  Number.isSafeInteger(sty) && sty >= STY_MIN && sty <= STY_MAX
-    ? undefined
-    : `Expected an integer between ${STY_MIN} and ${STY_MAX}.`;
+export const styProblem: Problem<number> = intRangeProblem(STY_MIN, STY_MAX);
 
 /** The radii (`uk`) the API accepts; anything else gets HTTP 400. */
 export const RADII = ["10", "25", "50", "100", "Bundesweit"] as const;
@@ -129,14 +140,10 @@ export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_RESULT_WINDOW = 10_000;
 
 /** The 0-based page (`page`): a non-negative integer. */
-export const pageProblem: Problem<number> = (page) =>
-  Number.isSafeInteger(page) && page >= 0 ? undefined : "Expected a non-negative integer.";
+export const pageProblem: Problem<number> = intRangeProblem(0, Number.MAX_SAFE_INTEGER);
 
 /** The page size (`size`): an integer in 1..MAX_PAGE_SIZE. */
-export const sizeProblem: Problem<number> = (size) =>
-  Number.isSafeInteger(size) && size >= 1 && size <= MAX_PAGE_SIZE
-    ? undefined
-    : `Expected an integer between 1 and ${MAX_PAGE_SIZE}.`;
+export const sizeProblem: Problem<number> = intRangeProblem(1, MAX_PAGE_SIZE);
 
 /**
  * The result window: `(page + 1) × size` (size defaulting to DEFAULT_PAGE_SIZE)

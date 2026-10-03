@@ -9,7 +9,7 @@ import { AusbildungssucheClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { API_KEY_ENV_VAR, KEY_SOURCE_URL, obtainKey } from "../src/client/obtain-key.js";
-import { AusbildungError, AusbildungParseError } from "../src/client/errors.js";
+import { AusbildungError, AusbildungParseError, AusbildungValidationError } from "../src/client/errors.js";
 import { makeMockTransport, rawResponse } from "./helpers.js";
 
 const SOURCE_DOC = ["# ausbildungssuche-api", "", "```bash", 'curl -H "X-API-Key: infosysbub-absuche" https://rest.arbeitsagentur.de/...', "```"].join("\\n");
@@ -74,4 +74,16 @@ test("a failing obtain-key exits non-zero rather than printing a guess", async (
   const code = await run(["obtain-key"], cli.deps);
   assert.notEqual(code, 0);
   assert.deepEqual(cli.out, []);
+});
+
+test("obtainKey rejects a timeoutMs that is not an integer in 0..MAX_TIMEOUT_MS, before any request", async () => {
+  for (const timeoutMs of [Number.NaN, -1, 1.5, 2_147_483_648]) {
+    const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+    await assert.rejects(
+      () => obtainKey({ transport: mt.transport, timeoutMs }),
+      (err) => err instanceof AusbildungValidationError && err.message.startsWith("Invalid timeoutMs: "),
+      String(timeoutMs),
+    );
+    assert.equal(mt.calls.length, 0);
+  }
 });

@@ -182,3 +182,50 @@ for (const [name, argv, params] of [
     assertSameRequest(await search([...argv], params));
   });
 }
+
+// Finding #7 (PAT-8): the engine's numeric options are range-checked by the
+// library, not only by the CLI's parsers.
+const withOptions = (argv: string[], options: Record<string, number>) =>
+  parity([...argv, "--api-key", KEY, "details", "1"], (t) =>
+    new AusbildungssucheClient({ transport: t, apiKey: KEY, ...options }).details("1"),
+  );
+
+for (const [name, argv, options, message] of [
+  ["--max-retries 11", ["--max-retries", "11"], { maxRetries: 11 }, /between 0 and 10/],
+  ["--max-retries 50", ["--max-retries", "50"], { maxRetries: 50 }, /between 0 and 10/],
+  ["--timeout 2147483648", ["--timeout", "2147483648"], { timeoutMs: 2_147_483_648 }, /between 0 and 2147483647/],
+  ["--timeout -1", ["--timeout", "-1"], { timeoutMs: -1 }, /non-negative integer|between 0 and 2147483647/],
+  ["--max-response-bytes -1", ["--max-response-bytes", "-1"], { maxResponseBytes: -1 }, /non-negative integer/],
+] as const) {
+  test(`parity: ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await withOptions([...argv], options), message);
+  });
+}
+
+test("parity: in-range engine options give the identical request", async () => {
+  assertSameRequest(
+    await withOptions(["--max-retries", "10", "--timeout", "0", "--max-response-bytes", "0"], {
+      maxRetries: 10,
+      timeoutMs: 0,
+      maxResponseBytes: 0,
+    }),
+  );
+});
+
+// Values the CLI's digit-only parsers cannot express; the library must still reject
+// them in the constructor instead of silently dropping a timeout or a size cap.
+test("the library rejects non-integer and out-of-range engine options", () => {
+  for (const [option, value] of [
+    ["timeoutMs", Number.NaN], ["timeoutMs", 1.5], ["timeoutMs", Number.POSITIVE_INFINITY],
+    ["maxRetries", Number.NaN], ["maxRetries", -1], ["maxRetries", Number.POSITIVE_INFINITY],
+    ["maxResponseBytes", Number.NaN], ["maxResponseBytes", 1.5],
+    ["retryDelayMs", -1], ["retryDelayMs", Number.NaN],
+    ["maxRedirects", -1], ["maxRedirects", Number.NaN], ["maxRedirects", 11],
+  ] as const) {
+    assert.throws(
+      () => new AusbildungssucheClient({ [option]: value }),
+      (err) => err instanceof AusbildungValidationError && err.message.startsWith(`Invalid ${option}: `),
+      `${option}=${value}`,
+    );
+  }
+});

@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_RETRY_AFTER_MS, RequestEngine, parseRetryAfter } from "../src/client/engine.js";
+import {
+  MAX_REDIRECTS,
+  MAX_RETRIES,
+  MAX_RETRY_AFTER_MS,
+  RequestEngine,
+  parseRetryAfter,
+} from "../src/client/engine.js";
+import { MAX_TIMEOUT_MS } from "../src/client/http.js";
 import {
   AusbildungApiError,
   AusbildungParseError,
@@ -384,4 +391,16 @@ test("a not-followed Location is sanitised and its userinfo redacted", async () 
   assert.ok(!err.message.includes("pw"));
   assert.ok(!hasControlChars(err.message) && !err.message.includes("\n"));
   assert.match(err.message, /redirect to https:\/\/\*\*\*@evil\.test\/a/);
+});
+
+test("the engine accepts its numeric options at both ends of their range", () => {
+  for (const options of [
+    { timeoutMs: 0, maxRetries: 0, retryDelayMs: 0, maxRedirects: 0, maxResponseBytes: 0 },
+    { timeoutMs: MAX_TIMEOUT_MS, maxRetries: MAX_RETRIES, maxRedirects: MAX_REDIRECTS, maxResponseBytes: Number.MAX_SAFE_INTEGER },
+  ]) {
+    assert.doesNotThrow(() => new RequestEngine(options), JSON.stringify(options));
+  }
+  assert.throws(() => new RequestEngine({ maxRetries: MAX_RETRIES + 1 }), AusbildungValidationError);
+  assert.throws(() => new RequestEngine({ maxRedirects: MAX_REDIRECTS + 1 }), AusbildungValidationError);
+  assert.throws(() => new RequestEngine({ timeoutMs: MAX_TIMEOUT_MS + 1 }), AusbildungValidationError);
 });

@@ -2,7 +2,15 @@
 
 export { AusbildungssucheClient } from "./client.js";
 export type { AusbildungssucheClientOptions } from "./client.js";
-export { RequestEngine, DEFAULT_BASE_URL, MAX_RETRY_AFTER_MS, parseRetryAfter } from "./engine.js";
+export {
+  RequestEngine,
+  DEFAULT_BASE_URL,
+  intOption,
+  MAX_REDIRECTS,
+  MAX_RETRIES,
+  MAX_RETRY_AFTER_MS,
+  parseRetryAfter,
+} from "./engine.js";
 export type { EngineOptions, RawResponse } from "./engine.js";
 export { MAX_TIMEOUT_MS, nodeHttpTransport } from "./http.js";
 export type { Transport, HttpRequest, HttpResponse } from "./http.js";
@@ -12,6 +20,7 @@ export { buildQueryString } from "./query.js";
 export {
   assertValid,
   DEFAULT_PAGE_SIZE,
+  intRangeProblem,
   isBlank,
   MAX_PAGE_SIZE,
   MAX_RESULT_WINDOW,

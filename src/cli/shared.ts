@@ -9,6 +9,7 @@ import { AusbildungError, AusbildungValidationError } from "../client/errors.js"
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 import { isBidiControl } from "../client/engine.js";
 import {
+  intRangeProblem,
   nonEmptyProblem,
   offerIdProblem,
   placeProblem,
@@ -136,13 +137,16 @@ export function commaList(
   };
 }
 
-/** Build a commander value-parser for a base-10 integer constrained to [min, max]. */
+/**
+ * Build a commander value-parser for a base-10 integer constrained to [min, max]
+ * (the library's intRangeProblem).
+ */
 export function parseBoundedInt(min: number, max: number): (value: string) => number {
+  const problem = intRangeProblem(min, max);
   return (value: string) => {
     const n = parseIntArg(value);
-    if (n < min || n > max) {
-      throw new InvalidArgumentError(`Expected an integer between ${min} and ${max}.`);
-    }
+    const reason = problem(n);
+    if (reason !== undefined) throw new InvalidArgumentError(reason);
     return n;
   };
 }
