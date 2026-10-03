@@ -14,6 +14,7 @@ import {
   placeProblem,
   radiusProblem,
   regionCodeProblem,
+  sizeProblem,
   startCodesProblem,
   type Problem,
 } from "../client/validate.js";
@@ -147,24 +148,15 @@ export function parseBoundedInt(min: number, max: number): (value: string) => nu
 }
 
 /**
- * Largest page size the API honours. Its OpenAPI description says 2000, but the
- * server clamps every larger `size` to 20 (it reports `page.size` 20), so `--page`
- * would count in pages of 20 while a script computes offsets from its own size.
- */
-export const MAX_PAGE_SIZE = 20;
-
-/**
- * commander value-parser for `--size`: a base-10 integer in 1..MAX_PAGE_SIZE.
- * `size=0` is nonsensical (the server silently overrides it to 20) and a larger
- * size is silently clamped to 20 server-side, so both are rejected up front
- * rather than sent and quietly changed.
+ * commander value-parser for `--size`: a base-10 integer, then the library's
+ * sizeProblem (1..MAX_PAGE_SIZE). `size=0` is silently overridden to 20 and a larger
+ * size silently clamped to 20 server-side, so both are rejected up front.
  */
 export function parseSizeArg(value: string): number {
-  const n = parseIntArg(value);
-  if (n < 1 || n > MAX_PAGE_SIZE) {
-    throw new InvalidArgumentError(`Expected an integer between 1 and ${MAX_PAGE_SIZE}.`);
-  }
-  return n;
+  const size = parseIntArg(value);
+  const problem = sizeProblem(size);
+  if (problem !== undefined) throw new InvalidArgumentError(problem);
+  return size;
 }
 
 /** Turn a library Problem into a commander value-parser (a usage error, exit 2). */
@@ -215,15 +207,6 @@ export const parsePlace = parserOf(placeProblem);
 
 /** commander value-parser for an offer id: the library's offerIdProblem (digits only). */
 export const parseOfferId = parserOf(offerIdProblem);
-
-/**
- * The API serves at most this many results of one query, over all pages; a page
- * beyond it (`(page + 1) * size > 10000`) gets HTTP 500.
- */
-export const MAX_RESULT_WINDOW = 10_000;
-
-/** Page size the API uses when `size` is not given. */
-export const DEFAULT_PAGE_SIZE = 20;
 
 export interface GlobalOptions {
   baseUrl?: string;

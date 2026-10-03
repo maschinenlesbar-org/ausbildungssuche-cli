@@ -91,6 +91,11 @@ run them up front.
   coordinates in range (`styProblem`, `regionsProblem`, `radiusProblem`,
   `startCodesProblem`, `placeProblem`). The API answers these with a bare HTTP
   400/500.
+- **Paging outside the server's bounds.** `page` must be a non-negative integer,
+  `size` an integer `1`..`MAX_PAGE_SIZE` (20; the server silently clamps a larger
+  size and overrides `0`), and `(page + 1) × size` (size defaulting to
+  `DEFAULT_PAGE_SIZE`) at most `MAX_RESULT_WINDOW` (10000), past which the API
+  answers HTTP 500 (`pageProblem`, `sizeProblem`, `resultWindowProblem`).
 - **Non-numeric offer ids.** `details()` accepts an id of digits only
   (`offerIdProblem`); a blank, padded, signed, decimal, percent-encoded or
   separator-bearing id (`" 123 "`, `"12/34"`, `"%31%32"`, `".."`) is rejected

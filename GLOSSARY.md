@@ -148,13 +148,13 @@ Several codes can be comma-separated.
 
 **Page (`page`).** Zero-based page index for paging through search results. The
 API serves at most 10000 results of a query, so `(page + 1) × size` must be at most
-`10000` (with the default size 20, the last page is `499`); a later page gets HTTP 500,
-so the CLI rejects it (exit `2`).
+`10000` (`MAX_RESULT_WINDOW`; with the default size 20, the last page is `499`); a later
+page gets HTTP 500, so the CLI (exit `2`) and the library reject it before any request.
 
 **Page size (`size`).** Number of results per page, an integer `1`..`20`
 (`MAX_PAGE_SIZE`). The server silently overrides `size=0` (to 20) and clamps any
 larger value to 20 (it comes back as `page.size` 20, so `page` counts in pages of
-20), so the CLI rejects anything outside `1..20` up front. The upstream API
+20), so the CLI (exit `2`) and the library reject anything outside `1..20` up front. The upstream API
 description names 2000 as the maximum; the server does not honour it.
 
 ---

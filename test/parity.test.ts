@@ -122,3 +122,42 @@ test("the library rejects a sty that is not an integer in 0..3", async () => {
     assert.deepEqual(lib.requests, []);
   }
 });
+
+// Finding #3 (PAT-11): size 1..20, a non-negative integer page, and the
+// 10,000-result window ((page + 1) × size ≤ 10000).
+for (const [name, argv, params, message] of [
+  ["size 0", ["--size", "0"], { size: 0 }, /between 1 and 20/],
+  ["size 21", ["--size", "21"], { size: 21 }, /between 1 and 20/],
+  ["size 50", ["--size", "50"], { size: 50 }, /between 1 and 20/],
+  ["page 500", ["--page", "500"], { page: 500 }, /10000-result window.*last page is 499/],
+  ["page 1000 size 10", ["--page", "1000", "--size", "10"], { page: 1000, size: 10 }, /10000-result window.*last page is 999/],
+  ["page 10000 size 1", ["--page", "10000", "--size", "1"], { page: 10000, size: 1 }, /10000-result window/],
+] as const) {
+  test(`parity: search ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await search([...argv], params), message);
+  });
+}
+
+for (const [name, argv, params] of [
+  ["page 499", ["--page", "499"], { page: 499 }],
+  ["page 9999 size 1", ["--page", "9999", "--size", "1"], { page: 9999, size: 1 }],
+  ["size 20", ["--size", "20"], { size: 20 }],
+  ["page 0 size 1", ["--page", "0", "--size", "1"], { page: 0, size: 1 }],
+] as const) {
+  test(`parity: search ${name} is sent identically`, async () => {
+    assertSameRequest(await search([...argv], params));
+  });
+}
+
+// The CLI's parsers take digits only, so it cannot express these; the library must
+// still reject them rather than send them.
+test("the library rejects a page or size that is not a non-negative integer", async () => {
+  for (const params of [
+    { page: -1 }, { page: 1.5 }, { page: Number.NaN }, { page: Number.POSITIVE_INFINITY },
+    { size: 1.5 }, { size: -1 }, { size: Number.NaN },
+  ]) {
+    const { lib } = await search([], params);
+    assert.ok(lib.error instanceof AusbildungValidationError, JSON.stringify(params));
+    assert.deepEqual(lib.requests, []);
+  }
+});

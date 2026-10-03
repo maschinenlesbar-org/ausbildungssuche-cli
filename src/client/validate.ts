@@ -111,6 +111,52 @@ export const placeProblem: Problem = (orte) => {
         '(-90..90) second, e.g. "Köln_6.957_50.938".';
 };
 
+/**
+ * Largest page size (`size`) the API honours. Its OpenAPI description says 2000,
+ * but the server clamps every larger `size` to 20 (it reports `page.size` 20), so
+ * `page` would count in pages of 20 while a caller computes offsets from its own
+ * size. `size=0` is silently overridden to 20 as well.
+ */
+export const MAX_PAGE_SIZE = 20;
+
+/** Page size the API uses when `size` is not given. */
+export const DEFAULT_PAGE_SIZE = 20;
+
+/**
+ * The API serves at most this many results of one query, over all pages; a page
+ * beyond it (`(page + 1) * size > 10000`) gets HTTP 500.
+ */
+export const MAX_RESULT_WINDOW = 10_000;
+
+/** The 0-based page (`page`): a non-negative integer. */
+export const pageProblem: Problem<number> = (page) =>
+  Number.isSafeInteger(page) && page >= 0 ? undefined : "Expected a non-negative integer.";
+
+/** The page size (`size`): an integer in 1..MAX_PAGE_SIZE. */
+export const sizeProblem: Problem<number> = (size) =>
+  Number.isSafeInteger(size) && size >= 1 && size <= MAX_PAGE_SIZE
+    ? undefined
+    : `Expected an integer between 1 and ${MAX_PAGE_SIZE}.`;
+
+/**
+ * The result window: `(page + 1) × size` (size defaulting to DEFAULT_PAGE_SIZE)
+ * must be at most MAX_RESULT_WINDOW, or the API answers with a bare HTTP 500. The
+ * reason names the last page that can be fetched.
+ */
+export const resultWindowProblem: Problem<Pick<AusbildungSearchParams, "page" | "size">> = ({
+  page,
+  size,
+}) => {
+  if (page === undefined) return undefined;
+  const pageSize = size ?? DEFAULT_PAGE_SIZE;
+  if ((page + 1) * pageSize <= MAX_RESULT_WINDOW) return undefined;
+  return (
+    `${page} is past the API's ${MAX_RESULT_WINDOW}-result window: ` +
+    `(page + 1) × size must be at most ${MAX_RESULT_WINDOW}, so with size ${pageSize} ` +
+    `the last page is ${Math.floor(MAX_RESULT_WINDOW / pageSize) - 1}.`
+  );
+};
+
 function firstProblem(values: readonly string[], problem: Problem): string | undefined {
   for (const value of values) {
     const reason = problem(value);
@@ -127,7 +173,10 @@ function firstProblem(values: readonly string[], problem: Problem): string | und
  *   non-blank (nonEmptyProblem);
  * - `sty`, `re`, `uk` and `bt` must come from the API's closed value sets
  *   (styProblem, regionsProblem, radiusProblem, startCodesProblem), and `orte` must
- *   be `Name_lon_lat` (placeProblem).
+ *   be `Name_lon_lat` (placeProblem);
+ * - `page` must be a non-negative integer, `size` an integer in 1..MAX_PAGE_SIZE,
+ *   and the page must lie inside the MAX_RESULT_WINDOW (pageProblem, sizeProblem,
+ *   resultWindowProblem).
  *
  * `undefined` means "not set" and is never checked.
  */
@@ -149,6 +198,9 @@ export function validateSearchParams(params: AusbildungSearchParams): Ausbildung
     // in the form the query builder sends it.
     for (const item of listOf(params[name])) assertValid(name, String(item), problem);
   }
+  if (params.page !== undefined) assertValid("page", params.page, pageProblem);
+  if (params.size !== undefined) assertValid("size", params.size, sizeProblem);
+  assertValid("page", params, resultWindowProblem);
   return params;
 }
 

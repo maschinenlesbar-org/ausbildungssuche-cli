@@ -3,8 +3,6 @@ import type { CliDeps } from "../io.js";
 import {
   action,
   commaList,
-  DEFAULT_PAGE_SIZE,
-  MAX_RESULT_WINDOW,
   once,
   parseBoundedInt,
   parseIntArg,
@@ -19,7 +17,7 @@ import {
 } from "../shared.js";
 import type { AusbildungSearchParams } from "../../client/types.js";
 import { AusbildungValidationError } from "../../client/errors.js";
-import { STY_MAX, STY_MIN } from "../../client/validate.js";
+import { MAX_PAGE_SIZE, STY_MAX, STY_MIN } from "../../client/validate.js";
 
 /**
  * `--orte` and `--uk` only filter together: the API ignores a numeric radius
@@ -44,22 +42,6 @@ function checkPlaceAndRadius(orte: string | undefined, uk: string | undefined): 
   }
 }
 
-/**
- * The API serves at most MAX_RESULT_WINDOW results of a query over all pages and
- * answers a page past that window with a bare HTTP 500, so reject it up front.
- */
-function checkResultWindow(page: number | undefined, size: number | undefined): void {
-  if (page === undefined) return;
-  const pageSize = size ?? DEFAULT_PAGE_SIZE;
-  if ((page + 1) * pageSize > MAX_RESULT_WINDOW) {
-    throw new AusbildungValidationError(
-      `search: --page ${page} is past the API's ${MAX_RESULT_WINDOW}-result window: ` +
-        `(page + 1) × size must be at most ${MAX_RESULT_WINDOW}, so with size ${pageSize} ` +
-        `the last page is ${Math.floor(MAX_RESULT_WINDOW / pageSize) - 1}.`,
-    );
-  }
-}
-
 export function registerAusbildungCommands(program: Command, deps: CliDeps): void {
   program
     .command("search")
@@ -76,11 +58,10 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     .option("--bg", "only offers eligible for an education voucher (bg)")
     .option("--bt <code>", "start-date code(s) (bt): 2 = earlier dates, 101..112 = January..December of the following year, 0 and 1 also accepted; not a date. Comma-separated or repeated for several", commaList(parseStartCodes))
     .option("--page <n>", "0-based page", once(parseIntArg))
-    .option("--size <n>", "page size, 1..20 (the server serves at most 20 rows per page)", once(parseSizeArg))
+    .option("--size <n>", `page size, 1..${MAX_PAGE_SIZE} (the server serves at most ${MAX_PAGE_SIZE} rows per page)`, once(parseSizeArg))
     .action(
       action(deps, async ({ client, global, opts }) => {
         checkPlaceAndRadius(opts["orte"] as string | undefined, opts["uk"] as string | undefined);
-        checkResultWindow(opts["page"] as number | undefined, opts["size"] as number | undefined);
         const params: AusbildungSearchParams = {
           sw: opts["sw"] as string | undefined,
           sty: opts["sty"] as number | undefined,

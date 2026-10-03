@@ -62,8 +62,8 @@ export interface AusbildungSearchParams {
    * for several (`START_CODES`).
    */
   bt?: string;
-  /** 0-based page. */
+  /** 0-based page; `(page + 1) × size` must be at most `MAX_RESULT_WINDOW` (10000). */
   page?: number;
-  /** Page size. The server clamps anything above 20 to 20; the CLI accepts 1..20. */
+  /** Page size, 1..`MAX_PAGE_SIZE` (20): the server clamps anything above 20 to 20. */
   size?: number;
 }

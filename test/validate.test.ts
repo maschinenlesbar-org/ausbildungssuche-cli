@@ -5,9 +5,12 @@ import {
   isBlank,
   nonEmptyProblem,
   offerIdProblem,
+  pageProblem,
   placeProblem,
   radiusProblem,
   regionsProblem,
+  resultWindowProblem,
+  sizeProblem,
   startCodesProblem,
   styProblem,
   validateSearchParams,
@@ -143,4 +146,27 @@ test("validateSearchParams checks numbers and arrays in the form they are sent",
     (err) => err instanceof AusbildungValidationError && /"BW"/.test(err.message),
   );
   assert.doesNotThrow(() => validateSearchParams({ uk: 25 as unknown as string, ids: 9162 as unknown as string }));
+});
+
+test("pageProblem wants a non-negative integer, sizeProblem an integer in 1..20", () => {
+  for (const n of [0, 1, 499]) assert.equal(pageProblem(n), undefined, String(n));
+  for (const n of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(pageProblem(n), "Expected a non-negative integer.", String(n));
+  }
+  for (const n of [1, 20]) assert.equal(sizeProblem(n), undefined, String(n));
+  for (const n of [0, 21, 2000, 1.5, Number.NaN]) {
+    assert.equal(sizeProblem(n), "Expected an integer between 1 and 20.", String(n));
+  }
+});
+
+test("resultWindowProblem keeps (page + 1) × size within 10000 and names the last page", () => {
+  for (const p of [{}, { page: 499 }, { page: 9999, size: 1 }, { page: 999, size: 10 }, { size: 20 }]) {
+    assert.equal(resultWindowProblem(p), undefined, JSON.stringify(p));
+  }
+  assert.equal(
+    resultWindowProblem({ page: 500 }),
+    "500 is past the API's 10000-result window: (page + 1) × size must be at most 10000, " +
+      "so with size 20 the last page is 499.",
+  );
+  assert.match(resultWindowProblem({ page: 1000, size: 10 }) ?? "", /last page is 999\.$/);
 });

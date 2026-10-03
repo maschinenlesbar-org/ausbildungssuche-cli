@@ -147,13 +147,14 @@ ist nicht dokumentiert); jeder andere Wert führt zu HTTP 400, daher lehnen die 
 
 **Seite (`page`).** Seitenindex, beginnend bei 0, zum Blättern durch die Suchergebnisse.
 Die API liefert höchstens 10000 Ergebnisse einer Abfrage, daher darf `(page + 1) × size`
-höchstens `10000` sein (bei der Standardgröße 20 ist die letzte Seite `499`); eine spätere
-Seite führt zu HTTP 500, daher lehnt die CLI sie ab (Exit `2`).
+höchstens `10000` sein (`MAX_RESULT_WINDOW`; bei der Standardgröße 20 ist die letzte Seite
+`499`); eine spätere Seite führt zu HTTP 500, daher lehnen die CLI (Exit `2`) und die
+Bibliothek sie ab, bevor eine Anfrage gesendet wird.
 
 **Seitengröße (`size`).** Anzahl der Ergebnisse pro Seite, eine ganze Zahl `1`..`20`
 (`MAX_PAGE_SIZE`). Der Server ersetzt `size=0` stillschweigend (durch 20) und kürzt jeden
 größeren Wert auf 20 (er kommt als `page.size` 20 zurück, `page` zählt also in Seiten zu
-20), daher lehnt die CLI alles außerhalb von `1..20` vorab ab. Die Beschreibung der
+20), daher lehnen die CLI (Exit `2`) und die Bibliothek alles außerhalb von `1..20` vorab ab. Die Beschreibung der
 Upstream-API nennt 2000 als Maximum; der Server hält sich nicht daran.
 
 ---
