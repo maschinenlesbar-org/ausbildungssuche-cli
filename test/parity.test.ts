@@ -8,7 +8,9 @@ import { AusbildungssucheClient } from "../src/client/client.js";
 import { AusbildungValidationError } from "../src/client/errors.js";
 import type { AusbildungSearchParams } from "../src/client/types.js";
 import type { Transport } from "../src/client/http.js";
-import { obtainKey } from "../src/client/obtain-key.js";
+import { obtainKey, type ObtainKeyOptions } from "../src/client/obtain-key.js";
+import { AusbildungNetworkError } from "../src/client/errors.js";
+import { rawResponse } from "./helpers.js";
 import { parity } from "./helpers.js";
 
 type Parity = Awaited<ReturnType<typeof parity>>;
@@ -366,4 +368,50 @@ test("parity: a base URL with a path prefix and trailing slashes is sent identic
       new AusbildungssucheClient({ transport: t, apiKey: KEY, baseUrl }).details("1"),
     ),
   );
+});
+
+// Finding #11 (PAT-22): obtainKey() goes through the engine, so obtain-key honours
+// the same request policy (size cap, retries, timeout) as every other request, and
+// the CLI forwards every applicable global option.
+const KEY_DOC = 'curl -H "X-API-Key: infosysbub-absuche" https://rest.arbeitsagentur.de/';
+
+test("parity: obtain-key with a 10-byte response cap fails in CLI and library alike", async () => {
+  const { cli, lib } = await parity(
+    ["--max-response-bytes", "10", "obtain-key"],
+    (t) => obtainKey({ transport: t, maxResponseBytes: 10 } as ObtainKeyOptions),
+    {
+      // Emulates the default transport's cap.
+      responder: (req) => {
+        if (req.maxResponseBytes !== undefined && KEY_DOC.length > req.maxResponseBytes) {
+          throw new AusbildungNetworkError(`Response exceeded maxResponseBytes (${req.maxResponseBytes})`);
+        }
+        return rawResponse(KEY_DOC, "text/plain");
+      },
+    },
+  );
+  assert.equal(cli.code, 6, `CLI exit (stderr: ${cli.err})`);
+  assert.equal(cli.out, "");
+  assert.ok(lib.error instanceof AusbildungNetworkError, String(lib.error));
+  assert.equal(cli.requests.length, 1);
+  assert.deepEqual(lib.requests, cli.requests);
+});
+
+test("parity: obtain-key retries a 503 as --max-retries / maxRetries allow", async () => {
+  let n = 0;
+  const { cli, lib } = await parity(
+    ["--max-retries", "1", "obtain-key"],
+    (t) => obtainKey({ transport: t, maxRetries: 1 } as ObtainKeyOptions),
+    {
+      // Every first attempt gets a 503 (Retry-After 0), every retry the document.
+      responder: () =>
+        ++n % 2 === 1
+          ? { status: 503, headers: { "retry-after": "0" }, body: Buffer.from("busy") }
+          : rawResponse(KEY_DOC, "text/plain"),
+    },
+  );
+  assert.equal(cli.code, 0, `CLI exit (stderr: ${cli.err})`);
+  assert.equal(cli.out, "infosysbub-absuche");
+  assert.equal(lib.ok, true, String(lib.error));
+  assert.equal(cli.requests.length, 2);
+  assert.deepEqual(lib.requests, cli.requests);
 });

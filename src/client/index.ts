@@ -5,6 +5,8 @@ export type { AusbildungssucheClientOptions } from "./client.js";
 export {
   RequestEngine,
   DEFAULT_BASE_URL,
+  DEFAULT_MAX_RESPONSE_BYTES,
+  DEFAULT_TIMEOUT_MS,
   DEFAULT_USER_AGENT,
   intOption,
   validateBaseUrl,
@@ -26,6 +28,7 @@ export {
   DEFAULT_PAGE_SIZE,
   headerNameProblem,
   headerValueProblem,
+  httpUrlProblem,
   intRangeProblem,
   isBlank,
   MAX_PAGE_SIZE,

@@ -10,7 +10,7 @@ import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { API_KEY_ENV_VAR, KEY_SOURCE_URL, obtainKey } from "../src/client/obtain-key.js";
 import { AusbildungError, AusbildungParseError, AusbildungValidationError } from "../src/client/errors.js";
-import { makeMockTransport, rawResponse } from "./helpers.js";
+import { makeMockTransport, rawResponse, redirectResponse } from "./helpers.js";
 
 const SOURCE_DOC = ["# ausbildungssuche-api", "", "```bash", 'curl -H "X-API-Key: infosysbub-absuche" https://rest.arbeitsagentur.de/...', "```"].join("\\n");
 const EXPECTED_KEY = "infosysbub-absuche";
@@ -83,6 +83,74 @@ test("obtainKey rejects a timeoutMs that is not an integer in 0..MAX_TIMEOUT_MS,
       () => obtainKey({ transport: mt.transport, timeoutMs }),
       (err) => err instanceof AusbildungValidationError && err.message.startsWith("Invalid timeoutMs: "),
       String(timeoutMs),
+    );
+    assert.equal(mt.calls.length, 0);
+  }
+});
+
+// Finding #11 (PAT-22): the fetch goes through the engine's request policy.
+test("obtainKey applies the engine's default timeout and response size cap", async () => {
+  const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+  await obtainKey({ transport: mt.transport });
+  assert.equal(mt.last().timeoutMs, 30_000);
+  assert.equal(mt.last().maxResponseBytes, 100 * 1024 * 1024);
+});
+
+test("obtainKey retries a 429 by default, honouring Retry-After", async () => {
+  const waits: number[] = [];
+  let n = 0;
+  const mt = makeMockTransport(() =>
+    ++n === 1
+      ? { status: 429, headers: { "retry-after": "1" }, body: Buffer.alloc(0) }
+      : rawResponse(SOURCE_DOC, "text/plain"),
+  );
+  const result = await obtainKey({ transport: mt.transport, sleep: async (ms) => void waits.push(ms) });
+  assert.equal(result.key, EXPECTED_KEY);
+  assert.equal(mt.calls.length, 2);
+  assert.deepEqual(waits, [1000]);
+});
+
+test("obtainKey follows a redirect to the moved document", async () => {
+  const moved = "https://example.org/mirror/README.md";
+  const mt = makeMockTransport((req) =>
+    req.url === KEY_SOURCE_URL ? redirectResponse(moved, 301) : rawResponse(SOURCE_DOC, "text/plain"),
+  );
+  const result = await obtainKey({ transport: mt.transport });
+  assert.equal(result.key, EXPECTED_KEY);
+  assert.deepEqual(mt.calls.map((c) => c.url), [KEY_SOURCE_URL, moved]);
+});
+
+test("obtainKey still reports a failed source as AusbildungError naming the status", async () => {
+  const mt = makeMockTransport(() => rawResponse("nope", "text/plain", 503));
+  await assert.rejects(
+    () => obtainKey({ transport: mt.transport, maxRetries: 0 }),
+    (err) =>
+      err instanceof AusbildungError &&
+      err.constructor === AusbildungError &&
+      /Could not read the key source .* \(HTTP 503\)\. Retry, or copy the key/.test(err.message),
+  );
+  assert.equal(mt.calls.length, 1);
+});
+
+test("obtainKey rejects a sourceUrl that is not an http(s) URL, before any request", async () => {
+  for (const sourceUrl of ["ftp://example.org/key", "notaurl", ""]) {
+    const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+    await assert.rejects(
+      () => obtainKey({ transport: mt.transport, sourceUrl }),
+      (err) => err instanceof AusbildungValidationError && err.message.startsWith("Invalid sourceUrl: "),
+      sourceUrl,
+    );
+    assert.equal(mt.calls.length, 0);
+  }
+});
+
+test("obtainKey rejects out-of-range engine options, before any request", async () => {
+  for (const options of [{ maxRetries: 11 }, { maxResponseBytes: -1 }, { maxRedirects: 1.5 }]) {
+    const mt = makeMockTransport(() => rawResponse(SOURCE_DOC, "text/plain"));
+    await assert.rejects(
+      () => obtainKey({ transport: mt.transport, ...options }),
+      AusbildungValidationError,
+      JSON.stringify(options),
     );
     assert.equal(mt.calls.length, 0);
   }

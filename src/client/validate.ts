@@ -114,6 +114,25 @@ export const baseUrlProblem: Problem = (value) => {
   return undefined;
 };
 
+/**
+ * An absolute http(s) URL fetched as it is (obtainKey's `sourceUrl`), unlike a
+ * base URL it may carry a query. The reason never echoes the value.
+ */
+export const httpUrlProblem: Problem = (value) => {
+  if (typeof value !== "string") return "Expected an absolute http(s) URL.";
+  const blank = nonEmptyProblem(value);
+  if (blank !== undefined) return blank;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return "Expected an absolute http(s) URL.";
+  }
+  return url.protocol === "http:" || url.protocol === "https:"
+    ? undefined
+    : `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
+};
+
 /** An HTTP header name: an RFC 9110 token. */
 export const headerNameProblem: Problem = (name) =>
   typeof name === "string" && /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name)

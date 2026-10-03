@@ -140,6 +140,17 @@ npm run obtain-key                                      # prints the current pub
 AUSBILDUNGSSUCHE_API_KEY="$(npm run --silent obtain-key)" ausbildungssuche search --ids 9162
 ```
 
+`obtainKey()` (and so `obtain-key`) fetches the source through
+`RequestEngine.getAbsolute`, an absolute-URL GET with the engine's request policy:
+the default timeout (`DEFAULT_TIMEOUT_MS`) and size cap
+(`DEFAULT_MAX_RESPONSE_BYTES`), 429/503 retries and redirects. `ObtainKeyOptions`
+takes the engine's `transport`, `timeoutMs`, `userAgent`, `maxRetries`,
+`retryDelayMs`, `maxRedirects`, `maxResponseBytes` and `sleep`, with the same
+defaults and range checks; `sourceUrl` must be an absolute http(s) URL
+(`httpUrlProblem`). No base URL and no API key are used. A non-2xx answer becomes an
+`AusbildungError` naming the status; the CLI forwards every global option except
+`--base-url` and `--api-key`.
+
 The script scrapes the key from the upstream
 [bundesAPI README](https://github.com/bundesAPI/ausbildungssuche-api); it is a
 dev/CI tool only and is not part of the published package.
@@ -241,7 +252,8 @@ default 100 MiB), guarding against unbounded responses.
 numeric option that is not an integer in its range: `timeoutMs` `0`..`MAX_TIMEOUT_MS`,
 `maxRetries` `0`..`MAX_RETRIES` (10), `maxRedirects` `0`..`MAX_REDIRECTS` (10),
 `maxResponseBytes` and `retryDelayMs` any non-negative integer (`intOption`,
-`intRangeProblem`). `obtainKey()` applies the same rule to its `timeoutMs`. A NaN,
+`intRangeProblem`). `obtainKey()` builds a `RequestEngine` from the same options,
+so the same ranges apply there. A NaN,
 negative or fractional value would otherwise silently disable the timeout or the
 size cap. The CLI's `--timeout`/`--max-retries` parsers use the same constants.
 

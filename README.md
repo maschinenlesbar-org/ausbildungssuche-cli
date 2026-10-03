@@ -68,7 +68,9 @@ export AUSBILDUNGSSUCHE_API_KEY="$(ausbildungssuche obtain-key)"
 Because the key is fetched rather than compiled in, a rotated key needs no
 release of this CLI. If the upstream source is unreachable or stops publishing a
 key, `obtain-key` fails loudly with a non-zero exit rather than printing a guess
-— it will never invent a value.
+— it will never invent a value. The global `--timeout`, `--user-agent`,
+`--max-retries` and `--max-response-bytes` apply to it as to every request (a
+`429`/`503` is retried, a redirect followed); `--base-url` and `--api-key` do not.
 
 ## Quickstart
 

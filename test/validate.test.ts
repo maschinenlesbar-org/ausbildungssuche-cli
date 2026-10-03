@@ -6,6 +6,7 @@ import {
   baseUrlProblem,
   headerNameProblem,
   headerValueProblem,
+  httpUrlProblem,
   intRangeProblem,
   isBlank,
   nonEmptyProblem,
@@ -259,6 +260,14 @@ test("apiKeyProblem checks the trimmed key as a header value", () => {
   assert.equal(apiKeyProblem(" a\nb "), "Value contains control characters.");
   assert.equal(apiKeyProblem("k€"), "Value contains characters outside Latin-1 (above U+00FF).");
   assert.equal(apiKeyProblem(42 as unknown as string), "Expected a string.");
+});
+
+test("httpUrlProblem wants an absolute http(s) URL, query allowed", () => {
+  for (const url of ["https://h.example/a.md", "http://h/x?y=1"]) assert.equal(httpUrlProblem(url), undefined, url);
+  assert.equal(httpUrlProblem(""), "Expected a non-empty value.");
+  assert.equal(httpUrlProblem("notaurl"), "Expected an absolute http(s) URL.");
+  assert.equal(httpUrlProblem("ftp://h/x"), 'Unsupported scheme "ftp:". Expected an http(s) URL.');
+  assert.equal(httpUrlProblem(1 as unknown as string), "Expected an absolute http(s) URL.");
 });
 
 test("headerNameProblem wants an HTTP token", () => {

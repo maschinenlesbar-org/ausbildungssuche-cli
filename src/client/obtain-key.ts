@@ -9,15 +9,15 @@
 // module must never do is invent one, or fall back to a stale literal compiled
 // into the package.
 //
-// The fetch goes through the same `Transport` seam as every other request, so it
-// honours --timeout/--user-agent and is testable in-process without a network.
+// The fetch goes through the engine (RequestEngine.getAbsolute), so it has the
+// same request policy as every other request: the default timeout and size cap,
+// 429/503 retries and redirects. It uses no base URL and sends no API key: the key
+// lives on another host and does not exist yet. Testable in-process through the
+// `Transport` seam, without a network.
 
-import type { Transport } from "./http.js";
-import { nodeHttpTransport } from "./http.js";
-import { MAX_TIMEOUT_MS } from "./http.js";
-import { AusbildungError, AusbildungParseError } from "./errors.js";
-import { DEFAULT_USER_AGENT, intOption } from "./engine.js";
-import { assertValid, headerValueProblem } from "./validate.js";
+import { AusbildungApiError, AusbildungError, AusbildungParseError } from "./errors.js";
+import { RequestEngine, type EngineOptions } from "./engine.js";
+import { assertValid, httpUrlProblem } from "./validate.js";
 
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "AUSBILDUNGSSUCHE_API_KEY";
@@ -29,15 +29,25 @@ export const KEY_SOURCE_URL =
 /** `X-API-Key: <value>` as documented in the source's curl examples. */
 const KEY_PATTERN = /X-API-Key:\s*([^\s"'`]+)/i;
 
-export interface ObtainKeyOptions {
-  /** Injectable transport; defaults to the built-in node:http/https one. */
-  transport?: Transport;
-  /** Override the source document (tests, mirrors). */
+/**
+ * Options for obtainKey(): the engine's request policy (transport, timeout,
+ * User-Agent, retries, redirects, size cap) with the engine's defaults and range
+ * checks, plus the source URL. No base URL and no API key apply.
+ */
+export interface ObtainKeyOptions
+  extends Pick<
+    EngineOptions,
+    | "transport"
+    | "timeoutMs"
+    | "userAgent"
+    | "maxRetries"
+    | "retryDelayMs"
+    | "maxRedirects"
+    | "maxResponseBytes"
+    | "sleep"
+  > {
+  /** Override the source document (tests, mirrors); an absolute http(s) URL. */
   sourceUrl?: string;
-  /** Time limit in milliseconds, an integer 0..`MAX_TIMEOUT_MS` (0 = none). */
-  timeoutMs?: number;
-  /** User-Agent header; defaults to `DEFAULT_USER_AGENT`, must be a valid header value. */
-  userAgent?: string;
 }
 
 export interface ObtainedKey {
@@ -54,32 +64,36 @@ export interface ObtainedKey {
  * no longer states a key, so a caller never proceeds with a made-up value.
  */
 export async function obtainKey(options: ObtainKeyOptions = {}): Promise<ObtainedKey> {
-  if (options.timeoutMs !== undefined) intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 0);
-  const userAgent =
-    options.userAgent === undefined
-      ? DEFAULT_USER_AGENT
-      : assertValid("userAgent", options.userAgent, headerValueProblem);
-  const sourceUrl = options.sourceUrl ?? KEY_SOURCE_URL;
-  const transport = options.transport ?? nodeHttpTransport;
-
-  const response = await transport({
-    method: "GET",
-    url: sourceUrl,
-    headers: {
-      Accept: "text/plain, text/markdown;q=0.9, */*;q=0.8",
-      "User-Agent": userAgent,
-    },
-    ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+  const { sourceUrl = KEY_SOURCE_URL, transport, timeoutMs, userAgent, maxRetries } = options;
+  const { retryDelayMs, maxRedirects, maxResponseBytes, sleep } = options;
+  assertValid("sourceUrl", sourceUrl, httpUrlProblem);
+  // Only the request policy is passed on: a caller's baseUrl or defaultHeaders (an
+  // API key) have no business on the key source's host. The constructor
+  // range-checks the options; inside this async function a bad one rejects.
+  const engine = new RequestEngine({
+    transport,
+    timeoutMs,
+    userAgent,
+    maxRetries,
+    retryDelayMs,
+    maxRedirects,
+    maxResponseBytes,
+    sleep,
   });
 
-  if (response.status < 200 || response.status >= 300) {
+  let response;
+  try {
+    response = await engine.getAbsolute(sourceUrl, "text/plain, text/markdown;q=0.9, */*;q=0.8");
+  } catch (err) {
+    if (!(err instanceof AusbildungApiError)) throw err;
     throw new AusbildungError(
-      `Could not read the key source ${sourceUrl} (HTTP ${response.status}). ` +
+      `Could not read the key source ${sourceUrl} (HTTP ${err.status}). ` +
         `Retry, or copy the key from github.com/bundesAPI/ausbildungssuche-api by hand.`,
+      { cause: err },
     );
   }
 
-  const text = response.body.toString("utf8");
+  const text = response.data.toString("utf8");
   const key = KEY_PATTERN.exec(text)?.[1]?.trim();
   if (!key) {
     throw new AusbildungParseError(

@@ -1,13 +1,15 @@
 import type { Command } from "commander";
 import type { CliDeps } from "../io.js";
 import { API_KEY_ENV_VAR, KEY_SOURCE_URL, obtainKey, shellQuoteSingle } from "../../client/obtain-key.js";
-import type { GlobalOptions } from "../shared.js";
+import { toEngineOptions, type GlobalOptions } from "../shared.js";
 
 /**
  * `obtain-key` — fetch the public X-API-Key and print it.
  *
  * Deliberately does NOT build a client: it must work before a key exists, which
- * is the whole point. stdout carries only the key (so `$(...)` composes), while
+ * is the whole point. The library's obtainKey() still applies the engine's request
+ * policy, with the global --timeout, --user-agent, --max-retries and
+ * --max-response-bytes forwarded. stdout carries only the key (so `$(...)` composes), while
  * the provenance note goes to stderr.
  */
 export function registerObtainKeyCommands(program: Command, deps: CliDeps): void {
@@ -22,10 +24,12 @@ export function registerObtainKeyCommands(program: Command, deps: CliDeps): void
     .action(async (...args: unknown[]) => {
       const command = args[args.length - 1] as Command;
       const global = command.optsWithGlobals() as GlobalOptions;
+      // Every global request option applies except --base-url and --api-key: the
+      // key source is another host, and the key does not exist yet.
+      const { baseUrl: _baseUrl, apiKey: _apiKey, ...policy } = toEngineOptions(global);
       const { key, sourceUrl } = await obtainKey({
+        ...policy,
         ...(deps.transport !== undefined ? { transport: deps.transport } : {}),
-        ...(global.timeout !== undefined ? { timeoutMs: global.timeout } : {}),
-        ...(global.userAgent !== undefined ? { userAgent: global.userAgent } : {}),
       });
       deps.io.err(`Obtained the public key from ${sourceUrl}`);
       deps.io.out(

@@ -3,7 +3,14 @@
 // (429, 503), and decodes responses.
 
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
-import { assertValid, baseUrlProblem, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
+import {
+  assertValid,
+  baseUrlProblem,
+  headerNameProblem,
+  headerValueProblem,
+  httpUrlProblem,
+  intRangeProblem,
+} from "./validate.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import {
   AusbildungApiError,
@@ -82,7 +89,11 @@ export interface EngineOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
-const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
+/** Default per-request time limit in milliseconds (`timeoutMs`). */
+export const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Default cap on a response body in bytes (`maxResponseBytes`), 100 MiB. */
+export const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
 
 /**
  * The redirect statuses the engine follows. 300 (a choice for the user), 304 (a
@@ -241,7 +252,7 @@ export class RequestEngine {
     // Range-check the numeric options: a negative, NaN or fractional value would
     // otherwise silently disable the timeout or the size cap, and an unbounded
     // maxRetries would keep retrying.
-    this.timeoutMs = intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 30_000);
+    this.timeoutMs = intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
     this.maxRetries = intOption("maxRetries", options.maxRetries, MAX_RETRIES, 2);
     this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, Number.MAX_SAFE_INTEGER, 200);
     this.maxRedirects = intOption("maxRedirects", options.maxRedirects, MAX_REDIRECTS, 5);
@@ -281,14 +292,30 @@ export class RequestEngine {
     path: string,
     options: { query?: QueryParams; accept: string } = { accept: "application/json" },
   ): Promise<RawResponse> {
-    let url = this.buildUrl(path, options.query);
+    return this.send(method, this.buildUrl(path, options.query), options.accept);
+  }
+
+  /**
+   * GET an absolute http(s) URL, outside the base URL, with the same request policy
+   * as every other request: timeout, size cap, 429/503 retries, redirects with
+   * credential stripping, and the User-Agent and default headers. Used by
+   * obtainKey(), which builds an engine without an API key. Rejects with an
+   * AusbildungValidationError for a URL that is not http(s) (httpUrlProblem).
+   */
+  async getAbsolute(url: string, accept: string): Promise<RawResponse> {
+    assertValid("url", url, httpUrlProblem);
+    return this.send("GET", url, accept);
+  }
+
+  private async send(method: string, initialUrl: string, accept: string): Promise<RawResponse> {
+    let url = initialUrl;
     // The per-request `accept` is the authoritative Accept for this call, so it
     // is applied AFTER defaultHeaders — otherwise a default `Accept` (e.g. an
     // API-wide HAL+JSON default) would permanently shadow per-endpoint
     // negotiation. User-Agent is likewise applied after defaultHeaders.
     let headers: Record<string, string> = {
       ...this.defaultHeaders,
-      Accept: options.accept,
+      Accept: accept,
       "User-Agent": this.userAgent,
     };
 
