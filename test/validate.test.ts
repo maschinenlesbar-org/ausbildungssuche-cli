@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertValid,
+  headerNameProblem,
+  headerValueProblem,
   intRangeProblem,
   isBlank,
   nonEmptyProblem,
@@ -202,4 +204,20 @@ test("intRangeProblem accepts safe integers in range only", () => {
   const nonNegative = intRangeProblem(0, Number.MAX_SAFE_INTEGER);
   assert.equal(nonNegative(-1), "Expected a non-negative integer.");
   assert.equal(nonNegative(2 ** 53), "Expected a non-negative integer.");
+});
+
+test("headerValueProblem rejects blank, control and non-Latin-1 values", () => {
+  for (const v of ["ua", "a\tb", "é", "my-app/1.0 (+https://x)"]) assert.equal(headerValueProblem(v), undefined, v);
+  assert.equal(headerValueProblem(""), "Expected a non-empty value.");
+  assert.equal(headerValueProblem("  "), "Expected a non-empty value.");
+  for (const code of [0x00, 0x0a, 0x0d, 0x1b, 0x7f]) {
+    assert.equal(headerValueProblem(`a${String.fromCharCode(code)}b`), "Value contains control characters.", String(code));
+  }
+  assert.equal(headerValueProblem("€"), "Value contains characters outside Latin-1 (above U+00FF).");
+  assert.equal(headerValueProblem(1 as unknown as string), "Expected a string.");
+});
+
+test("headerNameProblem wants an HTTP token", () => {
+  for (const n of ["X-API-Key", "User-Agent", "x_y.z"]) assert.equal(headerNameProblem(n), undefined, n);
+  for (const n of ["", "Bad Name", "a:b", "ä"]) assert.notEqual(headerNameProblem(n), undefined, n);
 });

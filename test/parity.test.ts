@@ -8,6 +8,7 @@ import { AusbildungssucheClient } from "../src/client/client.js";
 import { AusbildungValidationError } from "../src/client/errors.js";
 import type { AusbildungSearchParams } from "../src/client/types.js";
 import type { Transport } from "../src/client/http.js";
+import { obtainKey } from "../src/client/obtain-key.js";
 import { parity } from "./helpers.js";
 
 type Parity = Awaited<ReturnType<typeof parity>>;
@@ -226,6 +227,65 @@ test("the library rejects non-integer and out-of-range engine options", () => {
       () => new AusbildungssucheClient({ [option]: value }),
       (err) => err instanceof AusbildungValidationError && err.message.startsWith(`Invalid ${option}: `),
       `${option}=${value}`,
+    );
+  }
+});
+
+// Finding #8 (PAT-5): whether a value can go into an HTTP header is checked by the
+// library (client, engine and obtainKey), not only by the CLI's parsers.
+const CRLF = "k" + String.fromCharCode(13, 10) + "X-Evil: 1";
+const headerCases: Array<[string, string[], Record<string, unknown>, RegExp]> = [
+  ["--api-key with CR/LF", ["--api-key", CRLF], { apiKey: CRLF }, /control characters/],
+  ["--api-key above Latin-1", ["--api-key", "€key"], { apiKey: "€key" }, /outside Latin-1/],
+  ["--api-key with NUL", ["--api-key", "a\u0000b"], { apiKey: "a\u0000b" }, /control characters/],
+  ["blank --user-agent", ["--user-agent", ""], { userAgent: "" }, /non-empty/],
+  ["whitespace --user-agent", ["--user-agent", "   "], { userAgent: "   " }, /non-empty/],
+  ["--user-agent with CR/LF", ["--user-agent", CRLF], { userAgent: CRLF }, /control characters/],
+  ["--user-agent with DEL", ["--user-agent", "a\u007fb"], { userAgent: "a\u007fb" }, /control characters/],
+  ["--user-agent above Latin-1", ["--user-agent", "agent☃"], { userAgent: "agent☃" }, /outside Latin-1/],
+];
+for (const [name, argv, options, message] of headerCases) {
+  test(`parity: ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(
+      await parity([...argv, "details", "1"], (t) =>
+        new AusbildungssucheClient({ transport: t, ...options }).details("1"),
+      ),
+      message,
+    );
+  });
+}
+
+test("parity: a control character in the env API key is rejected by CLI and library alike", async () => {
+  assertBothReject(
+    await parity(["details", "1"], (t) => new AusbildungssucheClient({ transport: t, apiKey: CRLF }).details("1"), {
+      env: { AUSBILDUNGSSUCHE_API_KEY: CRLF },
+    }),
+    /control characters/,
+  );
+});
+
+test("parity: obtain-key with a CR/LF User-Agent is rejected by CLI and library alike", async () => {
+  assertBothReject(
+    await parity(["--user-agent", CRLF, "obtain-key"], (t) => obtainKey({ transport: t, userAgent: CRLF })),
+    /control characters/,
+  );
+});
+
+test("parity: tab and Latin-1 in the User-Agent are sent identically", async () => {
+  assertSameRequest(
+    await parity(["--user-agent", "a\tü", "--api-key", KEY, "details", "1"], (t) =>
+      new AusbildungssucheClient({ transport: t, userAgent: "a\tü", apiKey: KEY }).details("1"),
+    ),
+  );
+});
+
+test("the library rejects a bad defaultHeaders name or value in the constructor", () => {
+  const cases: Array<Record<string, string>> = [{ "X-Bad": CRLF }, { "X-Bad": "" }, { "Bad Name": "v" }, { "": "v" }];
+  for (const defaultHeaders of cases) {
+    assert.throws(
+      () => new AusbildungssucheClient({ defaultHeaders }),
+      (err) => err instanceof AusbildungValidationError,
+      JSON.stringify(defaultHeaders),
     );
   }
 });

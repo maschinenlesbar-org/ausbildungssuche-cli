@@ -5,6 +5,7 @@ export type { AusbildungssucheClientOptions } from "./client.js";
 export {
   RequestEngine,
   DEFAULT_BASE_URL,
+  DEFAULT_USER_AGENT,
   intOption,
   MAX_REDIRECTS,
   MAX_RETRIES,
@@ -20,6 +21,8 @@ export { buildQueryString } from "./query.js";
 export {
   assertValid,
   DEFAULT_PAGE_SIZE,
+  headerNameProblem,
+  headerValueProblem,
   intRangeProblem,
   isBlank,
   MAX_PAGE_SIZE,

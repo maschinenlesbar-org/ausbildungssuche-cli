@@ -96,3 +96,16 @@ test("enforces maxResponseBytes", async () => {
     },
   );
 });
+
+test("a header Node cannot send rejects with AusbildungNetworkError, not a raw TypeError", async () => {
+  // Node validates headers before opening a socket, so nothing is sent to the port.
+  await assert.rejects(
+    () =>
+      nodeHttpTransport({
+        method: "GET",
+        url: "http://127.0.0.1:1/",
+        headers: { "User-Agent": "a" + String.fromCharCode(13, 10) + "X-Evil: 1" },
+      }),
+    (err) => err instanceof AusbildungNetworkError && /^Invalid request: /.test(err.message),
+  );
+});

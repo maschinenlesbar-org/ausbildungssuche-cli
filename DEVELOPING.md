@@ -96,6 +96,13 @@ run them up front.
   would return the nationwide set, so `search()` rejects it
   (`placeAndRadiusProblem`). `uk: "Bundesweit"` alone stays allowed.
 - **Engine options out of range** (constructor): see *Engine option ranges* below.
+- **Header values that cannot be sent** (constructor, and `obtainKey()`). `apiKey`,
+  `userAgent` and every `defaultHeaders` value must be non-blank, free of C0 control
+  characters (tab allowed) and DEL, and within Latin-1 (`headerValueProblem`);
+  header names must be HTTP tokens (`headerNameProblem`). A blank `apiKey` still
+  means "no key"; a blank `userAgent` is rejected (only `undefined` selects
+  `DEFAULT_USER_AGENT`). The default transport also turns Node's synchronous
+  "Invalid character in header content" into an `AusbildungNetworkError`.
 - **Paging outside the server's bounds.** `page` must be a non-negative integer,
   `size` an integer `1`..`MAX_PAGE_SIZE` (20; the server silently clamps a larger
   size and overrides `0`), and `(page + 1) × size` (size defaulting to

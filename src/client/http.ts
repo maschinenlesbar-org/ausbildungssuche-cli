@@ -75,42 +75,55 @@ export const nodeHttpTransport: Transport = (request) =>
     const done = settle(resolve);
     const fail = settle(reject);
 
-    const req = driver.request(
-      url,
-      {
-        method: request.method,
-        headers: request.headers,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        let received = 0;
-        let aborted = false;
+    // driver.request throws synchronously for a header Node cannot send (a custom
+    // caller's header map, past the engine's checks); turn that into a typed error
+    // instead of a raw TypeError.
+    let req: http.ClientRequest;
+    try {
+      req = driver.request(
+        url,
+        {
+          method: request.method,
+          headers: request.headers,
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          let received = 0;
+          let aborted = false;
 
-        res.on("data", (chunk: Buffer) => {
-          if (aborted) return;
-          received += chunk.length;
-          if (maxBytes !== undefined && received > maxBytes) {
-            aborted = true;
-            res.destroy();
-            fail(new AusbildungNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
-            return;
-          }
-          chunks.push(chunk);
-        });
-        res.on("end", () => {
-          if (aborted) return;
-          done({
-            status: res.statusCode ?? 0,
-            headers: res.headers,
-            body: Buffer.concat(chunks),
+          res.on("data", (chunk: Buffer) => {
+            if (aborted) return;
+            received += chunk.length;
+            if (maxBytes !== undefined && received > maxBytes) {
+              aborted = true;
+              res.destroy();
+              fail(new AusbildungNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
+              return;
+            }
+            chunks.push(chunk);
           });
-        });
-        res.on("error", (err) => {
-          if (aborted) return; // we already rejected with the size-cap error
-          fail(new AusbildungNetworkError(`Response stream error: ${err.message}`, { cause: err }));
-        });
-      },
-    );
+          res.on("end", () => {
+            if (aborted) return;
+            done({
+              status: res.statusCode ?? 0,
+              headers: res.headers,
+              body: Buffer.concat(chunks),
+            });
+          });
+          res.on("error", (err) => {
+            if (aborted) return; // we already rejected with the size-cap error
+            fail(new AusbildungNetworkError(`Response stream error: ${err.message}`, { cause: err }));
+          });
+        },
+      );
+    } catch (err) {
+      reject(
+        new AusbildungNetworkError(`Invalid request: ${err instanceof Error ? err.message : String(err)}`, {
+          cause: err,
+        }),
+      );
+      return;
+    }
 
     if (request.timeoutMs && request.timeoutMs > 0) {
       const timeoutMs = request.timeoutMs;

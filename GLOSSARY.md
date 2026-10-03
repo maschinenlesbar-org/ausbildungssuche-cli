@@ -46,7 +46,9 @@ operates the Ausbildungssuche service and its API.
 required on every request. It is **not bundled** — obtain it with `obtain-key` or supply
 it via `--api-key`, the `AUSBILDUNGSSUCHE_API_KEY` env var, or the `apiKey` client
 option, else the header is omitted and the service answers `401`/`403`. An
-empty/whitespace key is treated as absent (no header sent). For CI / live testing
+empty/whitespace key is treated as absent (no header sent); a key with a control
+character or a character above U+00FF is rejected by the CLI (exit `2`) and the library
+before any request. For CI / live testing
 the public key can be fetched out-of-band (never from the CLI) via
 the CLI's own `obtain-key` command (`npm run obtain-key`).
 

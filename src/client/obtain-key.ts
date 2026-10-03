@@ -16,7 +16,8 @@ import type { Transport } from "./http.js";
 import { nodeHttpTransport } from "./http.js";
 import { MAX_TIMEOUT_MS } from "./http.js";
 import { AusbildungError, AusbildungParseError } from "./errors.js";
-import { intOption } from "./engine.js";
+import { DEFAULT_USER_AGENT, intOption } from "./engine.js";
+import { assertValid, headerValueProblem } from "./validate.js";
 
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "AUSBILDUNGSSUCHE_API_KEY";
@@ -35,6 +36,7 @@ export interface ObtainKeyOptions {
   sourceUrl?: string;
   /** Time limit in milliseconds, an integer 0..`MAX_TIMEOUT_MS` (0 = none). */
   timeoutMs?: number;
+  /** User-Agent header; defaults to `DEFAULT_USER_AGENT`, must be a valid header value. */
   userAgent?: string;
 }
 
@@ -53,6 +55,10 @@ export interface ObtainedKey {
  */
 export async function obtainKey(options: ObtainKeyOptions = {}): Promise<ObtainedKey> {
   if (options.timeoutMs !== undefined) intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 0);
+  const userAgent =
+    options.userAgent === undefined
+      ? DEFAULT_USER_AGENT
+      : assertValid("userAgent", options.userAgent, headerValueProblem);
   const sourceUrl = options.sourceUrl ?? KEY_SOURCE_URL;
   const transport = options.transport ?? nodeHttpTransport;
 
@@ -61,7 +67,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
     url: sourceUrl,
     headers: {
       Accept: "text/plain, text/markdown;q=0.9, */*;q=0.8",
-      "User-Agent": options.userAgent ?? "ausbildungssuche-cli",
+      "User-Agent": userAgent,
     },
     ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
   });

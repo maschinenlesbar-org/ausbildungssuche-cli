@@ -11,7 +11,7 @@
 //   client.details(id)
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { assertValid, offerIdProblem, validateSearchParams } from "./validate.js";
+import { assertValid, headerValueProblem, offerIdProblem, validateSearchParams } from "./validate.js";
 import type { QueryParams } from "./query.js";
 import type {
   AusbildungSearchResult,
@@ -25,7 +25,8 @@ const SERVICE = "/infosysbub/absuche";
 export interface AusbildungssucheClientOptions extends EngineOptions {
   /**
    * The `X-API-Key` to send. No key is bundled; when omitted (or blank) the
-   * header is not sent. Obtain the public key with obtainKey() (see obtain-key.ts).
+   * header is not sent. A key with a control character or a character above
+   * U+00FF is rejected (AusbildungValidationError). Obtain the public key with obtainKey() (see obtain-key.ts).
    */
   apiKey?: string;
 }
@@ -48,6 +49,8 @@ export class AusbildungssucheClient {
     // (An empty `X-API-Key` is rejected by the service with 403, so a blank value
     // is treated as absent rather than forwarded.)
     const key = apiKey?.trim() ? apiKey : undefined;
+    // A key that cannot go into a header is rejected here, naming the option.
+    if (key !== undefined) assertValid("apiKey", key, headerValueProblem);
     this.engine = new RequestEngine({
       ...engineOptions,
       // Accept is negotiated per endpoint (see search/details below): the search

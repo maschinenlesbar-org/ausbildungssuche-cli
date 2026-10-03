@@ -46,7 +46,9 @@ seine API betreibt.
 übergeben Sie ihn per `--api-key`, über die Umgebungsvariable `AUSBILDUNGSSUCHE_API_KEY` oder
 die Client-Option `apiKey`; andernfalls entfällt der Header, und der Dienst antwortet mit
 `401`/`403`. Ein leerer oder nur aus Leerzeichen bestehender Schlüssel gilt als nicht
-vorhanden (es wird kein Header gesendet). Für CI und Live-Tests lässt sich der öffentliche
+vorhanden (es wird kein Header gesendet); einen Schlüssel mit einem Steuerzeichen oder einem
+Zeichen oberhalb von U+00FF lehnen die CLI (Exit `2`) und die Bibliothek ab, bevor eine
+Anfrage gesendet wird. Für CI und Live-Tests lässt sich der öffentliche
 Schlüssel separat abrufen (nie aus der CLI heraus) – mit
 dem CLI-Befehl `obtain-key` abrufen (`npm run obtain-key`).
 

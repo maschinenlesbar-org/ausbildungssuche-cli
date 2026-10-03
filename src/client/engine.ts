@@ -3,7 +3,7 @@
 // (429, 503), and decodes responses.
 
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
-import { assertValid, intRangeProblem } from "./validate.js";
+import { assertValid, headerNameProblem, headerValueProblem, intRangeProblem } from "./validate.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import {
   AusbildungApiError,
@@ -20,7 +20,8 @@ export const MAX_RETRIES = 10;
 
 /** Most redirects `maxRedirects` may ask the engine to follow. */
 export const MAX_REDIRECTS = 10;
-const DEFAULT_USER_AGENT = "ausbildungssuche-cli";
+/** The User-Agent sent when none is given. */
+export const DEFAULT_USER_AGENT = "ausbildungssuche-cli";
 
 export interface RawResponse {
   data: Buffer;
@@ -33,9 +34,15 @@ export interface EngineOptions {
   baseUrl?: string;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
   transport?: Transport;
-  /** Value of the User-Agent header. */
+  /**
+   * Value of the User-Agent header; defaults to `DEFAULT_USER_AGENT`. Must be a
+   * valid header value (headerValueProblem): a blank one is rejected, not replaced.
+   */
   userAgent?: string;
-  /** Extra headers sent on every request (e.g. an API key). */
+  /**
+   * Extra headers sent on every request (e.g. an API key). Names must be HTTP
+   * tokens and values valid header values (headerNameProblem, headerValueProblem).
+   */
   defaultHeaders?: Record<string, string>;
   /**
    * Time limit per request in milliseconds, covering the whole response body, not
@@ -234,8 +241,18 @@ export class RequestEngine {
     // gating at all, and could be steered to a non-http(s) scheme.
     assertHttpScheme(this.baseUrl);
     this.transport = options.transport ?? nodeHttpTransport;
-    this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
+    // Header values are checked here, not only by the CLI: a CR/LF would reach a
+    // custom transport as an injected header, and the default transport would fail
+    // late with a raw TypeError. Only `undefined` selects the default User-Agent.
+    this.userAgent =
+      options.userAgent === undefined
+        ? DEFAULT_USER_AGENT
+        : assertValid("userAgent", options.userAgent, headerValueProblem);
     this.defaultHeaders = options.defaultHeaders ?? {};
+    for (const [name, value] of Object.entries(this.defaultHeaders)) {
+      assertValid("header name", name, headerNameProblem);
+      assertValid(`header ${name}`, value, headerValueProblem);
+    }
     // Range-check the numeric options: a negative, NaN or fractional value would
     // otherwise silently disable the timeout or the size cap, and an unbounded
     // maxRetries would keep retrying.

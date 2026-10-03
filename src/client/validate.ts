@@ -54,6 +54,32 @@ export const nonEmptyProblem: Problem = (value) =>
   isBlank(value) ? "Expected a non-empty value." : undefined;
 
 /**
+ * A value that can be sent in an HTTP header (User-Agent, X-API-Key, any
+ * defaultHeaders value): non-blank, no C0 control character other than tab, no
+ * DEL, nothing above U+00FF. Node's HTTP layer would otherwise throw an opaque
+ * "Invalid character in header content" at request time, and a custom transport
+ * would receive a CR/LF that injects a header. Checked by char code so the source
+ * stays free of control bytes.
+ */
+export const headerValueProblem: Problem = (value) => {
+  if (typeof value !== "string") return "Expected a string.";
+  const blank = nonEmptyProblem(value);
+  if (blank !== undefined) return blank;
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if ((c < 0x20 && c !== 0x09) || c === 0x7f) return "Value contains control characters.";
+    if (c > 0xff) return "Value contains characters outside Latin-1 (above U+00FF).";
+  }
+  return undefined;
+};
+
+/** An HTTP header name: an RFC 9110 token. */
+export const headerNameProblem: Problem = (name) =>
+  typeof name === "string" && /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name)
+    ? undefined
+    : "Expected an HTTP header name (letters, digits and !#$%&'*+-.^_`|~).";
+
+/**
  * An offer id (`details`) is numeric, digits only. Anything else cannot name an
  * offer and, put into the path, could re-target the request (`..`, `12/34`, `?x`)
  * or be sent padded (`%20123%20`) with the API key attached.
