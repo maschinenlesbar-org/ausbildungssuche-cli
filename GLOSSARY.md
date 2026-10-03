@@ -102,7 +102,7 @@ coordinates out of range get HTTP 500, so the CLI and the library reject both be
 request. On a place search each offer
 carries its distance from the place in `abstaende[].abstandInKm`. A place only
 restricts the search together with a radius (`uk`); on its own it just adds the
-distances, so the CLI requires `--uk` next to `--orte`.
+distances, so the CLI and the library require `uk` next to `orte`.
 
 **Profession id (`ids`).** Identifier(s) of a profession/occupation used to scope
 a search: the `dkzId` in an offer's `angebot.systematiken[]` (e.g. `9162`,
@@ -129,8 +129,8 @@ reject anything outside `0`..`3`.
 ("nationwide") to search the whole country with no radius limit. Other values
 (e.g. `30`, `150`, `200`) get HTTP 400, so the CLI (exit `2`) and the library reject
 them; the CLI sends `bundesweit` in any case as `Bundesweit`. A kilometre radius needs a location
-(`orte`): without one the API ignores it, so the CLI rejects `--uk 25` without
-`--orte`.
+(`orte`): without one the API ignores it, so the CLI and the library reject `uk` `25`
+without `orte`.
 
 **Training type (`bart`, Bildungsart).** The category of training/education being
 searched.

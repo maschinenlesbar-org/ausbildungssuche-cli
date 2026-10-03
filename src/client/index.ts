@@ -18,6 +18,7 @@ export {
   nonEmptyProblem,
   offerIdProblem,
   pageProblem,
+  placeAndRadiusProblem,
   placeProblem,
   RADII,
   radiusProblem,

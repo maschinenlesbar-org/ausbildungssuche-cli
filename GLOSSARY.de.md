@@ -102,7 +102,7 @@ zu HTTP 400 und Koordinaten außerhalb des Wertebereichs zu HTTP 500, daher lehn
 Bibliothek beides ab, bevor eine Anfrage gesendet wird. Bei einer Ortssuche trägt
 jedes Angebot seine Entfernung vom Ort in `abstaende[].abstandInKm`. Ein Ort grenzt die
 Suche nur zusammen mit einem Umkreis (`uk`) ein; allein ergänzt er nur die Entfernungen,
-daher verlangt die CLI neben `--orte` auch `--uk`.
+daher verlangen CLI und Bibliothek neben `orte` auch `uk`.
 
 **Berufs-ID (`ids`).** Kennung(en) eines Berufs, auf den eine Suche eingegrenzt
 wird: die `dkzId` in `angebot.systematiken[]` eines Angebots (z. B. `9162`,
@@ -130,8 +130,8 @@ die CLI (Exit `2`) und die Bibliothek lehnen alles außerhalb von `0`..`3` ab.
 suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400, daher lehnen die CLI
 (Exit `2`) und die Bibliothek sie ab; die CLI sendet `bundesweit` in beliebiger Schreibweise
 als `Bundesweit`. Ein Umkreis in
-Kilometern braucht einen Ort (`orte`): ohne ihn ignoriert die API den Umkreis, daher lehnt
-die CLI `--uk 25` ohne `--orte` ab.
+Kilometern braucht einen Ort (`orte`): ohne ihn ignoriert die API den Umkreis, daher lehnen
+CLI und Bibliothek `uk` `25` ohne `orte` ab.
 
 **Bildungsart (`bart`).** Die Kategorie der gesuchten Ausbildung bzw. Bildung.
 

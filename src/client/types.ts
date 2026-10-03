@@ -41,15 +41,15 @@ export interface AusbildungSearchParams {
   ids?: string;
   /**
    * Location as `Name_lon_lat` (longitude first, -180..180; latitude -90..90), e.g.
-   * `Köln_6.957_50.938` (checked by `placeProblem`). Only
-   * restricts the search together with a radius `uk`; alone it just adds distances.
+   * `Köln_6.957_50.938` (checked by `placeProblem`). Only restricts the search
+   * together with a radius `uk`, so it is rejected without one (`placeAndRadiusProblem`).
    */
   orte?: string;
   /** Bundesland code from `REGION_CODES` (`BAW`, `BAY`, … `THÜ`, uppercase), comma-separated for several. */
   re?: string;
   /**
    * Radius from `RADII`: "Bundesweit" or 10, 25, 50, 100 (km); other values get HTTP 400. A km
-   * radius is ignored by the API without a place `orte`.
+   * radius is ignored by the API without a place `orte`, so it is rejected without one.
    */
   uk?: string;
   /** Training type. */

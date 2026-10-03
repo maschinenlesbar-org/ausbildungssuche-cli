@@ -17,30 +17,7 @@ import {
 } from "../shared.js";
 import type { AusbildungSearchParams } from "../../client/types.js";
 import { AusbildungValidationError } from "../../client/errors.js";
-import { MAX_PAGE_SIZE, STY_MAX, STY_MIN } from "../../client/validate.js";
-
-/**
- * `--orte` and `--uk` only filter together: the API ignores a numeric radius
- * without a place, and a place without a radius does not restrict the search at
- * all (it only adds distances). Either alone would silently return the nationwide
- * set with exit 0, so reject it before any request. `--uk Bundesweit` alone is
- * fine: it asks for exactly what the API returns without a place.
- */
-function checkPlaceAndRadius(orte: string | undefined, uk: string | undefined): void {
-  if (uk !== undefined && orte === undefined && uk.toLowerCase() !== "bundesweit") {
-    throw new AusbildungValidationError(
-      `search: --uk ${uk} needs --orte: a radius is measured around a place, and without ` +
-        "one the API ignores it. Leave --uk out (or use --uk Bundesweit) for a nationwide search.",
-    );
-  }
-  if (orte !== undefined && uk === undefined) {
-    throw new AusbildungValidationError(
-      "search: --orte needs --uk: without a radius the API does not restrict the search to " +
-        "the place. Add --uk 10, 25, 50 or 100 (km), or --uk Bundesweit to search nationwide " +
-        "with distances.",
-    );
-  }
-}
+import { MAX_PAGE_SIZE, placeAndRadiusProblem, STY_MAX, STY_MIN } from "../../client/validate.js";
 
 export function registerAusbildungCommands(program: Command, deps: CliDeps): void {
   program
@@ -61,7 +38,6 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     .option("--size <n>", `page size, 1..${MAX_PAGE_SIZE} (the server serves at most ${MAX_PAGE_SIZE} rows per page)`, once(parseSizeArg))
     .action(
       action(deps, async ({ client, global, opts }) => {
-        checkPlaceAndRadius(opts["orte"] as string | undefined, opts["uk"] as string | undefined);
         const params: AusbildungSearchParams = {
           sw: opts["sw"] as string | undefined,
           sty: opts["sty"] as number | undefined,
@@ -75,6 +51,10 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
           page: opts["page"] as number | undefined,
           size: opts["size"] as number | undefined,
         };
+        // The library rejects the same pairing; checking it here first keeps the
+        // message in flag terms (--orte/--uk).
+        const pairing = placeAndRadiusProblem(params, (p) => `--${p}`);
+        if (pairing !== undefined) throw new AusbildungValidationError(`search: ${pairing}`);
         renderJson(deps, global, await client.search(params));
       }),
     );

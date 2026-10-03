@@ -157,6 +157,38 @@ export const resultWindowProblem: Problem<Pick<AusbildungSearchParams, "page" | 
   );
 };
 
+/**
+ * `orte` and a km radius `uk` only filter together: the API ignores a numeric
+ * radius without a place, and a place without a radius does not restrict the
+ * search at all (it only adds distances). Either alone would silently return the
+ * nationwide set. `uk: "Bundesweit"` alone is fine: it asks for exactly what the
+ * API returns without a place.
+ *
+ * `label` names a parameter in the reason; the CLI passes `(p) => "--" + p` so the
+ * reason names its flags.
+ */
+export function placeAndRadiusProblem(
+  params: Pick<AusbildungSearchParams, "orte" | "uk">,
+  label: (param: "orte" | "uk") => string = (param) => param,
+): string | undefined {
+  const { orte, uk } = params;
+  const [ORTE, UK] = [label("orte"), label("uk")];
+  if (uk !== undefined && orte === undefined && String(uk).toLowerCase() !== "bundesweit") {
+    return (
+      `${UK} ${uk} needs ${ORTE}: a radius is measured around a place, and without one the ` +
+      `API ignores it. Leave ${UK} out (or use ${UK} Bundesweit) for a nationwide search.`
+    );
+  }
+  if (orte !== undefined && uk === undefined) {
+    return (
+      `${ORTE} needs ${UK}: without a radius the API does not restrict the search to the ` +
+      `place. Add ${UK} 10, 25, 50 or 100 (km), or ${UK} Bundesweit to search nationwide ` +
+      "with distances."
+    );
+  }
+  return undefined;
+}
+
 function firstProblem(values: readonly string[], problem: Problem): string | undefined {
   for (const value of values) {
     const reason = problem(value);
@@ -174,6 +206,7 @@ function firstProblem(values: readonly string[], problem: Problem): string | und
  * - `sty`, `re`, `uk` and `bt` must come from the API's closed value sets
  *   (styProblem, regionsProblem, radiusProblem, startCodesProblem), and `orte` must
  *   be `Name_lon_lat` (placeProblem);
+ * - `orte` and a km radius `uk` must be given together (placeAndRadiusProblem);
  * - `page` must be a non-negative integer, `size` an integer in 1..MAX_PAGE_SIZE,
  *   and the page must lie inside the MAX_RESULT_WINDOW (pageProblem, sizeProblem,
  *   resultWindowProblem).
@@ -200,6 +233,7 @@ export function validateSearchParams(params: AusbildungSearchParams): Ausbildung
   }
   if (params.page !== undefined) assertValid("page", params.page, pageProblem);
   if (params.size !== undefined) assertValid("size", params.size, sizeProblem);
+  assertValid("orte and uk", params, (p) => placeAndRadiusProblem(p));
   assertValid("page", params, resultWindowProblem);
   return params;
 }

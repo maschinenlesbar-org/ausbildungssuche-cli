@@ -6,6 +6,7 @@ import {
   nonEmptyProblem,
   offerIdProblem,
   pageProblem,
+  placeAndRadiusProblem,
   placeProblem,
   radiusProblem,
   regionsProblem,
@@ -145,7 +146,9 @@ test("validateSearchParams checks numbers and arrays in the form they are sent",
     () => validateSearchParams({ re: ["BAY", "BW"] as unknown as string }),
     (err) => err instanceof AusbildungValidationError && /"BW"/.test(err.message),
   );
-  assert.doesNotThrow(() => validateSearchParams({ uk: 25 as unknown as string, ids: 9162 as unknown as string }));
+  assert.doesNotThrow(() =>
+    validateSearchParams({ orte: "K_6.9_50.9", uk: 25 as unknown as string, ids: 9162 as unknown as string }),
+  );
 });
 
 test("pageProblem wants a non-negative integer, sizeProblem an integer in 1..20", () => {
@@ -169,4 +172,21 @@ test("resultWindowProblem keeps (page + 1) × size within 10000 and names the la
       "so with size 20 the last page is 499.",
   );
   assert.match(resultWindowProblem({ page: 1000, size: 10 }) ?? "", /last page is 999\.$/);
+});
+
+test("placeAndRadiusProblem wants orte and a km uk together", () => {
+  const P = "Köln_6.957_50.938";
+  for (const p of [{}, { uk: "Bundesweit" }, { orte: P, uk: "25" }, { orte: P, uk: "Bundesweit" }]) {
+    assert.equal(placeAndRadiusProblem(p), undefined, JSON.stringify(p));
+  }
+  assert.match(placeAndRadiusProblem({ uk: "25" }) ?? "", /^uk 25 needs orte: .* Leave uk out \(or use uk Bundesweit\)/);
+  assert.match(placeAndRadiusProblem({ orte: P }) ?? "", /^orte needs uk: /);
+  assert.match(placeAndRadiusProblem({ uk: "10" }, (p) => `--${p}`) ?? "", /^--uk 10 needs --orte: /);
+});
+
+test("search() names the pairing rule when orte or uk comes alone", () => {
+  assert.throws(
+    () => validateSearchParams({ uk: "25" }),
+    (err) => err instanceof AusbildungValidationError && /^Invalid orte and uk: uk 25 needs orte/.test(err.message),
+  );
 });

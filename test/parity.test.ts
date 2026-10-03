@@ -161,3 +161,24 @@ test("the library rejects a page or size that is not a non-negative integer", as
     assert.deepEqual(lib.requests, []);
   }
 });
+
+// Finding #2 (PAT-14): a km radius without a place is ignored by the API, and a
+// place without a radius does not narrow the search; either alone would return the
+// nationwide set.
+test("parity: uk 25 without orte is rejected by CLI and library alike", async () => {
+  assertBothReject(await search(["--uk", "25"], { uk: "25" }), /uk 25 needs (--)?orte/);
+});
+
+test("parity: orte without uk is rejected by CLI and library alike", async () => {
+  assertBothReject(await search(["--orte", P], { orte: P }), /orte needs (--)?uk/);
+});
+
+for (const [name, argv, params] of [
+  ["uk Bundesweit alone", ["--uk", "Bundesweit"], { uk: "Bundesweit" }],
+  ["orte with uk 25", ["--orte", P, "--uk", "25"], { orte: P, uk: "25" }],
+  ["orte with uk Bundesweit", ["--orte", P, "--uk", "Bundesweit"], { orte: P, uk: "Bundesweit" }],
+] as const) {
+  test(`parity: ${name} is sent identically`, async () => {
+    assertSameRequest(await search([...argv], params));
+  });
+}

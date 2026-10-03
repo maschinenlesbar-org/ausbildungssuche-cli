@@ -91,6 +91,10 @@ run them up front.
   coordinates in range (`styProblem`, `regionsProblem`, `radiusProblem`,
   `startCodesProblem`, `placeProblem`). The API answers these with a bare HTTP
   400/500.
+- **`orte` or a km `uk` alone.** A kilometre radius without a place is ignored by
+  the API, and a place without a radius does not narrow the search; either alone
+  would return the nationwide set, so `search()` rejects it
+  (`placeAndRadiusProblem`). `uk: "Bundesweit"` alone stays allowed.
 - **Paging outside the server's bounds.** `page` must be a non-negative integer,
   `size` an integer `1`..`MAX_PAGE_SIZE` (20; the server silently clamps a larger
   size and overrides `0`), and `(page + 1) × size` (size defaulting to
