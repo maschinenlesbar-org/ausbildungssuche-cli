@@ -9,6 +9,7 @@ import { AusbildungError, AusbildungValidationError } from "../client/errors.js"
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 import { isBidiControl } from "../client/engine.js";
 import {
+  apiKeyProblem,
   baseUrlProblem,
   headerValueProblem,
   intRangeProblem,
@@ -53,14 +54,22 @@ export function parseNonEmpty(value: string): string {
 }
 
 /**
- * commander value-parser for a value that ends up in an HTTP header (`--api-key`,
- * `--user-agent`): the library's headerValueProblem. A blank value, and one Node
- * cannot send, are usage errors rather than a request without the header or an
- * "Unexpected error" at request time. A blank `--api-key` would otherwise override
- * the env key and send no key at all.
+ * commander value-parser for `--user-agent`: the library's headerValueProblem. A
+ * blank value, and one Node cannot send, are usage errors rather than a request
+ * without the header or an "Unexpected error" at request time.
  */
 export function parseHeaderValue(value: string): string {
   return parserOf(headerValueProblem)(value);
+}
+
+/**
+ * commander value-parser for `--api-key`: the library's apiKeyProblem (the trimmed
+ * key must be a valid header value). The raw value is passed on; the client trims
+ * it, as it does a key from the env var. A blank `--api-key` is a usage error so it
+ * cannot override the env key and send no key at all.
+ */
+export function parseApiKey(value: string): string {
+  return parserOf(apiKeyProblem)(value);
 }
 
 /**
@@ -266,10 +275,10 @@ export function action(
     const command = args[args.length - 1] as Command;
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
-    // A --api-key flag went through parseHeaderValue; a key seeded from the env var
-    // did not. The client rejects it too (as apiKey); checking it here with the same
+    // A --api-key flag went through parseApiKey; a key seeded from the env var did
+    // not. The client rejects it too (as apiKey); checking it here with the same
     // library rule names the env variable in the message instead.
-    const keyProblem = global.apiKey === undefined ? undefined : headerValueProblem(global.apiKey);
+    const keyProblem = global.apiKey === undefined ? undefined : apiKeyProblem(global.apiKey);
     if (keyProblem !== undefined) {
       throw new AusbildungValidationError(`${API_KEY_ENV_VAR}: ${keyProblem}`);
     }

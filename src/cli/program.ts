@@ -10,7 +10,7 @@ import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
 import { AusbildungssucheClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
 import { MAX_RETRIES } from "../client/engine.js";
-import { parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg } from "./shared.js";
+import { parseApiKey, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg } from "./shared.js";
 import { registerAusbildungCommands } from "./commands/ausbildung.js";
 import { registerObtainKeyCommands } from "./commands/obtain-key.js";
 import { nodeHttpTransport } from "../client/http.js";
@@ -53,7 +53,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     )
     .version(VERSION)
     .option("--base-url <url>", "API base URL", parseBaseUrl, "https://rest.arbeitsagentur.de")
-    .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`, parseHeaderValue)
+    .option("--api-key <key>", `X-API-Key header value (env: ${API_KEY_ENV_VAR})`, parseApiKey)
     .option(
       "--timeout <ms>",
       "time limit per request in milliseconds, whole response included (default 30000; 0 = no limit)",
@@ -73,7 +73,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--compact", "print JSON on a single line instead of pretty-printed")
     .showHelpAfterError();
 
-  // Seed --api-key from AUSBILDUNGSSUCHE_API_KEY (trimmed; blank treated as unset).
+  // Seed --api-key from AUSBILDUNGSSUCHE_API_KEY (blank treated as unset; the
+  // client trims the key, as it does a --api-key or an apiKey option).
   // The env value is NOT passed as the commander option default, because commander
   // renders defaults in --help output — seeding it there would print a private key
   // verbatim in the help text. Instead set it as the option value here, which an
@@ -83,7 +84,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
   // unit-testable.)
   const envApiKey = deps.env[API_KEY_ENV_VAR];
   if (typeof envApiKey === "string" && envApiKey.trim().length > 0) {
-    program.setOptionValue("apiKey", envApiKey.trim());
+    program.setOptionValue("apiKey", envApiKey);
   }
 
   registerObtainKeyCommands(program, deps);

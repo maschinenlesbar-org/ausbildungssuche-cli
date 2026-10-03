@@ -309,6 +309,31 @@ test("the library rejects a bad defaultHeaders name or value in the constructor"
   }
 });
 
+// Finding #9 (PAT-6): the key is trimmed by the library, so --api-key, the env var
+// and the apiKey option send the same X-API-Key; an inner control character is
+// still rejected by all three.
+const keyedDetails = (key: string, via: "flag" | "env") =>
+  parity(
+    via === "flag" ? ["--api-key", key, "details", "1"] : ["details", "1"],
+    (t) => new AusbildungssucheClient({ transport: t, apiKey: key }).details("1"),
+    via === "env" ? { env: { AUSBILDUNGSSUCHE_API_KEY: key } } : {},
+  );
+for (const key of ["  test-key  ", "\tk\t", "k\n", " k "]) {
+  for (const via of ["flag", "env"] as const) {
+    test(`parity: the API key ${JSON.stringify(key)} via ${via} is sent trimmed by CLI and library alike`, async () => {
+      const result = await keyedDetails(key, via);
+      assertSameRequest(result);
+      assert.equal(result.lib.requests[0]?.headers?.["X-API-Key"], key.trim());
+    });
+  }
+}
+
+for (const via of ["flag", "env"] as const) {
+  test(`parity: an inner LF in the API key via ${via} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await keyedDetails(" a\nb ", via), /control characters/);
+  });
+}
+
 // Finding #10 (PAT-1, PAT-2): the base URL's shape is checked by the library on the
 // raw value (new URL() would silently trim it), and a bad one is a validation
 // error, not a network error.

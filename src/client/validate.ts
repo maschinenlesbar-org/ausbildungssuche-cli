@@ -74,6 +74,16 @@ export const headerValueProblem: Problem = (value) => {
 };
 
 /**
+ * The API key (`apiKey`, `--api-key`, AUSBILDUNGSSUCHE_API_KEY): the key is sent
+ * trimmed, so the trimmed value must be a valid header value (headerValueProblem).
+ * Surrounding whitespace, a trailing newline from `$(cat key-file)` included, is
+ * fine; a blank key or an inner control character is not. (The client treats a
+ * blank `apiKey` as "no key" before this check; only the CLI's flag rejects one.)
+ */
+export const apiKeyProblem: Problem = (key) =>
+  typeof key === "string" ? headerValueProblem(key.trim()) : "Expected a string.";
+
+/**
  * A base URL (`baseUrl`, `--base-url`): an absolute http(s) URL, checked on the RAW
  * value. new URL() silently trims surrounding whitespace and drops tab/CR/LF, but
  * the engine appends request paths to the raw string, so a padded value would

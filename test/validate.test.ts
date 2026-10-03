@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  apiKeyProblem,
   assertValid,
   baseUrlProblem,
   headerNameProblem,
@@ -250,6 +251,14 @@ test("headerValueProblem rejects blank, control and non-Latin-1 values", () => {
   }
   assert.equal(headerValueProblem("€"), "Value contains characters outside Latin-1 (above U+00FF).");
   assert.equal(headerValueProblem(1 as unknown as string), "Expected a string.");
+});
+
+test("apiKeyProblem checks the trimmed key as a header value", () => {
+  for (const key of ["k", " k ", "k\n", "\tk\t", "a b"]) assert.equal(apiKeyProblem(key), undefined, JSON.stringify(key));
+  for (const key of ["", "  ", "\n"]) assert.equal(apiKeyProblem(key), "Expected a non-empty value.", JSON.stringify(key));
+  assert.equal(apiKeyProblem(" a\nb "), "Value contains control characters.");
+  assert.equal(apiKeyProblem("k€"), "Value contains characters outside Latin-1 (above U+00FF).");
+  assert.equal(apiKeyProblem(42 as unknown as string), "Expected a string.");
 });
 
 test("headerNameProblem wants an HTTP token", () => {

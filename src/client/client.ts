@@ -30,9 +30,10 @@ const SERVICE = "/infosysbub/absuche";
 /** Options for the Ausbildungssuche client (engine options plus the API key). */
 export interface AusbildungssucheClientOptions extends EngineOptions {
   /**
-   * The `X-API-Key` to send. No key is bundled; when omitted (or blank) the
-   * header is not sent. A key with a control character or a character above
-   * U+00FF is rejected (AusbildungValidationError). Obtain the public key with obtainKey() (see obtain-key.ts).
+   * The `X-API-Key` to send, trimmed. No key is bundled; when omitted (or blank)
+   * the header is not sent. A key with an inner control character or a character
+   * above U+00FF is rejected (AusbildungValidationError, apiKeyProblem). Obtain the
+   * public key with obtainKey() (see obtain-key.ts).
    */
   apiKey?: string;
 }
@@ -53,8 +54,10 @@ export class AusbildungssucheClient {
     const { apiKey, ...engineOptions } = options;
     // Only send X-API-Key when a non-blank key was supplied; never default one.
     // (An empty `X-API-Key` is rejected by the service with 403, so a blank value
-    // is treated as absent rather than forwarded.)
-    const key = apiKey?.trim() ? apiKey : undefined;
+    // is treated as absent rather than forwarded.) The key is sent trimmed, so a
+    // key read from a file with its trailing newline works, and --api-key, the env
+    // var and this option all send the same header.
+    const key = typeof apiKey === "string" ? apiKey.trim() || undefined : apiKey;
     // A key that cannot go into a header is rejected here, naming the option.
     if (key !== undefined) assertValid("apiKey", key, headerValueProblem);
     this.engine = new RequestEngine({

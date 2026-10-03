@@ -106,8 +106,10 @@ run them up front.
 - **Header values that cannot be sent** (constructor, and `obtainKey()`). `apiKey`,
   `userAgent` and every `defaultHeaders` value must be non-blank, free of C0 control
   characters (tab allowed) and DEL, and within Latin-1 (`headerValueProblem`);
-  header names must be HTTP tokens (`headerNameProblem`). A blank `apiKey` still
-  means "no key"; a blank `userAgent` is rejected (only `undefined` selects
+  header names must be HTTP tokens (`headerNameProblem`). `apiKey` is trimmed
+  first and sent trimmed (`apiKeyProblem`), so `--api-key`, the env var and the
+  option send the same header. A blank `apiKey` still means "no key"; a blank
+  `userAgent` is rejected (only `undefined` selects
   `DEFAULT_USER_AGENT`). The default transport also turns Node's synchronous
   "Invalid character in header content" into an `AusbildungNetworkError`.
 - **Paging outside the server's bounds.** `page` must be a non-negative integer,
@@ -126,7 +128,8 @@ The API requires a static, publicly-documented `X-API-Key` on every request. **N
 key is bundled** with this client — supply it via `apiKey` (library), `--api-key`,
 or the `AUSBILDUNGSSUCHE_API_KEY` env var. Precedence is **`--api-key` flag > env
 var > no key**; an empty/whitespace key is treated as absent (header omitted), and
-the API then answers `401`/`403`. The env value is seeded onto the option after
+the API then answers `401`/`403`. The client sends the key trimmed, whichever way it
+came; the CLI passes the flag or env value through unchanged. The env value is seeded onto the option after
 parse (not as a commander default), so it never appears in `--help` output.
 
 Because the key is publicly documented, you can fetch it out-of-band (for CI or

@@ -20,6 +20,7 @@ export { obtainKey, API_KEY_ENV_VAR, KEY_SOURCE_URL } from "./obtain-key.js";
 export type { ObtainKeyOptions, ObtainedKey } from "./obtain-key.js";
 export { buildQueryString } from "./query.js";
 export {
+  apiKeyProblem,
   assertValid,
   baseUrlProblem,
   DEFAULT_PAGE_SIZE,
