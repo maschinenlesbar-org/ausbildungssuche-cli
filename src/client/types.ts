@@ -35,19 +35,20 @@ export type AusbildungDetails = JsonObject;
 export interface AusbildungSearchParams {
   /** "sw" — search keyword. Currently ignored by the API; filter by occupation with `ids`. */
   sw?: string;
-  /** Offer type (0..3; the API rejects 4 with HTTP 400, the CLI anything outside 0..3). */
+  /** Offer type, an integer 0..3 (`STY_MIN`..`STY_MAX`; the API rejects 4 with HTTP 400). */
   sty?: number;
   /** Occupation id(s): the `dkzId` from `angebot.systematiken[]`, comma-separated for several. */
   ids?: string;
   /**
-   * Location as `Name_lon_lat` (longitude first), e.g. `Köln_6.957_50.938`. Only
+   * Location as `Name_lon_lat` (longitude first, -180..180; latitude -90..90), e.g.
+   * `Köln_6.957_50.938` (checked by `placeProblem`). Only
    * restricts the search together with a radius `uk`; alone it just adds distances.
    */
   orte?: string;
-  /** Bundesland code (`BAW`, `BAY`, … `THÜ`), comma-separated for several. */
+  /** Bundesland code from `REGION_CODES` (`BAW`, `BAY`, … `THÜ`, uppercase), comma-separated for several. */
   re?: string;
   /**
-   * Radius: "Bundesweit" or 10, 25, 50, 100 (km); other values get HTTP 400. A km
+   * Radius from `RADII`: "Bundesweit" or 10, 25, 50, 100 (km); other values get HTTP 400. A km
    * radius is ignored by the API without a place `orte`.
    */
   uk?: string;
@@ -58,7 +59,7 @@ export interface AusbildungSearchParams {
   /**
    * Start-date code(s), not a date: `2` = earlier dates, `101`..`112` = January..December
    * of the following year (upstream OpenAPI); `0` and `1` are accepted too. Comma-separated
-   * for several.
+   * for several (`START_CODES`).
    */
   bt?: string;
   /** 0-based page. */

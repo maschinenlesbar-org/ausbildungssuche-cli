@@ -8,7 +8,15 @@ import type { AusbildungssucheClientOptions } from "../client/client.js";
 import { AusbildungError, AusbildungValidationError } from "../client/errors.js";
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 import { isBidiControl } from "../client/engine.js";
-import { nonEmptyProblem, offerIdProblem } from "../client/validate.js";
+import {
+  nonEmptyProblem,
+  offerIdProblem,
+  placeProblem,
+  radiusProblem,
+  regionCodeProblem,
+  startCodesProblem,
+  type Problem,
+} from "../client/validate.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -34,9 +42,7 @@ export function parseIntArg(value: string): number {
  * would silently run unfiltered.
  */
 export function parseNonEmpty(value: string): string {
-  const problem = nonEmptyProblem(value);
-  if (problem !== undefined) throw new InvalidArgumentError(problem);
-  return value;
+  return parserOf(nonEmptyProblem)(value);
 }
 
 /**
@@ -161,32 +167,31 @@ export function parseSizeArg(value: string): number {
   return n;
 }
 
-/** The radii (`uk`) the API accepts; anything else gets HTTP 400. */
-export const RADII = ["10", "25", "50", "100", "Bundesweit"] as const;
+/** Turn a library Problem into a commander value-parser (a usage error, exit 2). */
+function parserOf(problem: Problem): (value: string) => string {
+  return (value) => {
+    const reason = problem(value);
+    if (reason !== undefined) throw new InvalidArgumentError(reason);
+    return value;
+  };
+}
 
 /**
- * commander value-parser for `--uk`: one of RADII. `bundesweit` in any case is
- * normalised to the `Bundesweit` the API expects (lowercase gets HTTP 400).
+ * commander value-parser for `--uk`: the library's radiusProblem. `bundesweit` in
+ * any case is first normalised to the `Bundesweit` the API expects (lowercase gets
+ * HTTP 400).
  */
 export function parseRadius(value: string): string {
   parseNonEmpty(value);
   if (value.toLowerCase() === "bundesweit") return "Bundesweit";
-  if (!(RADII as readonly string[]).includes(value)) {
-    throw new InvalidArgumentError("Expected 10, 25, 50, 100 (km) or Bundesweit.");
-  }
-  return value;
+  return parserOf(radiusProblem)(value);
 }
 
-/** The 3-letter Bundesland codes (`re`) the API accepts. */
-export const REGION_CODES = [
-  "BAW", "BAY", "BER", "BRA", "BRE", "HAM", "HES", "MBV",
-  "NDS", "NRW", "RPF", "SAA", "SAC", "SAN", "SLH", "THÜ",
-] as const;
-
 /**
- * commander value-parser for `--re`: one or more comma-separated REGION_CODES, in
- * any case (the API wants uppercase and answers `nrw` with a bare HTTP 400), so
- * they are normalised to uppercase.
+ * commander value-parser for `--re`: one or more comma-separated Bundesland codes
+ * (the library's regionCodeProblem), in any case: the API wants uppercase and
+ * answers `nrw` with a bare HTTP 400, so each code is normalised first. The message
+ * names the code as the user typed it.
  */
 export function parseRegions(value: string): string {
   parseNonEmpty(value);
@@ -194,56 +199,22 @@ export function parseRegions(value: string): string {
     .split(",")
     .map((item) => {
       const code = item.trim().normalize("NFC").toUpperCase();
-      if (!(REGION_CODES as readonly string[]).includes(code)) {
-        throw new InvalidArgumentError(
-          `Unknown Bundesland code "${item}". Expected one or more of ${REGION_CODES.join(", ")}, comma-separated.`,
-        );
+      if (regionCodeProblem(code) !== undefined) {
+        throw new InvalidArgumentError(regionCodeProblem(item) ?? "");
       }
       return code;
     })
     .join(",");
 }
 
-/**
- * commander value-parser for `--bt`: one or more comma-separated start-date codes,
- * 0, 1, 2 or 101..112 — the codes the API accepts; any other value gets HTTP 400.
- */
-export function parseStartCodes(value: string): string {
-  parseNonEmpty(value);
-  for (const item of value.split(",")) {
-    const n = /^(?:0|[1-9]\d{0,2})$/.test(item) ? Number(item) : NaN;
-    if (!(n <= 2 || (n >= 101 && n <= 112))) {
-      throw new InvalidArgumentError("Expected start-date codes 0, 1, 2 or 101..112, comma-separated.");
-    }
-  }
-  return value;
-}
+/** commander value-parser for `--bt`: the library's startCodesProblem (0, 1, 2 or 101..112). */
+export const parseStartCodes = parserOf(startCodesProblem);
 
-/**
- * commander value-parser for `--orte`: `Name_lon_lat` with the longitude in
- * -180..180 first and the latitude in -90..90 second. The API answers a bare place
- * name with HTTP 400 and out-of-range coordinates with HTTP 500.
- */
-export function parsePlace(value: string): string {
-  parseNonEmpty(value);
-  const m = /^(.*\S.*)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)$/.exec(value);
-  const lon = m ? Number(m[2]) : NaN;
-  const lat = m ? Number(m[3]) : NaN;
-  if (!(Math.abs(lon) <= 180 && Math.abs(lat) <= 90)) {
-    throw new InvalidArgumentError(
-      'Expected "Name_lon_lat" with the longitude (-180..180) first and the latitude ' +
-        '(-90..90) second, e.g. "Köln_6.957_50.938".',
-    );
-  }
-  return value;
-}
+/** commander value-parser for `--orte`: the library's placeProblem (`Name_lon_lat`). */
+export const parsePlace = parserOf(placeProblem);
 
 /** commander value-parser for an offer id: the library's offerIdProblem (digits only). */
-export function parseOfferId(value: string): string {
-  const problem = offerIdProblem(value);
-  if (problem !== undefined) throw new InvalidArgumentError(problem);
-  return value;
-}
+export const parseOfferId = parserOf(offerIdProblem);
 
 /**
  * The API serves at most this many results of one query, over all pages; a page

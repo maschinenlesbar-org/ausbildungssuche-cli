@@ -5,6 +5,11 @@ import {
   isBlank,
   nonEmptyProblem,
   offerIdProblem,
+  placeProblem,
+  radiusProblem,
+  regionsProblem,
+  startCodesProblem,
+  styProblem,
   validateSearchParams,
   type Problem,
 } from "../src/client/validate.js";
@@ -87,4 +92,55 @@ test("offerIdProblem accepts digits only", () => {
   for (const id of ["abc", " 1", "1 ", "1.5", "-1", "1/2", "%31", "١٢"]) {
     assert.equal(offerIdProblem(id), "Expected a numeric offer id (digits only).", id);
   }
+});
+
+test("styProblem accepts integers 0..3 only", () => {
+  for (const n of [0, 1, 2, 3]) assert.equal(styProblem(n), undefined, String(n));
+  for (const n of [-1, 4, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(styProblem(n), "Expected an integer between 0 and 3.", String(n));
+  }
+});
+
+test("radiusProblem accepts the listed radii exactly", () => {
+  for (const uk of ["10", "25", "50", "100", "Bundesweit"]) assert.equal(radiusProblem(uk), undefined, uk);
+  assert.equal(radiusProblem(" "), "Expected a non-empty value.");
+  for (const uk of ["30", "150", " 25", "bundesweit", "25km"]) {
+    assert.equal(radiusProblem(uk), "Expected 10, 25, 50, 100 (km) or Bundesweit.", uk);
+  }
+});
+
+test("regionsProblem accepts comma-separated uppercase Bundesland codes", () => {
+  for (const re of ["BAY", "NRW,THÜ", "BAW,BAY,BER"]) assert.equal(regionsProblem(re), undefined, re);
+  assert.equal(regionsProblem(""), "Expected a non-empty value.");
+  assert.match(regionsProblem("BW") ?? "", /^Unknown Bundesland code "BW"\. Expected one or more of BAW, /);
+  assert.match(regionsProblem("NRW,") ?? "", /^Unknown Bundesland code ""/);
+  assert.match(regionsProblem("nrw") ?? "", /^Unknown Bundesland code "nrw"/);
+});
+
+test("startCodesProblem accepts 0, 1, 2 and 101..112, comma-separated", () => {
+  for (const bt of ["0", "2", "101", "112", "0,2,112"]) assert.equal(startCodesProblem(bt), undefined, bt);
+  for (const bt of ["3", "100", "113", "02", "101, 102", "2026-10-01", "1,"]) {
+    assert.equal(startCodesProblem(bt), "Expected start-date codes 0, 1, 2 or 101..112, comma-separated.", bt);
+  }
+});
+
+test("placeProblem wants Name_lon_lat with the coordinates in range", () => {
+  for (const orte of ["Köln_6.957_50.938", "X_-180_-90", "Bad Tölz_11.55_47.76"]) {
+    assert.equal(placeProblem(orte), undefined, orte);
+  }
+  for (const orte of ["Köln", "_6.9_50.9", "X_200_10", "X_6.9_95", "X_6,9_50"]) {
+    assert.match(placeProblem(orte) ?? "", /^Expected "Name_lon_lat"/, orte);
+  }
+});
+
+test("validateSearchParams checks numbers and arrays in the form they are sent", () => {
+  assert.throws(
+    () => validateSearchParams({ uk: 30 as unknown as string }),
+    (err) => err instanceof AusbildungValidationError && /^Invalid uk:/.test(err.message),
+  );
+  assert.throws(
+    () => validateSearchParams({ re: ["BAY", "BW"] as unknown as string }),
+    (err) => err instanceof AusbildungValidationError && /"BW"/.test(err.message),
+  );
+  assert.doesNotThrow(() => validateSearchParams({ uk: 25 as unknown as string, ids: 9162 as unknown as string }));
 });

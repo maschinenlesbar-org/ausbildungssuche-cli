@@ -83,3 +83,42 @@ for (const id of ["", "  "]) {
 test("parity: a numeric offer id is sent identically", async () => {
   assertSameRequest(await details("365241044"));
 });
+
+// Finding #4 (PAT-12): values outside the API's closed value sets, and a malformed
+// place, are rejected by both sides before any request (the API answers 400/500).
+const P = "Köln_6.957_50.938";
+for (const [name, argv, params, message] of [
+  ["sty 4", ["--sty", "4"], { sty: 4 }, /between 0 and 3/],
+  ["re BW", ["--re", "BW"], { re: "BW" }, /Unknown Bundesland code "BW"/],
+  ["re NRW,", ["--re", "NRW,"], { re: "NRW," }, /Unknown Bundesland code ""/],
+  ["uk 30", ["--orte", P, "--uk", "30"], { orte: P, uk: "30" }, /10, 25, 50, 100 \(km\) or Bundesweit/],
+  ["bt 113", ["--bt", "113"], { bt: "113" }, /start-date codes/],
+  ["bt '101, 102'", ["--bt", "101, 102"], { bt: "101, 102" }, /start-date codes/],
+  ["bt 2026-10-01", ["--bt", "2026-10-01"], { bt: "2026-10-01" }, /start-date codes/],
+  ["orte Köln", ["--orte", "Köln", "--uk", "25"], { orte: "Köln", uk: "25" }, /Name_lon_lat/],
+  ["orte Köln_6.9_95", ["--orte", "Köln_6.9_95", "--uk", "25"], { orte: "Köln_6.9_95", uk: "25" }, /Name_lon_lat/],
+  ["orte _6.9_50.9", ["--orte", "_6.9_50.9", "--uk", "25"], { orte: "_6.9_50.9", uk: "25" }, /Name_lon_lat/],
+] as const) {
+  test(`parity: search ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await search([...argv], params as AusbildungSearchParams), message);
+  });
+}
+
+test("parity: valid closed-set values are sent identically", async () => {
+  assertSameRequest(
+    await search(
+      ["--sty", "3", "--orte", P, "--re", "BAY,THÜ", "--uk", "Bundesweit", "--bt", "0,2,101,112"],
+      { sty: 3, orte: P, re: "BAY,THÜ", uk: "Bundesweit", bt: "0,2,101,112" },
+    ),
+  );
+});
+
+// The CLI cannot express these (its parser takes digits only); the library must
+// still reject them rather than send them.
+test("the library rejects a sty that is not an integer in 0..3", async () => {
+  for (const sty of [-1, 1.5, Number.NaN, 4]) {
+    const { lib } = await search([], { sty });
+    assert.ok(lib.error instanceof AusbildungValidationError, String(sty));
+    assert.deepEqual(lib.requests, []);
+  }
+});

@@ -97,7 +97,9 @@ request.
 
 **Location (`orte`).** The place used to scope a search, written as
 `Name_lon_lat` with the **longitude first**, e.g. `Köln_6.957_50.938`. With the
-latitude first the API silently returns 0 results. On a place search each offer
+latitude first the API silently returns 0 results. A bare name (`Köln`) gets HTTP 400 and
+coordinates out of range get HTTP 500, so the CLI and the library reject both before any
+request. On a place search each offer
 carries its distance from the place in `abstaende[].abstandInKm`. A place only
 restricts the search together with a radius (`uk`); on its own it just adds the
 distances, so the CLI requires `--uk` next to `--orte`.
@@ -111,22 +113,22 @@ only working occupation filter: the API ignores the keyword `sw`.
 search: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
 `RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`. Several can be comma-separated. An
 offer's code is in `adresse.ortStrasse.land.code`; the 2-letter abbreviations
-(e.g. `BW`) get HTTP 400, so the CLI rejects any other code (exit `2`); it
-uppercases a lowercase one (`nrw` → `NRW`).
+(e.g. `BW`) get HTTP 400, so the CLI (exit `2`) and the library reject any other
+code before any request. The CLI also uppercases a lowercase one (`nrw` → `NRW`).
 
 ---
 
 ## Filter values, units & enums
 
 **Offer type (`sty`).** A small integer code `0`..`3` selecting the kind of
-offer/search. The API rejects `4` with HTTP 400; the CLI rejects anything outside
-`0`..`3` (exit `2`).
+offer/search. The API rejects `4` with HTTP 400; the CLI (exit `2`) and the library
+reject anything outside `0`..`3`.
 
 **Radius (`uk`, Umkreis).** The search radius around the location, in
 **kilometres** — `10`, `25`, `50` or `100` — or the literal string `Bundesweit`
 ("nationwide") to search the whole country with no radius limit. Other values
-(e.g. `30`, `150`, `200`) get HTTP 400, so the CLI rejects them (exit `2`);
-`bundesweit` in any case is sent as `Bundesweit`. A kilometre radius needs a location
+(e.g. `30`, `150`, `200`) get HTTP 400, so the CLI (exit `2`) and the library reject
+them; the CLI sends `bundesweit` in any case as `Bundesweit`. A kilometre radius needs a location
 (`orte`): without one the API ignores it, so the CLI rejects `--uk 25` without
 `--orte`.
 
@@ -140,7 +142,8 @@ that funds an approved training measure.
 **Start date (`bt`, Beginntermin).** A code for the desired training start, not a
 date: per the upstream API description `2` means earlier dates and `101`..`112`
 January..December of the following year. `0` and `1` are accepted too (their meaning
-is undocumented); any other value gets HTTP 400, so the CLI rejects it (exit `2`).
+is undocumented); any other value gets HTTP 400, so the CLI (exit `2`) and the library
+reject it.
 Several codes can be comma-separated.
 
 **Page (`page`).** Zero-based page index for paging through search results. The

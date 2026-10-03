@@ -19,6 +19,7 @@ import {
 } from "../shared.js";
 import type { AusbildungSearchParams } from "../../client/types.js";
 import { AusbildungValidationError } from "../../client/errors.js";
+import { STY_MAX, STY_MIN } from "../../client/validate.js";
 
 /**
  * `--orte` and `--uk` only filter together: the API ignores a numeric radius
@@ -66,7 +67,7 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     // Single-valued options reject a repeat (once); list-valued ones, whose API
     // parameter takes comma-separated values, accumulate repeats (commaList).
     .option("--sw <text>", "search keyword (sw); currently ignored by the API, use --ids to filter by occupation", once(parseNonEmpty))
-    .option("--sty <n>", "offer type 0..3 (sty)", once(parseBoundedInt(0, 3)))
+    .option("--sty <n>", `offer type ${STY_MIN}..${STY_MAX} (sty)`, once(parseBoundedInt(STY_MIN, STY_MAX)))
     .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938" (orte); needs --uk', once(parsePlace))
     .option("--re <code>", "Bundesland code (re), e.g. BAY, NRW, THÜ; comma-separated or repeated for several", commaList(parseRegions))
     .option("--uk <radius>", 'radius around --orte: 10, 25, 50, 100 (km), or "Bundesweit" (uk); a km radius needs --orte', once(parseRadius))

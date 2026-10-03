@@ -97,7 +97,9 @@ gesendet wird.
 
 **Ort (`orte`).** Der Ort, auf den eine Suche eingegrenzt wird, geschrieben als
 `Name_lon_lat` mit dem **Längengrad zuerst**, z. B. `Köln_6.957_50.938`. Steht der
-Breitengrad vorn, liefert die API stillschweigend 0 Treffer. Bei einer Ortssuche trägt
+Breitengrad vorn, liefert die API stillschweigend 0 Treffer. Ein bloßer Name (`Köln`) führt
+zu HTTP 400 und Koordinaten außerhalb des Wertebereichs zu HTTP 500, daher lehnen CLI und
+Bibliothek beides ab, bevor eine Anfrage gesendet wird. Bei einer Ortssuche trägt
 jedes Angebot seine Entfernung vom Ort in `abstaende[].abstandInKm`. Ein Ort grenzt die
 Suche nur zusammen mit einem Umkreis (`uk`) ein; allein ergänzt er nur die Entfernungen,
 daher verlangt die CLI neben `--orte` auch `--uk`.
@@ -111,8 +113,9 @@ der einzige funktionierende Berufsfilter: Das Suchwort `sw` ignoriert die API.
 eingegrenzt wird: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
 `RPF`, `SAA`, `SAC`, `SAN`, `SLH`, `THÜ`. Mehrere Codes lassen sich durch Kommas trennen.
 Den Code eines Angebots enthält `adresse.ortStrasse.land.code`; die zweistelligen
-Abkürzungen (z. B. `BW`) führen zu HTTP 400, daher lehnt die CLI jeden anderen Code ab
-(Exit `2`); einen kleingeschriebenen schreibt sie groß (`nrw` → `NRW`).
+Abkürzungen (z. B. `BW`) führen zu HTTP 400, daher lehnen die CLI (Exit `2`) und die
+Bibliothek jeden anderen Code ab, bevor eine Anfrage gesendet wird. Die CLI schreibt einen
+kleingeschriebenen Code außerdem groß (`nrw` → `NRW`).
 
 ---
 
@@ -120,12 +123,13 @@ Abkürzungen (z. B. `BW`) führen zu HTTP 400, daher lehnt die CLI jeden anderen
 
 **Angebotstyp (`sty`).** Ein kleiner ganzzahliger Code `0`..`3`, der die Art des
 Angebots bzw. der Suche auswählt. Den Wert `4` lehnt die API mit HTTP 400 ab;
-die CLI lehnt alles außerhalb von `0`..`3` ab (Exit `2`).
+die CLI (Exit `2`) und die Bibliothek lehnen alles außerhalb von `0`..`3` ab.
 
 **Umkreis (`uk`).** Der Suchradius um den Ort in **Kilometern** – `10`, `25`, `50` oder
 `100` – oder die Zeichenkette `Bundesweit`, um ohne Radiusbegrenzung im ganzen Land zu
-suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400, daher lehnt die CLI sie ab
-(Exit `2`); `bundesweit` in beliebiger Schreibweise wird als `Bundesweit` gesendet. Ein Umkreis in
+suchen. Andere Werte (z. B. `30`, `150`, `200`) führen zu HTTP 400, daher lehnen die CLI
+(Exit `2`) und die Bibliothek sie ab; die CLI sendet `bundesweit` in beliebiger Schreibweise
+als `Bundesweit`. Ein Umkreis in
 Kilometern braucht einen Ort (`orte`): ohne ihn ignoriert die API den Umkreis, daher lehnt
 die CLI `--uk 25` ohne `--orte` ab.
 
@@ -138,8 +142,8 @@ ausgegebenen Gutschein, der eine zugelassene Bildungsmaßnahme finanziert.
 **Beginntermin (`bt`).** Ein Code für den gewünschten Beginn der Ausbildung, kein Datum:
 Laut der Beschreibung der Upstream-API bedeutet `2` frühere Termine und `101`..`112`
 Januar..Dezember des Folgejahres. `0` und `1` werden ebenfalls akzeptiert (ihre Bedeutung
-ist nicht dokumentiert); jeder andere Wert führt zu HTTP 400, daher lehnt die CLI ihn ab
-(Exit `2`). Mehrere Codes können kommagetrennt angegeben werden.
+ist nicht dokumentiert); jeder andere Wert führt zu HTTP 400, daher lehnen die CLI
+(Exit `2`) und die Bibliothek ihn ab. Mehrere Codes können kommagetrennt angegeben werden.
 
 **Seite (`page`).** Seitenindex, beginnend bei 0, zum Blättern durch die Suchergebnisse.
 Die API liefert höchstens 10000 Ergebnisse einer Abfrage, daher darf `(page + 1) × size`

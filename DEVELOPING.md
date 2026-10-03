@@ -84,6 +84,13 @@ run them up front.
   (`validateSearchParams`, `nonEmptyProblem`): the API treats an empty parameter as
   no filter and would answer with the unfiltered set. Leave a filter out
   (`undefined`) to not filter by it.
+- **Values outside the API's closed value sets.** `sty` must be an integer
+  `STY_MIN`..`STY_MAX` (0..3), `re` one or more comma-separated `REGION_CODES`
+  (uppercase, as listed), `uk` one of `RADII`, `bt` one or more comma-separated
+  `START_CODES` (0, 1, 2, 101..112), and `orte` must be `Name_lon_lat` with the
+  coordinates in range (`styProblem`, `regionsProblem`, `radiusProblem`,
+  `startCodesProblem`, `placeProblem`). The API answers these with a bare HTTP
+  400/500.
 - **Non-numeric offer ids.** `details()` accepts an id of digits only
   (`offerIdProblem`); a blank, padded, signed, decimal, percent-encoded or
   separator-bearing id (`" 123 "`, `"12/34"`, `"%31%32"`, `".."`) is rejected
