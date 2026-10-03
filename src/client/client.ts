@@ -12,6 +12,7 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { AusbildungValidationError } from "./errors.js";
+import { validateSearchParams } from "./validate.js";
 import type { QueryParams } from "./query.js";
 import type {
   AusbildungSearchResult,
@@ -90,8 +91,13 @@ export class AusbildungssucheClient {
     });
   }
 
-  /** Search apprenticeship offers (HAL+JSON result). */
-  search(params: AusbildungSearchParams = {}): Promise<AusbildungSearchResult> {
+  /**
+   * Search apprenticeship offers (HAL+JSON result). Rejects with an
+   * AusbildungValidationError, before any request, when the parameters break a
+   * rule of validateSearchParams (e.g. a blank filter).
+   */
+  async search(params: AusbildungSearchParams = {}): Promise<AusbildungSearchResult> {
+    validateSearchParams(params);
     // The search collection serves HAL+JSON and 406s on plain application/json.
     return this.engine.getJson(
       `${SERVICE}/pc/v1/ausbildungsangebot`,

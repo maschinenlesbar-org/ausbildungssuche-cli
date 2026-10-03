@@ -72,6 +72,19 @@ new AusbildungssucheClient({
 
 `client.search(params)` and `client.details(id)`.
 
+### What the library rejects
+
+Both methods check their input before any request and reject with an
+`AusbildungValidationError` (`Invalid <name>: <reason>`); the CLI applies the same
+rules (exit `2`). The checks are exported from the package root, so a caller can
+run them up front.
+
+- **Blank search filters.** `search()` rejects any string parameter (`sw`, `ids`,
+  `orte`, `re`, `uk`, `bart`, `bt`) that is empty or only whitespace
+  (`validateSearchParams`, `nonEmptyProblem`): the API treats an empty parameter as
+  no filter and would answer with the unfiltered set. Leave a filter out
+  (`undefined`) to not filter by it.
+
 ## Authentication internals
 
 The API requires a static, publicly-documented `X-API-Key` on every request. **No

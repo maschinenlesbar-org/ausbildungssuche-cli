@@ -8,6 +8,7 @@ import type { AusbildungssucheClientOptions } from "../client/client.js";
 import { AusbildungError, AusbildungValidationError } from "../client/errors.js";
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 import { isBidiControl } from "../client/engine.js";
+import { nonEmptyProblem } from "../client/validate.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -28,13 +29,13 @@ export function parseIntArg(value: string): number {
 }
 
 /**
- * commander value-parser: a value that is not blank. A blank filter would
- * otherwise be dropped and the command would silently run unfiltered.
+ * commander value-parser: a value that is not blank (the library's
+ * nonEmptyProblem). A blank filter would otherwise be sent empty and the command
+ * would silently run unfiltered.
  */
 export function parseNonEmpty(value: string): string {
-  if (value.trim() === "") {
-    throw new InvalidArgumentError("Expected a non-empty value.");
-  }
+  const problem = nonEmptyProblem(value);
+  if (problem !== undefined) throw new InvalidArgumentError(problem);
   return value;
 }
 

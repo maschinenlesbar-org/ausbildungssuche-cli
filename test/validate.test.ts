@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertValid, type Problem } from "../src/client/validate.js";
+import {
+  assertValid,
+  isBlank,
+  nonEmptyProblem,
+  validateSearchParams,
+  type Problem,
+} from "../src/client/validate.js";
 import { AusbildungError, AusbildungValidationError } from "../src/client/errors.js";
 import * as lib from "../src/index.js";
 import { run } from "../src/cli/run.js";
@@ -53,4 +59,23 @@ test("parity() drives the same input through the CLI and the library on one tran
   assert.equal(l.ok, true);
   assert.equal(cli.requests.length, 1);
   assert.deepEqual(l.requests, cli.requests);
+});
+
+test("nonEmptyProblem rejects empty and whitespace-only values, isBlank agrees", () => {
+  for (const v of ["", " ", "\t", " \n "]) {
+    assert.equal(isBlank(v), true, JSON.stringify(v));
+    assert.equal(nonEmptyProblem(v), "Expected a non-empty value.");
+  }
+  for (const v of ["x", " x ", "0"]) {
+    assert.equal(isBlank(v), false, JSON.stringify(v));
+    assert.equal(nonEmptyProblem(v), undefined);
+  }
+});
+
+test("validateSearchParams names the blank parameter and leaves undefined alone", () => {
+  assert.deepEqual(validateSearchParams({ ids: "9162", sw: undefined }), { ids: "9162", sw: undefined });
+  assert.throws(
+    () => validateSearchParams({ ids: "9162", bart: " " }),
+    (err) => err instanceof AusbildungValidationError && err.message === "Invalid bart: Expected a non-empty value.",
+  );
 });

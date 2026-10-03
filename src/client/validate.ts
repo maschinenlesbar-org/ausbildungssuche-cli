@@ -6,6 +6,7 @@
 // turn the reason into a usage error, so the rule exists exactly once.
 
 import { AusbildungValidationError } from "./errors.js";
+import type { AusbildungSearchParams } from "./types.js";
 
 /** Why `value` is invalid, or `undefined` if it is valid. */
 export type Problem<T = string> = (value: T) => string | undefined;
@@ -24,4 +25,28 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
     throw new AusbildungValidationError(`Invalid ${name}: ${reason}`);
   }
   return value;
+}
+
+/** True for a string that is empty or only whitespace. */
+export function isBlank(value: string): boolean {
+  return value.trim() === "";
+}
+
+/**
+ * A blank value ("" or whitespace) is invalid: the API treats an empty parameter
+ * as no filter at all, so a blank filter would silently return the unfiltered set.
+ */
+export const nonEmptyProblem: Problem = (value) =>
+  isBlank(value) ? "Expected a non-empty value." : undefined;
+
+/**
+ * Check search parameters before any request: every string parameter (`sw`, `ids`,
+ * `orte`, `re`, `uk`, `bart`, `bt`) must be non-blank. `undefined` means "not
+ * set". Throws AusbildungValidationError naming the parameter.
+ */
+export function validateSearchParams(params: AusbildungSearchParams): AusbildungSearchParams {
+  for (const [name, value] of Object.entries(params)) {
+    if (typeof value === "string") assertValid(name, value, nonEmptyProblem);
+  }
+  return params;
 }
