@@ -11,8 +11,7 @@
 //   client.details(id)
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { AusbildungValidationError } from "./errors.js";
-import { validateSearchParams } from "./validate.js";
+import { assertValid, offerIdProblem, validateSearchParams } from "./validate.js";
 import type { QueryParams } from "./query.js";
 import type {
   AusbildungSearchResult,
@@ -29,36 +28,6 @@ export interface AusbildungssucheClientOptions extends EngineOptions {
    * header is not sent. Obtain the public key with obtainKey() (see obtain-key.ts).
    */
   apiKey?: string;
-}
-
-/**
- * Encode a single URL path segment, but leave an already-percent-encoded id
- * untouched so an id copied from a `_links` href is not double-encoded
- * (`%20` -> `%2520`). An id counts as "already encoded" when every `%` in it
- * introduces a valid `%XX` hex escape.
- *
- * SECURITY (AUS-003): the "already encoded" branch would otherwise pass the id
- * through verbatim, so a crafted id containing a single valid `%XX` plus raw
- * `/`, `?`, or `#` (e.g. `x%20/../../../v2/secret`) would inject path traversal,
- * a query, or a fragment into the request URL — steering the GET (with the
- * X-API-Key header attached) to an arbitrary path on the chosen origin. Reject
- * any id that carries these structural characters before deciding to skip
- * encoding; a genuine already-encoded id has them as `%2F`/`%3F`/`%23`.
- *
- * Neither branch touches "." / ".." (or their `%2e` forms); the engine rejects
- * those (see RequestEngine.buildUrl), so they cannot re-target a request.
- */
-function encodePathSegment(id: string): string {
-  const isAlreadyEncoded = /%[0-9A-Fa-f]{2}/.test(id) && !/%(?![0-9A-Fa-f]{2})/.test(id);
-  if (isAlreadyEncoded) {
-    if (/[/?#]/.test(id)) {
-      throw new AusbildungValidationError(
-        "details: id must not contain a raw '/', '?', or '#' (path/query/fragment injection).",
-      );
-    }
-    return id;
-  }
-  return encodeURIComponent(id);
 }
 
 /** Drop undefined values so only the parameters the caller set are sent. */
@@ -106,17 +75,17 @@ export class AusbildungssucheClient {
     );
   }
 
-  /** Full details for one apprenticeship offer by id. */
-  details(id: string): Promise<AusbildungDetails> {
-    if (id.trim() === "") {
-      throw new AusbildungValidationError("details: id must not be empty.");
-    }
+  /**
+   * Full details for one apprenticeship offer by its numeric id. Rejects with an
+   * AusbildungValidationError, before any request, for an id that is not digits
+   * only (offerIdProblem).
+   */
+  async details(id: string): Promise<AusbildungDetails> {
+    assertValid("id", id, offerIdProblem);
     // The detail endpoint serves application/json and 406s on HAL+JSON, so we
-    // request JSON explicitly. The id may already be percent-encoded (e.g. when
-    // copied from a `_links` href), so encode only an id that is not already
-    // encoded to avoid double-encoding `%xx` sequences.
+    // request JSON explicitly. A digits-only id needs no encoding.
     return this.engine.getJson(
-      `${SERVICE}/pc/v1/ausbildungsangebot/${encodePathSegment(id)}`,
+      `${SERVICE}/pc/v1/ausbildungsangebot/${id}`,
       undefined,
       "application/json",
     );

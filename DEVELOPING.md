@@ -48,7 +48,7 @@ const offers = (page._embedded ?? {}) as Record<string, unknown>;
 const keyless = new AusbildungssucheClient();
 
 try {
-  await client.details("does-not-exist");
+  await client.details("1");             // offer ids are numeric
 } catch (err) {
   if (err instanceof AusbildungApiError) console.error(err.status, err.detail);
 }
@@ -84,6 +84,10 @@ run them up front.
   (`validateSearchParams`, `nonEmptyProblem`): the API treats an empty parameter as
   no filter and would answer with the unfiltered set. Leave a filter out
   (`undefined`) to not filter by it.
+- **Non-numeric offer ids.** `details()` accepts an id of digits only
+  (`offerIdProblem`); a blank, padded, signed, decimal, percent-encoded or
+  separator-bearing id (`" 123 "`, `"12/34"`, `"%31%32"`, `".."`) is rejected
+  rather than put into the path with the API key attached.
 
 ## Authentication internals
 

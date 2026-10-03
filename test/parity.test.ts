@@ -62,3 +62,24 @@ for (const [name, value] of [
 test("parity: a non-blank filter is sent identically", async () => {
   assertSameRequest(await search(["--ids", "9162", "--sw", "Koch"], { sw: "Koch", ids: "9162" }));
 });
+
+// Finding #6 (PAT-10): offer ids are numeric; anything else re-targets or garbles
+// the detail path and is sent with the API key.
+const details = (id: string) =>
+  parity(["--api-key", KEY, "details", "--", id], (t) => client(t).details(id));
+
+for (const id of ["abc", " 123 ", "12/34", "%31%32", "12%2F3", "1.5", "-1", "0x10", "?x", "#x", "a\tb", "AB%20CD"]) {
+  test(`parity: details ${JSON.stringify(id)} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await details(id), /numeric offer id/);
+  });
+}
+
+for (const id of ["", "  "]) {
+  test(`parity: details with a blank id ${JSON.stringify(id)} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await details(id), /non-empty/);
+  });
+}
+
+test("parity: a numeric offer id is sent identically", async () => {
+  assertSameRequest(await details("365241044"));
+});

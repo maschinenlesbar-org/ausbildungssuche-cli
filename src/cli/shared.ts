@@ -8,7 +8,7 @@ import type { AusbildungssucheClientOptions } from "../client/client.js";
 import { AusbildungError, AusbildungValidationError } from "../client/errors.js";
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 import { isBidiControl } from "../client/engine.js";
-import { nonEmptyProblem } from "../client/validate.js";
+import { nonEmptyProblem, offerIdProblem } from "../client/validate.js";
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
@@ -238,12 +238,10 @@ export function parsePlace(value: string): string {
   return value;
 }
 
-/** commander value-parser for an offer id: the API's offer ids are numeric. */
+/** commander value-parser for an offer id: the library's offerIdProblem (digits only). */
 export function parseOfferId(value: string): string {
-  parseNonEmpty(value);
-  if (!/^\d+$/.test(value)) {
-    throw new InvalidArgumentError("Expected a numeric offer id (digits only).");
-  }
+  const problem = offerIdProblem(value);
+  if (problem !== undefined) throw new InvalidArgumentError(problem);
   return value;
 }
 

@@ -42,59 +42,46 @@ test("Accept is negotiated per endpoint (search=HAL+JSON, details=JSON)", async 
   await clientWith(mt).search();
   assert.equal(mt.last().headers?.["Accept"], "application/hal+json");
   const mt2 = constantJson({});
-  await clientWith(mt2).details("abc");
+  await clientWith(mt2).details("365241044");
   assert.equal(mt2.last().headers?.["Accept"], "application/json");
 });
 
-test("details builds the per-id path and url-encodes the id", async () => {
+test("details builds the per-id path from a numeric id", async () => {
   const mt = constantJson({});
-  await clientWith(mt).details("AB/12 3");
-  assert.equal(
-    new URL(mt.last().url).pathname,
-    `${SERVICE}/pc/v1/ausbildungsangebot/AB%2F12%203`,
-  );
+  await clientWith(mt).details("365241044");
+  assert.equal(new URL(mt.last().url).pathname, `${SERVICE}/pc/v1/ausbildungsangebot/365241044`);
 });
 
-test("details rejects a crafted already-encoded id that injects path traversal", () => {
-  // AUS-003: an id with one valid %XX plus raw '/' used to skip encoding, letting
-  // `new URL` normalise `../` and escape the intended path (here to /v2/secret).
-  // The id is validated synchronously before any request is made, so no request
-  // reaches the transport and the crafted path never gets built.
+// Offer ids are digits only. Anything else rejects (a promise rejection, not a
+// synchronous throw) before any request: a separator, a query or fragment, a
+// percent-encoded form, or a crafted traversal id (AUS-003, `x%20/../../../v2/secret`
+// used to escape the intended path to /v2/secret with the X-API-Key attached).
+for (const id of ["AB/12 3", "AB%20CD", "x%20/../../../v2/secret", "a%20b?apiKey=1", "abc%20#frag", "..", " 1 "]) {
+  test(`details rejects the non-numeric id ${JSON.stringify(id)} before any request`, async () => {
+    const mt = constantJson({});
+    await assert.rejects(
+      () => clientWith(mt).details(id),
+      (err) =>
+        err instanceof AusbildungValidationError &&
+        err.message === "Invalid id: Expected a numeric offer id (digits only).",
+    );
+    assert.equal(mt.calls.length, 0);
+  });
+}
+
+test("details rejects a non-string id with a validation error, not a TypeError", async () => {
   const mt = constantJson({});
-  assert.throws(
-    () => clientWith(mt).details("x%20/../../../v2/secret"),
+  await assert.rejects(
+    () => clientWith(mt).details(365241044 as unknown as string),
     (err) => err instanceof AusbildungValidationError,
   );
   assert.equal(mt.calls.length, 0);
-});
-
-test("details rejects an already-encoded id that injects a query or fragment", () => {
-  const mt = constantJson({});
-  assert.throws(
-    () => clientWith(mt).details("a%20b?apiKey=1"),
-    (err) => err instanceof AusbildungValidationError,
-  );
-  assert.throws(
-    () => clientWith(mt).details("abc%20#frag"),
-    (err) => err instanceof AusbildungValidationError,
-  );
-  assert.equal(mt.calls.length, 0);
-});
-
-test("details still passes a genuinely already-encoded id through unchanged", async () => {
-  // A real _links id keeps its %20 (not double-encoded to %2520) and stays on path.
-  const mt = constantJson({});
-  await clientWith(mt).details("AB%20CD");
-  assert.equal(
-    new URL(mt.last().url).pathname,
-    `${SERVICE}/pc/v1/ausbildungsangebot/AB%20CD`,
-  );
 });
 
 test("a 404 raises AusbildungApiError with status 404", async () => {
   const mt = makeMockTransport(() => jsonResponse({}, 404));
   await assert.rejects(
-    () => clientWith(mt).details("x"),
+    () => clientWith(mt).details("1"),
     (err) => err instanceof AusbildungApiError && err.status === 404,
   );
 });

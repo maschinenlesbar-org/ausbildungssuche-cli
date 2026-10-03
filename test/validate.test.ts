@@ -4,6 +4,7 @@ import {
   assertValid,
   isBlank,
   nonEmptyProblem,
+  offerIdProblem,
   validateSearchParams,
   type Problem,
 } from "../src/client/validate.js";
@@ -78,4 +79,12 @@ test("validateSearchParams names the blank parameter and leaves undefined alone"
     () => validateSearchParams({ ids: "9162", bart: " " }),
     (err) => err instanceof AusbildungValidationError && err.message === "Invalid bart: Expected a non-empty value.",
   );
+});
+
+test("offerIdProblem accepts digits only", () => {
+  for (const id of ["0", "365241044", "007"]) assert.equal(offerIdProblem(id), undefined, id);
+  for (const id of ["", "  "]) assert.equal(offerIdProblem(id), "Expected a non-empty value.");
+  for (const id of ["abc", " 1", "1 ", "1.5", "-1", "1/2", "%31", "١٢"]) {
+    assert.equal(offerIdProblem(id), "Expected a numeric offer id (digits only).", id);
+  }
 });

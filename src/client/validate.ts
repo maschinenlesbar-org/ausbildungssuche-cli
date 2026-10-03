@@ -50,3 +50,15 @@ export function validateSearchParams(params: AusbildungSearchParams): Ausbildung
   }
   return params;
 }
+
+/**
+ * An offer id (`details`) is numeric, digits only. Anything else cannot name an
+ * offer and, put into the path, could re-target the request (`..`, `12/34`, `?x`)
+ * or be sent padded (`%20123%20`) with the API key attached.
+ */
+export const offerIdProblem: Problem = (id) => {
+  const numeric = "Expected a numeric offer id (digits only).";
+  // A JS caller may pass a non-string; reject it as invalid rather than throw a TypeError.
+  if (typeof id !== "string") return numeric;
+  return nonEmptyProblem(id) ?? (/^\d+$/.test(id) ? undefined : numeric);
+};

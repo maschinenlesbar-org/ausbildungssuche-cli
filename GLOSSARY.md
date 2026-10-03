@@ -79,9 +79,7 @@ reserved `_embedded` and `_links` members.
 result. Offers are large and deeply nested, so the client keeps them as faithful
 raw JSON objects rather than narrowing them to a partial type.
 
-**`_links`.** HAL hypermedia links (self, next/prev page, etc.). An offer id
-copied from a `_links` href may already be percent-encoded; the client detects
-this and does not double-encode it when building the details path.
+**`_links`.** HAL hypermedia links (self, next/prev page, etc.).
 
 **`page` (PageInfo).** HAL paging metadata for a search result:
 `size`, `totalElements`, `totalPages`, and `number` (the current 0-based page).
@@ -93,9 +91,9 @@ this and does not double-encode it when building the details path.
 ## Identifiers
 
 **Offer id.** The identifier of one apprenticeship offer, passed to
-`details <id>`. Offer ids are numeric; the CLI rejects anything else (exit `2`,
-before any request), and the library rejects an empty id and a `.`/`..` id
-(percent-encoded forms included) with a validation error.
+`details <id>`. Offer ids are numeric (digits only): the CLI rejects anything else
+(exit `2`) and the library rejects it with a validation error, both before any
+request.
 
 **Location (`orte`).** The place used to scope a search, written as
 `Name_lon_lat` with the **longitude first**, e.g. `Köln_6.957_50.938`. With the

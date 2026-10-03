@@ -9,7 +9,13 @@ export type { Transport, HttpRequest, HttpResponse } from "./http.js";
 export { obtainKey, API_KEY_ENV_VAR, KEY_SOURCE_URL } from "./obtain-key.js";
 export type { ObtainKeyOptions, ObtainedKey } from "./obtain-key.js";
 export { buildQueryString } from "./query.js";
-export { assertValid, isBlank, nonEmptyProblem, validateSearchParams } from "./validate.js";
+export {
+  assertValid,
+  isBlank,
+  nonEmptyProblem,
+  offerIdProblem,
+  validateSearchParams,
+} from "./validate.js";
 export type { Problem } from "./validate.js";
 export type { QueryParams, QueryValue } from "./query.js";
 export {

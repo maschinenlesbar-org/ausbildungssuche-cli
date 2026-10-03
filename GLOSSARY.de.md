@@ -79,9 +79,7 @@ den reservierten Elementen `_embedded` und `_links`.
 Angebote sind groß und tief verschachtelt, deshalb behält der Client sie als unveränderte
 rohe JSON-Objekte, statt sie auf einen Teiltyp einzuschränken.
 
-**`_links`.** HAL-Hypermedia-Links (self, nächste/vorherige Seite usw.). Eine Angebots-ID,
-die aus einem `_links`-href kopiert wurde, kann bereits prozentkodiert sein; der Client
-erkennt das und kodiert sie beim Aufbau des Detail-Pfads nicht doppelt.
+**`_links`.** HAL-Hypermedia-Links (self, nächste/vorherige Seite usw.).
 
 **`page` (PageInfo).** HAL-Metadaten zur Paginierung eines Suchergebnisses:
 `size`, `totalElements`, `totalPages` und `number` (die aktuelle Seite, beginnend bei 0).
@@ -93,9 +91,9 @@ erkennt das und kodiert sie beim Aufbau des Detail-Pfads nicht doppelt.
 ## Kennungen
 
 **Angebots-ID.** Die Kennung eines einzelnen Ausbildungsangebots, übergeben an
-`details <id>`. Angebots-IDs sind numerisch; alles andere lehnt die CLI ab (Exit `2`,
-bevor eine Anfrage gesendet wird), und die Bibliothek lehnt eine leere ID sowie eine
-`.`/`..`-ID (auch prozentkodiert) mit einem Validierungsfehler ab.
+`details <id>`. Angebots-IDs sind numerisch (nur Ziffern): Alles andere lehnt die CLI ab
+(Exit `2`) und die Bibliothek mit einem Validierungsfehler, beide bevor eine Anfrage
+gesendet wird.
 
 **Ort (`orte`).** Der Ort, auf den eine Suche eingegrenzt wird, geschrieben als
 `Name_lon_lat` mit dem **Längengrad zuerst**, z. B. `Köln_6.957_50.938`. Steht der
