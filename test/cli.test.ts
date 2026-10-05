@@ -444,3 +444,31 @@ test("a 200 that is not the search envelope or an offer array exits 1, never 0",
     assert.match(cli.err.join("\n"), /expected an array of offers/);
   }
 });
+
+test("a repeated global option is a usage error, naming the option and not the value", async () => {
+  for (const argv of [
+    ["--api-key", "first-key-1", "--api-key", "second-key-2", "search"],
+    ["--base-url", "http://a.example", "--base-url", "http://b.example", "search"],
+    ["--timeout", "100", "search", "--timeout", "200"],
+  ]) {
+    const cli = makeCli(okResponse);
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), /was given more than once/);
+    assert.ok(!cli.err.join("\n").includes("second-key-2"));
+  }
+  // A key from the environment and one --api-key are not a repeat: the flag wins.
+  const cli = makeCli(okResponse, { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
+  assert.equal(await run(["--api-key", "flag-key", "search"], cli.deps), 0);
+  assert.equal(cli.mt.last().headers?.["X-API-Key"], "flag-key");
+});
+
+test("an empty result for --ids or --bart gets a note on stderr, stdout stays JSON", async () => {
+  const cli = makeCli(okResponse);
+  assert.equal(await run(["--compact", "search", "--ids", "99999999"], cli.deps), 0);
+  assert.deepEqual(JSON.parse(cli.out.join("\n")).page.totalElements, 0);
+  assert.match(cli.err.join("\n"), /no offers matched.*unknown --ids value/);
+  const plain = makeCli(okResponse);
+  await run(["search", "--re", "NRW"], plain.deps);
+  assert.deepEqual(plain.err, []);
+});

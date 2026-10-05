@@ -126,8 +126,11 @@ details    <id>        full details for one offer
 | `--size <n>` | page size, `1`..`20` (the server serves at most 20 rows per page) |
 
 `--ids`, `--re` and `--bt` take several values, comma-separated or by repeating
-the flag; repeating any other filter is a usage error (exit `2`) rather than
-silently keeping only the last value.
+the flag; repeating any other filter, or a global option (`--api-key`, `--base-url`,
+`--timeout`, …), is a usage error (exit `2`) rather than silently keeping only the
+last value. When a search with `--ids` or `--bart` finds nothing, a note on stderr
+says so: the API answers an id or training type it doesn't know with an empty
+result, not an error.
 
 The flag names mirror the API's German abbreviations — the
 **[Glossary](GLOSSARY.md)** decodes every one.
@@ -216,7 +219,7 @@ keeps its own code even when its stderr's reader has gone (`2>&1 | head -c 5`).
 
 ## Global options
 
-These apply to every command and may be given before *or* after it:
+These apply to every command and may be given before *or* after it, once each:
 
 | Option | Description |
 | --- | --- |

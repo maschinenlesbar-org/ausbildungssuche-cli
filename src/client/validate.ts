@@ -428,6 +428,9 @@ function mapStrings(value: string, fn: (s: string) => string): string {
  * Check search parameters before any request, and throw an
  * AusbildungValidationError naming the first parameter that breaks a rule:
  *
+ * - `params` must be a plain object, every key one of SEARCH_PARAMS
+ *   (searchParamKeyProblem; `options.allowUnknownFilters` lifts that one rule) and
+ *   every value a single value of its type, not an array;
  * - every string parameter (`sw`, `ids`, `orte`, `re`, `uk`, `bart`, `bt`) must be
  *   non-blank (nonEmptyProblem);
  * - `sty`, `re`, `uk` and `bt` must come from the API's closed value sets
@@ -440,9 +443,23 @@ function mapStrings(value: string, fn: (s: string) => string): string {
  *
  * `undefined` means "not set" and is never checked.
  */
-export function validateSearchParams(params: AusbildungSearchParams): AusbildungSearchParams {
+export function validateSearchParams(
+  params: AusbildungSearchParams,
+  options: { allowUnknownFilters?: boolean } = {},
+): AusbildungSearchParams {
   if (!isPlainObject(params)) {
     throw new AusbildungValidationError("Invalid search parameters: Expected an object of search parameters.");
+  }
+  for (const [name, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    if (options.allowUnknownFilters !== true) assertValid("search parameter", name, searchParamKeyProblem);
+    // Every parameter takes one value (a list is one comma-separated string): an array
+    // would go out as repeated keys, which the API does not combine.
+    if (Array.isArray(value)) {
+      throw new AusbildungValidationError(
+        `Invalid ${name}: Expected one value, got an array; give several ids, codes or places comma-separated in one string.`,
+      );
+    }
   }
   for (const [name, value] of Object.entries(params)) {
     for (const item of listOf(value)) {
@@ -473,6 +490,24 @@ export function validateSearchParams(params: AusbildungSearchParams): Ausbildung
   assertValid("page", params, resultWindowProblem);
   return params;
 }
+
+/**
+ * The parameters the search endpoint takes. The API ignores any other key and answers
+ * with the whole unfiltered set, so `search()` rejects one (searchParamKeyProblem),
+ * unless the caller opts out with `{ allowUnknownFilters: true }`.
+ */
+export const SEARCH_PARAMS = ["sw", "sty", "ids", "orte", "re", "uk", "bart", "bg", "bt", "page", "size"] as const;
+
+/**
+ * Why `key` is not a search parameter, or `undefined`. A misspelled (`idss`),
+ * wrong-case (`IDS`), unknown (`bundesland`) or `__proto__` key would be sent and
+ * ignored, returning the nationwide set with exit 0.
+ */
+export const searchParamKeyProblem: Problem = (key) =>
+  (SEARCH_PARAMS as readonly string[]).includes(key)
+    ? undefined
+    : `Unknown search parameter "${/^[\w.-]{1,40}$/.test(key) ? key : "(not shown)"}". Expected one of ${SEARCH_PARAMS.join(", ")} ` +
+      "(the API ignores any other and would return the unfiltered set).";
 
 /** The search parameters whose value is text (a JavaScript caller may pass a number). */
 const TEXT_PARAMS = new Set(["sw", "ids", "orte", "re", "uk", "bart", "bt"]);

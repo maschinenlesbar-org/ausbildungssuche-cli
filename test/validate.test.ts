@@ -182,9 +182,10 @@ test("validateSearchParams checks numbers and arrays in the form they are sent",
     () => validateSearchParams({ uk: 30 as unknown as string }),
     (err) => err instanceof AusbildungValidationError && /^Invalid uk:/.test(err.message),
   );
+  // An array would go out as repeated keys, which the API does not combine (P10).
   assert.throws(
-    () => validateSearchParams({ re: ["BAY", "BW"] as unknown as string }),
-    (err) => err instanceof AusbildungValidationError && /"BW"/.test(err.message),
+    () => validateSearchParams({ re: ["BAY", "NRW"] as unknown as string }),
+    (err) => err instanceof AusbildungValidationError && /^Invalid re: Expected one value, got an array/.test(err.message),
   );
   assert.doesNotThrow(() =>
     validateSearchParams({ orte: "K_6.9_50.9", uk: 25 as unknown as string, ids: 9162 as unknown as string }),

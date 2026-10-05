@@ -107,6 +107,16 @@ Both methods check their input before any request and reject with an
 rules (exit `2`). The checks are exported from the package root, so a caller can
 run them up front.
 
+- **Unknown keys and arrays** (P10). `search()` rejects a key that is not one of
+  `SEARCH_PARAMS` (`searchParamKeyProblem`: a misspelled `idss`, a wrong-case `IDS`,
+  `bundesland`, a `__proto__` key from `JSON.parse`), because the API ignores it and
+  answers with the whole unfiltered set; `search(params, { allowUnknownFilters: true })`
+  sends such a key anyway (a parameter the API added later). An array value is
+  rejected too: it would go out as repeated keys, which the API does not combine —
+  give several ids, codes or places comma-separated in one string. In the CLI a
+  repeated single-value filter or global option is a usage error (`once()`,
+  `rejectRepeatedOptions` in `run.ts`), and `--ids`/`--re`/`--bt` repeats are joined
+  with `,`. `test/conformance-p10-strict-filters.test.ts` is the shared check.
 - **Blank search filters.** `search()` rejects any string parameter (`sw`, `ids`,
   `orte`, `re`, `uk`, `bart`, `bt`) that is empty or only whitespace
   (`validateSearchParams`, `nonEmptyProblem`): the API treats an empty parameter as

@@ -59,6 +59,16 @@ function prune(params: Record<string, unknown>): QueryParams {
   return out;
 }
 
+/** Options for `search()`. */
+export interface SearchOptions {
+  /**
+   * Send keys that are not in SEARCH_PARAMS as they are, e.g. a parameter the API
+   * added after this client was written. Default `false`: an unknown key is rejected,
+   * because the API ignores it and answers with the whole unfiltered set.
+   */
+  allowUnknownFilters?: boolean;
+}
+
 export class AusbildungssucheClient {
   private readonly engine: RequestEngine;
 
@@ -97,11 +107,14 @@ export class AusbildungssucheClient {
    * into the form the API accepts (normalizeSearchParams: `" nrw"` → `NRW`,
    * `bundesweit` → `Bundesweit`). Rejects with an AusbildungValidationError, before
    * any request, when the parameters break a rule of validateSearchParams (e.g. a
-   * blank filter). A 2xx answer that is not the search envelope (searchResultProblem)
-   * is an AusbildungParseError.
+   * blank filter, a key that is not a search parameter, an array). A 2xx answer that
+   * is not the search envelope (searchResultProblem) is an AusbildungParseError.
    */
-  async search(params: AusbildungSearchParams = {}): Promise<AusbildungSearchResult> {
-    const normalized = validateSearchParams(normalizeSearchParams(params));
+  async search(params: AusbildungSearchParams = {}, options: SearchOptions = {}): Promise<AusbildungSearchResult> {
+    if (!isPlainObject(options)) {
+      throw new AusbildungValidationError("Invalid options: Expected an object, e.g. { allowUnknownFilters: true }.");
+    }
+    const normalized = validateSearchParams(normalizeSearchParams(params), options);
     const path = `${SERVICE}/pc/v1/ausbildungsangebot`;
     // The search collection serves HAL+JSON and 406s on plain application/json.
     const result = await this.engine.getJson(path, prune({ ...normalized }), "application/hal+json");

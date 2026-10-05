@@ -224,7 +224,8 @@ a private key is never forwarded to another host.
 
 ## Global options
 
-These apply to every command and may be given before *or* after the subcommand:
+These apply to every command and may be given before *or* after the subcommand, once
+each (a repeated global option is a usage error, exit `2`):
 
 | Option | Description |
 | --- | --- |

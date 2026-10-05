@@ -55,7 +55,17 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
         // message in flag terms (--orte/--uk).
         const pairing = placeAndRadiusProblem(params, (p) => `--${p}`);
         if (pairing !== undefined) throw new AusbildungValidationError(`search: ${pairing}`);
-        renderJson(deps, global, await client.search(params));
+        const result = await client.search(params);
+        renderJson(deps, global, result);
+        // The API answers an id or training type it doesn't know with an empty result,
+        // not an error, so say which filter may be the reason (stderr; stdout stays JSON).
+        const named = (["ids", "bart"] as const).filter((p) => params[p] !== undefined);
+        if (result.page?.totalElements === 0 && named.length > 0) {
+          deps.io.err(
+            `Note: no offers matched. The API answers an unknown ${named.map((p) => `--${p}`).join(" or ")} ` +
+              "value with an empty result, not an error; check the value.",
+          );
+        }
       }),
     );
 
