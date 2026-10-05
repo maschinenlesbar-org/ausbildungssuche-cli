@@ -303,10 +303,13 @@ http→https hint).
 
 **Retry / backoff.** Transient `429` (rate limit) and `503` responses, and reset
 connections, are retried automatically, up to `maxRetries` / `--max-retries` (`0`..`MAX_RETRIES`, 10). Each retry waits the
-response's `Retry-After` (delay-seconds or an IMF-fixdate HTTP-date, parsed by the
-exported `parseRetryAfter`); without a usable one it backs off linearly
-(`retryDelayMs * attempt`). A `Retry-After` above `MAX_RETRY_AFTER_MS` (30 s) is
-not retried at all: the error surfaces at once. `AusbildungApiError`
+linear backoff (`retryDelayMs * attempt`), or the response's `Retry-After`
+(delay-seconds or an IMF-fixdate HTTP-date, parsed by the exported
+`parseRetryAfter`) when that is longer: a `Retry-After: 0` or a date in the past
+never makes a zero-delay burst. A `Retry-After` above `MAX_RETRY_AFTER_MS` (30 s) is
+not retried at all: the error surfaces at once and names the requested wait
+("retrying sooner won't help"). `test/conformance-p6-retry-policy.test.ts` is the
+shared check. `AusbildungApiError`
 exposes `isRetryable` (true for `429`/`503`).
 
 **maxResponseBytes.** A cap on the response body size in bytes (`0` = unlimited;
@@ -331,7 +334,8 @@ the `cause` chain; `isTransientNetworkError`) is retried like a `503`, for GET o
 `new AusbildungssucheClient(...)`) throws an `AusbildungValidationError` for a
 numeric option that is not an integer in its range: `timeoutMs` `0`..`MAX_TIMEOUT_MS`,
 `maxRetries` `0`..`MAX_RETRIES` (10), `maxRedirects` `0`..`MAX_REDIRECTS` (10),
-`maxResponseBytes` and `retryDelayMs` any non-negative integer (`intOption`,
+`retryDelayMs` `0`..`MAX_RETRY_AFTER_MS` (30 000), `maxResponseBytes` any
+non-negative integer (`intOption`,
 `intRangeProblem`). `obtainKey()` builds a `RequestEngine` from the same options,
 so the same ranges apply there. A NaN,
 negative or fractional value would otherwise silently disable the timeout or the
