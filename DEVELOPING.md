@@ -68,6 +68,24 @@ new AusbildungssucheClient({
 });
 ```
 
+A custom transport passes `redirect` and `signal` on and reports the URL that
+answered, so the engine can follow redirects and keep the key on its origin
+(see "Transports must not follow redirects" below):
+
+```ts
+const customTransport: Transport = async (req) => {
+  const r = await fetch(req.url, {
+    method: req.method,
+    headers: req.headers,
+    redirect: req.redirect, // "manual": the engine follows redirects itself
+    signal: req.signal,     // aborted at timeoutMs
+  });
+  // The engine reads a Headers object and a Uint8Array body as they come.
+  const body = new Uint8Array(await r.arrayBuffer());
+  return { status: r.status, headers: r.headers, body, url: r.url } as unknown as HttpResponse;
+};
+```
+
 ### Methods
 
 `client.search(params)` and `client.details(id)`.
@@ -257,11 +275,31 @@ every request — the seam that injects `X-API-Key`. The `Accept` header is chos
 per endpoint (`application/hal+json` for search, `application/json` for details)
 because each endpoint `406`s on the other media type.
 
-**Cross-origin credential stripping.** When the API issues a redirect that
-crosses an origin boundary (different scheme, host, or port), the engine strips
-credential headers (`X-API-Key`, `Authorization`, `Cookie`) before following it,
-so a private key is never forwarded to another host. Same-origin redirects keep
-the key.
+**Credentials per origin, hop by hop.** The engine attaches the credentials itself
+on every hop — the credential headers (`X-API-Key`, `Authorization`, `Cookie`) and
+the base URL's userinfo, sent as `Authorization: Basic` — and never puts userinfo in
+the URL a transport sees. They go to the base URL's origin only: a same-origin
+redirect (relative or absolute `Location`) keeps them, a redirect to another
+scheme, host or port drops them for the rest of the chain (`http:`→`https:` on the
+same host included), and `RawResponse.credentialsDropped` /
+`AusbildungApiError.credentialsDropped` say so. A `401`/`403` after such a hop names
+the redirect instead of blaming the key ("use an https base URL" for http→https,
+`credentialsDroppedHint`), and the CLI exits `1` there without its key hint. A
+`Location`'s own userinfo is never used.
+
+**Transports must not follow redirects.** `HttpRequest.redirect` is always
+`"manual"`: a custom transport returns the 3xx as it came
+(`fetch(req.url, { redirect: req.redirect, signal: req.signal, … })`) and reports
+the URL that answered in `HttpResponse.url` (fetch's `r.url`). A response whose `url`
+is on another origin than the request's is rejected as an `AusbildungNetworkError`
+("the transport followed a redirect to …"). The engine can only detect that after
+the fact: a transport that ignores `redirect: "manual"` has already sent the
+request, `X-API-Key` included (fetch strips only `Authorization` across origins), so
+pass `req.redirect` on. `obtainKey()` names the document the key was really read
+from (`ObtainedKey.sourceUrl`, also in the CLI's provenance note) when the key
+source redirected. `test/conformance-p3-redirect-credentials.test.ts` is the shared
+check (two local origins, a fetch transport, a transport-reported final URL, the
+http→https hint).
 
 **Retry / backoff.** Transient `429` (rate limit) and `503` responses, and reset
 connections, are retried automatically, up to `maxRetries` / `--max-retries` (`0`..`MAX_RETRIES`, 10). Each retry waits the

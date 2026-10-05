@@ -166,7 +166,8 @@ Upstream-API nennt 2000 als Maximum; der Server hält sich nicht daran.
 
 **Exit-Codes.** Die CLI bildet Ergebnisse auf Prozess-Exit-Codes ab: `0` bei Erfolg;
 `2` bei Aufruf- bzw. Argumentvalidierungsfehlern; `3` bei `401`/`403` (Anfrage abgelehnt,
-oft wegen des API-Schlüssels); `4` bei `404`; `5` bei `406` (Aushandlung über `Accept`
+oft wegen des API-Schlüssels; stattdessen `1`, wenn eine Weiterleitung zu einem anderen Origin
+den Schlüssel verworfen hat, der antwortende Server ihn also nie gesehen hat); `4` bei `404`; `5` bei `406` (Aushandlung über `Accept`
 fehlgeschlagen); `6` bei einem Netzwerk- oder Transportfehler (DNS, Verbindung, Timeout,
 Obergrenze der Antwortgröße); `1` bei allen anderen Fehlern. `--help`/`--version` liefern `0`.
 

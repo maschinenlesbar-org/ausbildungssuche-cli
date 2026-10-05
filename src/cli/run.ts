@@ -173,6 +173,12 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       // Map a few notable statuses to distinct exit codes for scripting, and
       // nudge the user toward the likely cause for the auth/negotiation ones.
       if (err.status === 404) return EXIT.NOT_FOUND;
+      // When a redirect to another origin dropped the key, the message already says so
+      // (an http: base URL redirected to https: is the usual case): the API never saw
+      // the key, so this is not a verdict on it — no key hint, and not exit 3.
+      if ((err.status === 401 || err.status === 403) && err.credentialsDropped !== undefined) {
+        return EXIT.OTHER;
+      }
       if (err.status === 401 || err.status === 403) {
         // A 403 is not always an auth failure (e.g. a malformed request path can
         // 403 with the valid public key). Only mention the key for 401, or for a

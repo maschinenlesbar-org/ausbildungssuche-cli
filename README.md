@@ -186,7 +186,7 @@ do the same thing.
 | --- | --- |
 | `0` | success (also `--help` / `--version`) |
 | `2` | bad usage / invalid argument (nothing was sent) |
-| `3` | request rejected (`401`/`403`) |
+| `3` | request rejected (`401`/`403`); a `401`/`403` after a redirect to another origin, which never received the key, is `1` and the message names the redirect |
 | `4` | offer not found (`404`) |
 | `5` | server content-type negotiation failed (`406`) |
 | `6` | network/transport failure (DNS, connection, timeout, oversized response) |

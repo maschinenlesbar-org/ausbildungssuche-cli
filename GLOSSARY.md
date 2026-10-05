@@ -167,7 +167,8 @@ description names 2000 as the maximum; the server does not honour it.
 
 **Exit codes.** The CLI maps outcomes to process exit codes: `0` success;
 `2` usage / argument-validation errors; `3` on `401`/`403` (rejected request,
-often the API key); `4` on `404`; `5` on `406` (Accept negotiation failed);
+often the API key; `1` instead when a redirect to another origin dropped the key, so the
+server that answered never saw it); `4` on `404`; `5` on `406` (Accept negotiation failed);
 `6` on a network / transport failure (DNS, connection, timeout, response-size
 cap); `1` for any other error. `--help`/`--version` return `0`.
 

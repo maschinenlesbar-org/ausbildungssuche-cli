@@ -254,6 +254,7 @@ These apply to every command and may be given before *or* after the subcommand:
 | `--page <n>` | 0-based page index |
 | `--size <n>` | page size, `1`..`20` (the server serves at most 20 rows per page) |
 
-Exit codes: `0` success, `2` usage/argument errors, `3` on `401`/`403`, `4` on
+Exit codes: `0` success, `2` usage/argument errors, `3` on `401`/`403` (`1` when a
+redirect to another origin dropped the key first), `4` on
 `404`, `5` on `406` (Accept negotiation), `6` on a network/transport failure,
 `1` for any other error.

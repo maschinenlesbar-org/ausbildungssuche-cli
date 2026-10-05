@@ -45,6 +45,22 @@ export interface RawResponse {
   data: Buffer;
   contentType: string;
   status: number;
+  /** The URL that answered, after any redirects, without userinfo. */
+  url: string;
+  /**
+   * Set when a redirect led to another origin (another scheme, host or port), so the
+   * credentials (the API key, the base URL's userinfo) were not sent to the server
+   * that answered: the origins before and after that hop.
+   */
+  credentialsDropped?: CredentialsDropped;
+}
+
+/** Where a redirect left the origin the credentials belong to. */
+export interface CredentialsDropped {
+  /** The origin that received the credentials. */
+  from: string;
+  /** The other origin the redirect led to, which did not. */
+  to: string;
 }
 
 export interface EngineOptions {
@@ -308,6 +324,43 @@ export function isTransientNetworkError(err: unknown): boolean {
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * `url` without its userinfo, and the `Authorization: Basic` value the userinfo
+ * stands for (undefined without one). The engine attaches credentials per hop
+ * itself, so a transport never sees a URL with userinfo: Node's http would turn it
+ * into a Basic header on every hop, and `fetch` refuses such a URL. A URL that does
+ * not parse is returned as is, for the transport to report.
+ */
+function splitUserinfo(url: string): { url: string; basic: string | undefined } {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { url, basic: undefined };
+  }
+  if (parsed.username === "" && parsed.password === "") return { url, basic: undefined };
+  const decode = (part: string): string => {
+    try {
+      return decodeURIComponent(part);
+    } catch {
+      return part;
+    }
+  };
+  const pair = `${decode(parsed.username)}:${decode(parsed.password)}`;
+  parsed.username = "";
+  parsed.password = "";
+  return { url: parsed.href, basic: `Basic ${Buffer.from(pair, "latin1").toString("base64")}` };
+}
+
+/** The origin of `url` (scheme, host and port), or undefined when it does not parse. */
+function originOf(url: string): string | undefined {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Return a copy of `headers` with any credential-bearing header removed. */
 function stripCredentialHeaders(headers: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
@@ -423,17 +476,40 @@ export class RequestEngine {
     return this.send("GET", url, accept);
   }
 
+  /**
+   * Send a request, following redirects and retrying transient failures.
+   *
+   * Credentials — the credential headers (`X-API-Key`, `Authorization`, `Cookie`) and
+   * the start URL's userinfo, sent as `Authorization: Basic` unless an Authorization
+   * header is already set — are attached by the engine per hop, never baked into the
+   * URL the transport sees. They go to the start URL's origin only: a redirect to the
+   * same origin (a relative or an absolute `Location`) keeps them, one to another
+   * scheme, host or port drops them for the rest of the chain, and the result says
+   * so (`credentialsDropped`). The transport is told `redirect: "manual"`; a
+   * transport that followed a redirect to another origin itself (its response `url`
+   * says so) fails the request instead of being trusted.
+   */
   private async send(method: string, initialUrl: string, accept: string): Promise<RawResponse> {
-    let url = initialUrl;
     // The per-request `accept` is the authoritative Accept for this call, so it
     // is applied AFTER defaultHeaders — otherwise a default `Accept` (e.g. an
     // API-wide HAL+JSON default) would permanently shadow per-endpoint
     // negotiation. User-Agent is likewise applied after defaultHeaders.
-    let headers: Record<string, string> = {
+    const all: Record<string, string> = {
       ...this.#defaultHeaders,
       Accept: accept,
       "User-Agent": this.userAgent,
     };
+    const plain = stripCredentialHeaders(all);
+    const credentials: Record<string, string> = {};
+    for (const [name, value] of Object.entries(all)) if (!(name in plain)) credentials[name] = value;
+    const start = splitUserinfo(initialUrl);
+    if (start.basic !== undefined && !Object.keys(credentials).some((n) => n.toLowerCase() === "authorization")) {
+      credentials["Authorization"] = start.basic;
+    }
+    const hasCredentials = Object.keys(credentials).length > 0;
+    const credentialOrigin = originOf(start.url);
+    let dropped: CredentialsDropped | undefined;
+    let url = start.url;
 
     // Only an idempotent request is sent again: send() is reachable with any method
     // through request(), and a POST re-sent after a reset or a 503 may be applied
@@ -443,12 +519,15 @@ export class RequestEngine {
     let redirects = 0;
     // attempts = initial try + maxRetries (redirects are counted separately)
     for (;;) {
+      const sendCredentials = dropped === undefined && originOf(url) === credentialOrigin;
+      const headers = sendCredentials ? { ...plain, ...credentials } : plain;
       let raw: HttpResponse;
       try {
         raw = await this.callTransport({
           method,
           url,
           headers,
+          redirect: "manual",
           timeoutMs: this.timeoutMs,
           ...(this.maxResponseBytes > 0 ? { maxResponseBytes: this.maxResponseBytes } : {}),
         });
@@ -470,6 +549,18 @@ export class RequestEngine {
       if (invalid !== undefined) {
         throw new AusbildungNetworkError(
           `${method} ${redactUrl(url)} failed: the transport returned an invalid response (${invalid}).`,
+        );
+      }
+      // A transport that followed a redirect itself (fetch's default) took the request
+      // to a host the engine never checked, credential headers and all: fetch strips
+      // Authorization across origins, but not X-API-Key or Cookie. Don't trust it.
+      const reported = (raw as { url?: unknown }).url;
+      if (typeof reported === "string" && reported !== "" && originOf(reported) !== originOf(url)) {
+        throw new AusbildungNetworkError(
+          `${method} ${redactUrl(url)} failed: the transport followed a redirect to ` +
+            `${originOf(reported) ?? "an unparseable URL"}, another origin. A transport must not ` +
+            `follow redirects (HttpRequest.redirect is "manual"); the engine follows them and ` +
+            `decides where credentials may go.`,
         );
       }
       const status = raw.status;
@@ -504,14 +595,18 @@ export class RequestEngine {
           : undefined;
       const next = target !== undefined && /^https?:$/.test(target.protocol) ? target : undefined;
       if (next !== undefined) {
-        // SECURITY: when the redirect crosses an origin boundary (different
-        // protocol, host, or port), strip credential-bearing headers so we
-        // never forward the X-API-Key / Authorization / Cookie — including a
-        // user's own private --api-key — to a different host.
-        if (next.origin !== new URL(url).origin) {
-          headers = stripCredentialHeaders(headers);
+        // SECURITY: the credentials (the X-API-Key — a user's own private --api-key
+        // included —, the base URL's userinfo as Basic, Authorization, Cookie) belong
+        // to the start URL's origin. A redirect to another scheme, host or port drops
+        // them for the rest of the chain — http→https on the same host included, as
+        // the key must not be re-sent on a hop the user did not choose. A Location's
+        // own userinfo is never used.
+        next.username = "";
+        next.password = "";
+        if (hasCredentials && dropped === undefined && next.origin !== credentialOrigin) {
+          dropped = { from: originOf(url) ?? "", to: next.origin };
         }
-        url = next.toString();
+        url = next.href;
         redirects += 1;
         continue;
       }
@@ -521,10 +616,16 @@ export class RequestEngine {
 
       const contentType = String(headerValue(response.headers["content-type"]) ?? "");
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, response.body, location);
+        throw this.toApiError(method, url, status, response.body, location, dropped);
       }
 
-      return { data: response.body, contentType, status };
+      return {
+        data: response.body,
+        contentType,
+        status,
+        url,
+        ...(dropped !== undefined ? { credentialsDropped: dropped } : {}),
+      };
     }
   }
 
@@ -632,6 +733,7 @@ export class RequestEngine {
     status: number,
     body: Buffer,
     locationHeader?: string,
+    credentialsDropped?: CredentialsDropped,
   ): AusbildungApiError {
     const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
@@ -650,7 +752,15 @@ export class RequestEngine {
     // Name the target of a redirect that was not followed.
     const location =
       status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;
-    return new AusbildungApiError({ status, url, method, body: text, detail, location });
+    return new AusbildungApiError({
+      status,
+      url,
+      method,
+      body: text,
+      detail,
+      location,
+      ...(credentialsDropped !== undefined ? { credentialsDropped } : {}),
+    });
   }
 }
 

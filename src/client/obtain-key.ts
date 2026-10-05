@@ -61,7 +61,10 @@ export interface ObtainKeyOptions
 export interface ObtainedKey {
   /** The public key, ready to put in `API_KEY_ENV_VAR`. */
   key: string;
-  /** Where it was read from, so callers can cite it (userinfo shown as `***@`). */
+  /**
+   * The document the key was read from, so callers can cite it: the source URL, or
+   * where its redirects led (userinfo shown as `***@`).
+   */
   sourceUrl: string;
 }
 
@@ -109,15 +112,31 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
     );
   }
 
+  // Name the document the key was really read from: a redirect (followed by the
+  // engine) may have led elsewhere, and the provenance note must not claim the
+  // configured source for a key another host served.
+  const readFrom = response.url === withoutUserinfo(rawSourceUrl) ? sourceUrl : redactUrl(response.url);
   const text = response.data.toString("utf8");
   const key = KEY_PATTERN.exec(text)?.[1]?.trim();
   if (!key) {
     throw new AusbildungParseError(
-      `No X-API-Key found at ${sourceUrl}. The upstream document may have changed ` +
+      `No X-API-Key found at ${readFrom}. The upstream document may have changed ` +
         `format or stopped publishing the key — check it by hand before relying on this command.`,
     );
   }
-  return { key, sourceUrl };
+  return { key, sourceUrl: readFrom };
+}
+
+/** `url` without userinfo, as the engine reports a final URL, for comparing the two. */
+function withoutUserinfo(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.username = "";
+    parsed.password = "";
+    return parsed.href;
+  } catch {
+    return url;
+  }
 }
 
 /**

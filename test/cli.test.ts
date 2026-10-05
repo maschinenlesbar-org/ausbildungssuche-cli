@@ -395,8 +395,10 @@ test("userinfo in --base-url is redacted from error messages but still sent", as
   const err = cli.err.join("\n");
   assert.ok(!err.includes("s3cret"), err);
   assert.ok(!err.includes("user:"), err);
-  assert.match(err, /HTTP 404 for GET http:\/\/\*\*\*@127\.0\.0\.1:1\/p\//);
-  assert.equal(new URL(cli.mt.last().url).password, "s3cret");
+  assert.match(err, /HTTP 404 for GET http:\/\/127\.0\.0\.1:1\/p\//);
+  // The engine sends the userinfo as Basic auth; the transport never sees it in the URL.
+  assert.equal(new URL(cli.mt.last().url).password, "");
+  assert.equal(cli.mt.last().headers?.["Authorization"], `Basic ${Buffer.from("user:s3cret").toString("base64")}`);
 });
 
 test("a too deeply nested response is a clean error, not a stack overflow", async () => {
