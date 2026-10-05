@@ -472,3 +472,24 @@ test("an empty result for --ids or --bart gets a note on stderr, stdout stays JS
   await run(["search", "--re", "NRW"], plain.deps);
   assert.deepEqual(plain.err, []);
 });
+
+test("malformed --ids, --bart and offer ids are usage errors before any request", async () => {
+  for (const argv of [
+    ["search", "--ids", "9106,9162,"],
+    ["search", "--ids", "abc"],
+    ["search", "--ids", "9162", "--ids", "x"],
+    ["search", "--bart", "10x"],
+    ["search", "--bart", "Berufsausbildung"],
+    ["details", "0"],
+    ["details", "12345678901234567890123"],
+  ]) {
+    const cli = makeCli(okResponse);
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, argv.join(" "));
+  }
+  const padded = makeCli(okResponse);
+  assert.equal(await run(["search", "--ids", " 9162 , 9106", "--bart", " 102 "], padded.deps), 0);
+  const sent = new URL(padded.mt.last().url).searchParams;
+  assert.equal(sent.get("ids"), "9162,9106");
+  assert.equal(sent.get("bart"), "102");
+});

@@ -43,6 +43,9 @@ const BAD_FILTER_NAMES: Array<[string, Record<string, unknown>]> = [
   ["unknown radius", { orte: "Köln_6.957_50.938", uk: "30" }],
   ["a place without coordinates", { orte: "Köln", uk: "10" }],
   ["offer type out of range", { sty: 4 }],
+  ["non-numeric occupation id", { ids: "abc" }],
+  ["occupation ids with a trailing comma", { ids: "9162," }],
+  ["non-numeric training type", { bart: "10x" }],
 ];
 /** Values of the wrong type: arrays where the API takes one value, NaN, objects. */
 const BAD_VALUES: Array<[string, Record<string, unknown>]> = [
@@ -61,6 +64,7 @@ const UNNORMALISED: Array<[string, Record<string, unknown>]> = [
   ["lower case re", { ids: "9162,9106", re: "nrw" }],
   ["padded re", { ids: "9162,9106", re: " NRW " }],
   ["mixed case re", { ids: "9162,9106", re: "Nrw" }],
+  ["padded ids", { ids: " 9162 , 9106 ", re: "NRW" }],
 ];
 const UNNORMALISED_POLICY = "normalise" as "normalise" | "reject";
 /** The CLI's filter flag given twice (the two halves of GOOD), and what the repo does with it. */

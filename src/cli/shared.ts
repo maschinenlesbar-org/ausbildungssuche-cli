@@ -17,8 +17,11 @@ import {
   normalizeRadius,
   normalizeRegionCode,
   normalizeRegions,
+  idsProblem,
+  normalizeIds,
   offerIdProblem,
   placeProblem,
+  trainingTypeProblem,
   radiusProblem,
   regionCodeProblem,
   sizeProblem,
@@ -176,6 +179,19 @@ export const parseStartCodes = parserOf(startCodesProblem);
 
 /** commander value-parser for `--orte`: the library's placeProblem (`Name_lon_lat`). */
 export const parsePlace = parserOf(placeProblem);
+
+/**
+ * commander value-parser for `--ids`: the library's idsProblem (numeric dkzIds,
+ * comma-separated, no empty item), sent as normalizeIds makes them (items trimmed).
+ */
+export function parseIds(value: string): string {
+  return normalizeIds(parserOf(idsProblem)(value));
+}
+
+/** commander value-parser for `--bart`: the library's trainingTypeProblem (one numeric id), trimmed. */
+export function parseTrainingType(value: string): string {
+  return parserOf(trainingTypeProblem)(value).trim();
+}
 
 /** commander value-parser for an offer id: the library's offerIdProblem (digits only). */
 export const parseOfferId = parserOf(offerIdProblem);

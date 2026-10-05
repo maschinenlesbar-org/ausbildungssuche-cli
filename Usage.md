@@ -248,8 +248,8 @@ each (a repeated global option is a usage error, exit `2`):
 | `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*) |
 | `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ`; comma-separated or repeated for several (*Region*) |
 | `--uk <radius>` | radius around `--orte`: `10`, `25`, `50`, `100` km, or `Bundesweit` (*Umkreis*); a km radius needs `--orte` |
-| `--ids <id>` | occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`) |
-| `--bart <type>` | training type (*Bildungsart*) |
+| `--ids <id>` | numeric occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`); a non-numeric id or a trailing comma is a usage error (exit `2`) |
+| `--bart <type>` | numeric training type, the `bildungsart.id`, e.g. `102` Berufsausbildung (*Bildungsart*); anything else is a usage error (exit `2`) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
 | `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0`, `1` also accepted (*Beginntermin*) |
 | `--page <n>` | 0-based page index |

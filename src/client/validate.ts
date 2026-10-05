@@ -162,16 +162,64 @@ export const headerNameProblem: Problem = (name) =>
     : "Expected an HTTP header name (letters, digits and !#$%&'*+-.^_`|~).";
 
 /**
- * An offer id (`details`) is numeric, digits only. Anything else cannot name an
- * offer and, put into the path, could re-target the request (`..`, `12/34`, `?x`)
- * or be sent padded (`%20123%20`) with the API key attached.
+ * True for a positive whole number written in digits only, leading zeros allowed, of
+ * at most 18 significant digits. The API reads ids as 64-bit integers: `0` and a
+ * value past that range (a 23-digit id) get a bare HTTP 400.
+ */
+function isIdNumber(value: string): boolean {
+  if (!/^\d+$/.test(value)) return false;
+  const significant = value.replace(/^0+/, "");
+  return significant.length >= 1 && significant.length <= 18;
+}
+
+/**
+ * An offer id (`details`) is numeric, digits only, and at least 1 (`00401584387`
+ * names offer 401584387). Anything else cannot name an offer: put into the path, it
+ * could re-target the request (`..`, `12/34`, `?x`) or be sent padded (`%20123%20`)
+ * with the API key attached, and `0` or a 23-digit id gets a bare HTTP 400.
  */
 export const offerIdProblem: Problem = (id) => {
-  const numeric = "Expected a numeric offer id (digits only).";
+  const numeric = "Expected a numeric offer id (digits only, at least 1, at most 18 digits).";
   // A JS caller may pass a non-string; reject it as invalid rather than throw a TypeError.
   if (typeof id !== "string") return numeric;
-  return nonEmptyProblem(id) ?? (/^\d+$/.test(id) ? undefined : numeric);
+  return nonEmptyProblem(id) ?? (isIdNumber(id) ? undefined : numeric);
 };
+
+/**
+ * The occupation ids (`ids`): one or more `dkzId`s, comma-separated, each a whole
+ * number of digits (at least 1). The API answers a non-numeric id, and an empty item
+ * from a trailing comma (`9162,` — the classic output of a script that joins ids),
+ * with a bare HTTP 400. Space around an item is fine (normalizeIds trims it).
+ */
+export const idsProblem: Problem = (ids) => {
+  const blank = nonEmptyProblem(ids);
+  if (blank !== undefined) return blank;
+  const items = ids.split(",").map((item) => item.trim());
+  if (items.some((item) => item === "")) {
+    return "Expected occupation ids (dkzId) separated by single commas, without an empty item (a trailing comma).";
+  }
+  const bad = items.find((item) => !isIdNumber(item));
+  return bad === undefined
+    ? undefined
+    : `Expected numeric occupation ids (dkzId, digits only), e.g. 9162 or 9162,9106; "${/^[\w.-]{1,20}$/.test(bad) ? bad : "(not shown)"}" is not one.`;
+};
+
+/** The occupation ids (`ids`) as sent: each comma-separated item trimmed. Idempotent. */
+export function normalizeIds(ids: string): string {
+  return ids
+    .split(",")
+    .map((item) => item.trim())
+    .join(",");
+}
+
+/**
+ * The training type (`bart`, Bildungsart): one numeric `bildungsart.id`, e.g. `102`
+ * Berufsausbildung. The API answers a non-numeric value (`abc`, `Berufsausbildung`,
+ * `10x`) with a bare HTTP 400; an unknown number gives an empty result.
+ */
+export const trainingTypeProblem: Problem = (bart) =>
+  nonEmptyProblem(bart) ??
+  (isIdNumber(bart.trim()) ? undefined : "Expected a numeric training type (bildungsart.id), e.g. 102 Berufsausbildung.");
 
 /** Smallest and largest offer type (`sty`); the API answers `4` with HTTP 400. */
 export const STY_MIN = 0;
@@ -400,9 +448,9 @@ function firstProblem(values: readonly string[], problem: Problem): string | und
 }
 
 /**
- * Search parameters in the form the API accepts: `re` through normalizeRegions and
- * `uk` through normalizeRadius (string values, also inside an array); everything
- * else unchanged. Returns a new object. search() applies it before
+ * Search parameters in the form the API accepts: `re` through normalizeRegions,
+ * `uk` through normalizeRadius, `ids` through normalizeIds and `bart` trimmed
+ * (string values, also inside an array); everything else unchanged. Returns a new object. search() applies it before
  * validateSearchParams, so `re: " nrw"` and `uk: "bundesweit"` are sent as
  * `NRW` and `Bundesweit`, as the CLI sends them.
  */
@@ -413,6 +461,8 @@ export function normalizeSearchParams(params: AusbildungSearchParams): Ausbildun
   }
   const out: AusbildungSearchParams = { ...params };
   if (params.re !== undefined) out.re = mapStrings(params.re, normalizeRegions);
+  if (params.ids !== undefined) out.ids = mapStrings(params.ids, normalizeIds);
+  if (params.bart !== undefined) out.bart = mapStrings(params.bart, (b) => b.trim());
   if (params.uk !== undefined) out.uk = mapStrings(params.uk, normalizeRadius);
   return out;
 }
@@ -434,8 +484,9 @@ function mapStrings(value: string, fn: (s: string) => string): string {
  * - every string parameter (`sw`, `ids`, `orte`, `re`, `uk`, `bart`, `bt`) must be
  *   non-blank (nonEmptyProblem);
  * - `sty`, `re`, `uk` and `bt` must come from the API's closed value sets
- *   (styProblem, regionsProblem, radiusProblem, startCodesProblem), and `orte` must
- *   be `Name_lon_lat` (placeProblem);
+ *   (styProblem, regionsProblem, radiusProblem, startCodesProblem), `ids` numeric
+ *   comma-separated ids (idsProblem), `bart` one numeric training type
+ *   (trainingTypeProblem), and `orte` must be `Name_lon_lat` (placeProblem);
  * - `orte` and a km radius `uk` must be given together (placeAndRadiusProblem);
  * - `page` must be a non-negative integer, `size` an integer in 1..MAX_PAGE_SIZE,
  *   and the page must lie inside the MAX_RESULT_WINDOW (pageProblem, sizeProblem,
@@ -474,6 +525,8 @@ export function validateSearchParams(
   }
   if (params.sty !== undefined) assertValid("sty", params.sty, styProblem);
   const textRules: Array<[keyof AusbildungSearchParams, Problem]> = [
+    ["ids", idsProblem],
+    ["bart", trainingTypeProblem],
     ["orte", placeProblem],
     ["re", regionsProblem],
     ["uk", radiusProblem],

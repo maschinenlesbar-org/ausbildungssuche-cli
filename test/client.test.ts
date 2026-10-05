@@ -63,7 +63,7 @@ for (const id of ["AB/12 3", "AB%20CD", "x%20/../../../v2/secret", "a%20b?apiKey
       () => clientWith(mt).details(id),
       (err) =>
         err instanceof AusbildungValidationError &&
-        err.message === "Invalid id: Expected a numeric offer id (digits only).",
+        err.message === "Invalid id: Expected a numeric offer id (digits only, at least 1, at most 18 digits).",
     );
     assert.equal(mt.calls.length, 0);
   });

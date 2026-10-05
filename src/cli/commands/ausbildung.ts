@@ -5,6 +5,7 @@ import {
   commaList,
   once,
   parseBoundedInt,
+  parseIds,
   parseIntArg,
   parseNonEmpty,
   parseOfferId,
@@ -13,6 +14,7 @@ import {
   parseRegions,
   parseSizeArg,
   parseStartCodes,
+  parseTrainingType,
   renderJson,
 } from "../shared.js";
 import type { AusbildungSearchParams } from "../../client/types.js";
@@ -30,8 +32,8 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938" (orte); needs --uk', once(parsePlace))
     .option("--re <code>", "Bundesland code (re), e.g. BAY, NRW, THÜ; comma-separated or repeated for several", commaList(parseRegions))
     .option("--uk <radius>", 'radius around --orte: 10, 25, 50, 100 (km), or "Bundesweit" (uk); a km radius needs --orte', once(parseRadius))
-    .option("--ids <id>", "occupation id(s), the dkzId from angebot.systematiken[]; comma-separated or repeated for several (ids)", commaList(parseNonEmpty))
-    .option("--bart <type>", "training type (bart)", once(parseNonEmpty))
+    .option("--ids <id>", "numeric occupation id(s), the dkzId from angebot.systematiken[]; comma-separated or repeated for several (ids)", commaList(parseIds))
+    .option("--bart <type>", "numeric training type, the bildungsart.id, e.g. 102 Berufsausbildung (bart)", once(parseTrainingType))
     .option("--bg", "only offers eligible for an education voucher (bg)")
     .option("--bt <code>", "start-date code(s) (bt): 2 = earlier dates, 101..112 = January..December of the following year, 0 and 1 also accepted; not a date. Comma-separated or repeated for several", commaList(parseStartCodes))
     .option("--page <n>", "0-based page", once(parseIntArg))

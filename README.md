@@ -120,9 +120,9 @@ details    <id>        full details for one offer
 | `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*); needs `--uk` |
 | `--uk <radius>` | radius around `--orte`: `10`, `25`, `50`, `100` km, or `Bundesweit` (*Umkreis*); a km radius needs `--orte` |
 | `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ`; comma-separated or repeated for several (*Region*) |
-| `--ids <id>` | occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`) |
+| `--ids <id>` | numeric occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`); a non-numeric id or a trailing comma is a usage error (exit `2`) |
 | `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
-| `--bart <type>` | training type (*Bildungsart*) |
+| `--bart <type>` | numeric training type, the `bildungsart.id`, e.g. `102` Berufsausbildung (*Bildungsart*); anything else is a usage error (exit `2`) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
 | `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0`, `1` also accepted (*Beginntermin*) |
 | `--page <n>` | 0-based page index |

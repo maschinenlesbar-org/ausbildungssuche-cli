@@ -94,9 +94,10 @@ raw JSON objects rather than narrowing them to a partial type.
 ## Identifiers
 
 **Offer id.** The identifier of one apprenticeship offer, passed to
-`details <id>`. Offer ids are numeric (digits only): the CLI rejects anything else
-(exit `2`) and the library rejects it with a validation error, both before any
-request.
+`details <id>`. Offer ids are numeric (digits only, at least `1`, at most 18
+digits; leading zeros are fine): the CLI rejects anything else (exit `2`) and the
+library rejects it with a validation error, both before any request — the API
+answers `0` or a 23-digit id with a bare HTTP 400.
 
 **Location (`orte`).** The place used to scope a search, written as
 `Name_lon_lat` with the **longitude first**, e.g. `Köln_6.957_50.938`. With the
@@ -109,8 +110,10 @@ distances, so the CLI and the library require `uk` next to `orte`.
 
 **Profession id (`ids`).** Identifier(s) of a profession/occupation used to scope
 a search: the `dkzId` in an offer's `angebot.systematiken[]` (e.g. `9162`,
-Staatlich anerkannter Erzieher). Several ids can be comma-separated. This is the
-only working occupation filter: the API ignores the keyword `sw`.
+Staatlich anerkannter Erzieher). Several ids can be comma-separated. Ids are
+numeric: a non-numeric id or an empty item (a trailing comma, `9162,`) gets a bare
+HTTP 400, so the CLI and the library reject it; an unknown number gives an empty
+result. This is the only working occupation filter: the API ignores the keyword `sw`.
 
 **Region / state code (`re`).** The 3-letter code of a Bundesland used to scope a
 search: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
@@ -137,7 +140,10 @@ them; both send `bundesweit` in any case as `Bundesweit`. A kilometre radius nee
 without `orte`.
 
 **Training type (`bart`, Bildungsart).** The category of training/education being
-searched.
+searched: one numeric `bildungsart.id`, e.g. `101` Berufliche Grundqualifikation, `102`
+Berufsausbildung, `104` Fortbildung/Qualifizierung. A non-numeric value gets a bare
+HTTP 400, so the CLI and the library reject it; an unknown number gives an empty
+result.
 
 **Education voucher (`bg`, Bildungsgutschein).** A boolean filter restricting
 results to offers eligible for a *Bildungsgutschein* — a state-issued voucher

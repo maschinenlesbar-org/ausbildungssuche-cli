@@ -43,7 +43,11 @@ export interface AusbildungSearchParams {
   sw?: string;
   /** Offer type, an integer 0..3 (`STY_MIN`..`STY_MAX`; the API rejects 4 with HTTP 400). */
   sty?: number;
-  /** Occupation id(s): the `dkzId` from `angebot.systematiken[]`, comma-separated for several. */
+  /**
+   * Occupation id(s): the numeric `dkzId` from `angebot.systematiken[]`, comma-separated for
+   * several (`idsProblem`; each item is trimmed, `normalizeIds`). A non-numeric id or an empty
+   * item (a trailing comma) is rejected: the API answers it with HTTP 400.
+   */
   ids?: string;
   /**
    * Location as `Name_lon_lat` (longitude first, -180..180; latitude -90..90), e.g.
@@ -62,7 +66,10 @@ export interface AusbildungSearchParams {
    * radius is ignored by the API without a place `orte`, so it is rejected without one.
    */
   uk?: string;
-  /** Training type. */
+  /**
+   * Training type: one numeric `bildungsart.id`, e.g. `102` Berufsausbildung
+   * (`trainingTypeProblem`). A non-numeric value gets HTTP 400; an unknown number an empty result.
+   */
   bart?: string;
   /** Education-voucher filter. */
   bg?: boolean;

@@ -15,6 +15,9 @@ import {
   normalizeRegions,
   normalizeSearchParams,
   offerIdProblem,
+  idsProblem,
+  normalizeIds,
+  trainingTypeProblem,
   pageProblem,
   placeAndRadiusProblem,
   placeProblem,
@@ -101,10 +104,10 @@ test("validateSearchParams names the blank parameter and leaves undefined alone"
 });
 
 test("offerIdProblem accepts digits only", () => {
-  for (const id of ["0", "365241044", "007"]) assert.equal(offerIdProblem(id), undefined, id);
+  for (const id of ["1", "365241044", "007"]) assert.equal(offerIdProblem(id), undefined, id);
   for (const id of ["", "  "]) assert.equal(offerIdProblem(id), "Expected a non-empty value.");
   for (const id of ["abc", " 1", "1 ", "1.5", "-1", "1/2", "%31", "١٢"]) {
-    assert.equal(offerIdProblem(id), "Expected a numeric offer id (digits only).", id);
+    assert.equal(offerIdProblem(id), "Expected a numeric offer id (digits only, at least 1, at most 18 digits).", id);
   }
 });
 
@@ -292,4 +295,21 @@ test("baseUrlProblem checks the raw value", () => {
     ["https://h.test/#f", "A base URL cannot have a query (?) or fragment (#)."],
   ];
   for (const [u, reason] of cases) assert.equal(baseUrlProblem(u), reason, JSON.stringify(u));
+});
+
+test("offer ids, occupation ids and training types the API answers with HTTP 400 are rejected", () => {
+  // Live: `details 0` and a 23-digit id got a bare 400; `00401584387` named offer 401584387.
+  for (const id of ["0", "000", "12345678901234567890123"]) assert.notEqual(offerIdProblem(id), undefined, id);
+  for (const id of ["1", "00401584387", "123456789012345678"]) assert.equal(offerIdProblem(id), undefined, id);
+  // Live: "abc", "9162,abc" and "9162," got a bare 400; " 9162" worked.
+  for (const ids of ["abc", "9162,abc", "9162,", ",9162", "9162,,9106", "-1", "9162 9106", "0"]) {
+    assert.notEqual(idsProblem(ids), undefined, ids);
+  }
+  for (const ids of ["9162", " 9162", "9162, 9106", "9162,99999999"]) assert.equal(idsProblem(ids), undefined, ids);
+  assert.equal(normalizeIds(" 9162 , 9106"), "9162,9106");
+  // Live: "abc", "Berufsausbildung" and "10x" got a bare 400; 101/102/104/999 answered.
+  for (const bart of ["abc", "Berufsausbildung", "10x", "102,104", "-102"]) {
+    assert.notEqual(trainingTypeProblem(bart), undefined, bart);
+  }
+  for (const bart of ["102", " 102 ", "999"]) assert.equal(trainingTypeProblem(bart), undefined, bart);
 });

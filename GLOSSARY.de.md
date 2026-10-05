@@ -94,9 +94,10 @@ rohe JSON-Objekte, statt sie auf einen Teiltyp einzuschränken.
 ## Kennungen
 
 **Angebots-ID.** Die Kennung eines einzelnen Ausbildungsangebots, übergeben an
-`details <id>`. Angebots-IDs sind numerisch (nur Ziffern): Alles andere lehnt die CLI ab
-(Exit `2`) und die Bibliothek mit einem Validierungsfehler, beide bevor eine Anfrage
-gesendet wird.
+`details <id>`. Angebots-IDs sind numerisch (nur Ziffern, mindestens `1`, höchstens 18
+Ziffern; führende Nullen sind erlaubt): Alles andere lehnt die CLI ab (Exit `2`) und die
+Bibliothek mit einem Validierungsfehler, beide bevor eine Anfrage gesendet wird – die API
+beantwortet `0` oder eine 23-stellige ID mit einem bloßen HTTP 400.
 
 **Ort (`orte`).** Der Ort, auf den eine Suche eingegrenzt wird, geschrieben als
 `Name_lon_lat` mit dem **Längengrad zuerst**, z. B. `Köln_6.957_50.938`. Steht der
@@ -109,8 +110,11 @@ daher verlangen CLI und Bibliothek neben `orte` auch `uk`.
 
 **Berufs-ID (`ids`).** Kennung(en) eines Berufs, auf den eine Suche eingegrenzt
 wird: die `dkzId` in `angebot.systematiken[]` eines Angebots (z. B. `9162`,
-Staatlich anerkannter Erzieher). Mehrere IDs lassen sich durch Kommas trennen. Das ist
-der einzige funktionierende Berufsfilter: Das Suchwort `sw` ignoriert die API.
+Staatlich anerkannter Erzieher). Mehrere IDs lassen sich durch Kommas trennen. IDs sind
+numerisch: Eine nicht numerische ID oder ein leerer Eintrag (ein Komma am Ende, `9162,`)
+führt zu einem bloßen HTTP 400, daher lehnen CLI und Bibliothek ihn ab; eine unbekannte Zahl
+liefert ein leeres Ergebnis. Das ist der einzige funktionierende Berufsfilter: Das Suchwort
+`sw` ignoriert die API.
 
 **Regions- bzw. Ländercode (`re`).** Der dreistellige Code eines Bundeslands, auf das eine Suche
 eingegrenzt wird: `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`, `NDS`, `NRW`,
@@ -136,7 +140,11 @@ als `Bundesweit`. Ein Umkreis in
 Kilometern braucht einen Ort (`orte`): ohne ihn ignoriert die API den Umkreis, daher lehnen
 CLI und Bibliothek `uk` `25` ohne `orte` ab.
 
-**Bildungsart (`bart`).** Die Kategorie der gesuchten Ausbildung bzw. Bildung.
+**Bildungsart (`bart`).** Die Kategorie der gesuchten Ausbildung bzw. Bildung: eine
+numerische `bildungsart.id`, z. B. `101` Berufliche Grundqualifikation, `102`
+Berufsausbildung, `104` Fortbildung/Qualifizierung. Ein nicht numerischer Wert führt zu
+einem bloßen HTTP 400, daher lehnen CLI und Bibliothek ihn ab; eine unbekannte Zahl liefert
+ein leeres Ergebnis.
 
 **Bildungsgutschein (`bg`).** Ein boolescher Filter, der die Ergebnisse auf Angebote
 beschränkt, die mit einem *Bildungsgutschein* gefördert werden können – einem staatlich

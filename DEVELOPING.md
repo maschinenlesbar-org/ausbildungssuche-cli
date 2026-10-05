@@ -163,8 +163,13 @@ run them up front.
   numbers, `sty`/`page`/`size` numbers, `bg` a boolean, `transport` and `sleep`
   functions. A server `detail` is cut at 500 characters in a message
   (`AusbildungApiError.body` keeps it whole).
-- **Non-numeric offer ids.** `details()` accepts an id of digits only
-  (`offerIdProblem`); a blank, padded, signed, decimal, percent-encoded or
+- **Ids and training types the API answers with HTTP 400.** `ids` must be numeric
+  `dkzId`s, comma-separated, without an empty item (`idsProblem`; `9162,` from a
+  script that joins ids is the usual slip), each item trimmed before sending
+  (`normalizeIds`); `bart` one numeric `bildungsart.id` (`trainingTypeProblem`).
+- **Non-numeric offer ids.** `details()` accepts an id of digits only, at least `1`
+  and at most 18 significant digits (`offerIdProblem`; the API answers `0` and a
+  23-digit id with HTTP 400); a blank, padded, signed, decimal, percent-encoded or
   separator-bearing id (`" 123 "`, `"12/34"`, `"%31%32"`, `".."`) is rejected
   rather than put into the path with the API key attached.
 
