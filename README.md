@@ -27,7 +27,7 @@ full record for any offer — as clean JSON you can pipe straight into
 npm i -g @maschinenlesbar.org/ausbildungssuche-cli
 ```
 
-This installs the **`ausbildungssuche`** command. Requires **Node.js 20+**.
+This installs the **`ausbildungssuche`** command. Requires **Node.js 22.12+**.
 
 Check it works:
 
@@ -201,7 +201,8 @@ keeps its own code even when its stderr's reader has gone (`2>&1 | head -c 5`).
 ## Troubleshooting
 
 - **`command not found: ausbildungssuche`** — the global npm bin directory isn't on
-  your `PATH`. Run `npm bin -g` to find it and add it, or run via
+  your `PATH`. Run `npm prefix -g` and add its `bin/` subdirectory (on Windows, the
+  directory itself), or run via
   `npx @maschinenlesbar.org/ausbildungssuche-cli …`.
 - **Exit `3` / "rejected"** — the upstream service declined the request (401/403).
   Most often no key was supplied, or the key is wrong: run
