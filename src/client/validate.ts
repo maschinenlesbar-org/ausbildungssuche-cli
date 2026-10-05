@@ -89,8 +89,10 @@ export const apiKeyProblem: Problem = (key) =>
  * the engine appends request paths to the raw string, so a padded value would
  * request `/%20/...` or reach a custom transport unparsed. A query or fragment
  * would swallow every request path (`http://h/#f` requests `/` for every call).
- * Userinfo is allowed (it is redacted from every message). The reasons never echo
- * the value, so a credential in it cannot leak.
+ * A `%` in the user name or password must start a valid escape (`%25` for a literal
+ * one): the userinfo is decoded for the Authorization header. Userinfo is allowed
+ * (it is redacted from every message). The reasons never echo the value, so a
+ * credential in it cannot leak.
  */
 export const baseUrlProblem: Problem = (value) => {
   if (typeof value !== "string") return "Expected an absolute http(s) URL.";
@@ -111,6 +113,15 @@ export const baseUrlProblem: Problem = (value) => {
     return `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
   }
   if (/[?#]/.test(value)) return "A base URL cannot have a query (?) or fragment (#).";
+  // Node decodes the userinfo for the Authorization header and throws "URI malformed"
+  // for a "%" that isn't an escape — at request time, as a network error. Reject it here.
+  for (const part of [url.username, url.password]) {
+    try {
+      decodeURIComponent(part);
+    } catch {
+      return 'The user name or password has a "%" that is not followed by two hex digits; write a literal "%" as %25.';
+    }
+  }
   return undefined;
 };
 

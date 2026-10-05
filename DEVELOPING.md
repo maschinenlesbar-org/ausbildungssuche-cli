@@ -223,7 +223,9 @@ The default transport additionally rejects any non-http(s) URL on every request 
 an `AusbildungNetworkError` — including redirect targets, so a redirect to
 `file:`/`data:` is refused mid-flight. No user-supplied URL ever reaches a
 non-http(s) scheme. Userinfo (`https://user:pass@host`) is allowed and redacted
-from every message.
+from every message; a `%` in it must start a valid escape (write a literal `%` as
+`%25`), since Node decodes the userinfo for the `Authorization` header — anything
+else is a usage error (exit `2`) instead of a late network error.
 
 **Secrets in the CLI's output** (`withRedactedOutput` in [`run.ts`](src/cli/run.ts)).
 Commander echoes a rejected value in its usage error and names an unknown command or
