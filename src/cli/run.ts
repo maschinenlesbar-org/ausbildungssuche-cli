@@ -10,7 +10,11 @@ import {
   AusbildungError,
   AusbildungNetworkError,
   AusbildungValidationError,
+  credentialsIn,
+  redactCredentials,
+  redactSecrets,
 } from "../client/errors.js";
+import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
 
 /**
  * Process exit codes. Distinct codes let scripts tell apart a usage error, an
@@ -33,6 +37,32 @@ const EXIT = {
 } as const;
 
 /**
+ * Commander's usage errors repeat what the user typed. Where that may be a key
+ * typed in the wrong place (`ausbildungssuche my-key search`, `details 123 my-key`),
+ * say what went wrong without the value:
+ *
+ * - `too many arguments for 'x'. Expected 1 argument but got 2: <values>.` loses
+ *   the values;
+ * - `unknown option '--apikey=<value>'` keeps the option name, not the value;
+ * - `unknown command '<value>'` shows the value only when it reads like a command
+ *   name (lower-case letters and hyphens), so a key typed without `--api-key` is not
+ *   echoed while a typo such as `serach` still is;
+ * - a rejected value of a numeric option (`--timeout <ms>`, `--size <n>`, …) is shown
+ *   only when it reads like a number, so a key typed after `--timeout` is not.
+ */
+export function withoutStrayValues(message: string): string {
+  return message
+    .replace(/^(error: option '[^']*<(?:ms|n)>' argument )'([\s\S]*?)'( is invalid\.)/, (whole, head: string, value: string, tail: string) =>
+      /^[\s\d.,+\-eExX]{0,24}$/.test(value) ? whole : `${head}(not shown: not a number)${tail}`,
+    )
+    .replace(/^(error: too many arguments for '[^']*'\. Expected \d+ arguments? but got \d+): [\s\S]*?\.(\n|$)/, "$1.$2")
+    .replace(/^(error: unknown option '-[^=']*=)[\s\S]*?'(\n|$)/, "$1…'$2")
+    .replace(/^error: unknown command '([\s\S]*?)'(\n|$)/, (whole, value: string, end: string) =>
+      /^[a-z][a-z-]{0,39}$/.test(value) ? whole : `error: unknown command (not shown: it is not a command name)${end}`,
+    );
+}
+
+/**
  * Apply exitOverride + output redirection to every command in the tree.
  * commander does not propagate these to subcommands, so a parse error on a
  * subcommand would otherwise call process.exit() and bypass our error handling.
@@ -42,11 +72,74 @@ function configureTree(command: Command, deps: CliDeps): void {
   command.configureOutput({
     writeOut: (str) => deps.io.out(str.replace(/\n$/, "")),
     writeErr: (str) => deps.io.err(str.replace(/\n$/, "")),
+    outputError: (str, write) => write(withoutStrayValues(str)),
   });
   for (const child of command.commands) configureTree(child, deps);
 }
 
+/** The options whose value is a secret on its own (no `@` to anchor a redaction on). */
+const SECRET_FLAGS = ["--api-key"];
+
+/**
+ * `deps` with an `io` that keeps the secrets of this run out of everything it
+ * prints. Commander echoes a rejected value in its usage errors (`option '--api-key
+ * <key>' argument '<the key>' is invalid`), and names an unknown command or option as
+ * typed, so whatever path a secret takes to the terminal it is replaced:
+ *
+ * - the userinfo of every URL-like argument, `--opt=value` value and of the key
+ *   variable (as `credentialsIn` finds it, parseable or not) becomes `***@`, on stdout
+ *   and stderr;
+ * - the value of `--api-key` (both forms) and the `AUSBILDUNGSSUCHE_API_KEY` value,
+ *   as given and trimmed, plus their JSON-escaped forms, become `***` on stderr. Not
+ *   on stdout: `obtain-key` prints the key there, and it may well be the one already
+ *   in `AUSBILDUNGSSUCHE_API_KEY`. A key typed without `--api-key` is kept out of
+ *   commander's messages by `withoutStrayValues`.
+ *
+ * A pattern alone can't delimit a password with spaces, quotes, `#`, `?` or `/`; the
+ * exact strings can. Without secrets the output passes through unchanged.
+ */
+export function withRedactedOutput(deps: CliDeps, argv: readonly string[]): CliDeps {
+  const env = deps.env ?? process.env;
+  // An `--option=value` token is echoed as its value alone.
+  const values = argv.map((token) =>
+    token.startsWith("-") && token.includes("=") ? token.slice(token.indexOf("=") + 1) : token,
+  );
+  const envKey = env[API_KEY_ENV_VAR] ?? "";
+  const userinfo = new Set<string>();
+  for (const source of [...argv, ...values, envKey]) {
+    for (const secret of credentialsIn(source)) {
+      userinfo.add(secret);
+      userinfo.add(JSON.stringify(secret).slice(1, -1));
+    }
+  }
+  const keys = new Set<string>();
+  const addKey = (value: string | undefined): void => {
+    if (value === undefined) return;
+    for (const form of [value, value.trim()]) {
+      keys.add(form);
+      keys.add(JSON.stringify(form).slice(1, -1));
+    }
+  };
+  addKey(envKey);
+  argv.forEach((token, i) => {
+    if (SECRET_FLAGS.includes(token)) addKey(argv[i + 1]);
+    const eq = token.indexOf("=");
+    if (eq > 0 && SECRET_FLAGS.includes(token.slice(0, eq))) addKey(token.slice(eq + 1));
+  });
+  if (userinfo.size === 0 && [...keys].every((k) => k.trim().length < 4)) return deps;
+  const urlList = [...userinfo];
+  // Longest first, so a key is never left half-replaced by one of its own substrings.
+  const keyList = [...keys].sort((a, b) => b.length - a.length);
+  const redactOut = (text: string): string => redactCredentials(text, urlList);
+  const redactErr = (text: string): string => redactSecrets(redactOut(text), keyList);
+  return {
+    ...deps,
+    io: { ...deps.io, out: (text) => deps.io.out(redactOut(text)), err: (text) => deps.io.err(redactErr(text)) },
+  };
+}
+
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
+  deps = withRedactedOutput(deps, argv);
   const program = buildProgram(deps);
   configureTree(program, deps);
 

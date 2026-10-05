@@ -225,6 +225,21 @@ an `AusbildungNetworkError` — including redirect targets, so a redirect to
 non-http(s) scheme. Userinfo (`https://user:pass@host`) is allowed and redacted
 from every message.
 
+**Secrets in the CLI's output** (`withRedactedOutput` in [`run.ts`](src/cli/run.ts)).
+Commander echoes a rejected value in its usage error and names an unknown command or
+option as typed, so `run()` wraps `deps.io` first. The userinfo of every URL-like
+argument (`credentialsIn`, which finds it whether the value parses or not, then
+`redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value and
+the `AUSBILDUNGSSUCHE_API_KEY` value become `***` on stderr (`redactSecrets`). Not on
+stdout, where `obtain-key` prints the key. A private key has no fixed shape, so a key
+typed without its flag is kept out by not echoing the value at all
+(`withoutStrayValues`): `unknown command` shows the value only when it reads like a
+command name, `too many arguments` drops the values, `unknown option '--x=…'` drops
+what follows `=`, and a numeric option shows its rejected value only when it reads
+like a number. `test/conformance-p1-cli-redaction.test.ts` is the shared check (ten
+passwords, seven URL shapes, every echo path, plus the key by flag, by environment
+and typed without its flag).
+
 **Default headers / Accept negotiation.** The engine merges `defaultHeaders` into
 every request — the seam that injects `X-API-Key`. The `Accept` header is chosen
 per endpoint (`application/hal+json` for search, `application/json` for details)

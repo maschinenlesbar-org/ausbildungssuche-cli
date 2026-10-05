@@ -64,6 +64,9 @@ export {
   AusbildungNetworkError,
   AusbildungParseError,
   AusbildungValidationError,
+  credentialsIn,
+  redactCredentials,
+  redactSecrets,
   redactUrl,
 } from "./errors.js";
 
