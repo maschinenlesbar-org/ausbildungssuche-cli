@@ -51,7 +51,8 @@ export interface AusbildungSearchParams {
   ids?: string;
   /**
    * Location as `Name_lon_lat` (longitude first, -180..180; latitude -90..90), e.g.
-   * `Köln_6.957_50.938` (checked by `placeProblem`). Only restricts the search
+   * `Köln_6.957_50.938` (checked by `placeProblem`); several places comma-separated are
+   * searched together, each checked. Only restricts the search
    * together with a radius `uk`, so it is rejected without one (`placeAndRadiusProblem`).
    */
   orte?: string;

@@ -245,7 +245,7 @@ each (a repeated global option is a usage error, exit `2`):
 | --- | --- |
 | `--sw <text>` | search keyword (*Suchwort*); currently ignored by the API, use `--ids` |
 | `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
-| `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938` (*Ort*) |
+| `--orte <loc>` | location as `Name_lon_lat`, longitude first, e.g. `Köln_6.957_50.938`, or several places comma-separated, searched together (*Ort*); needs `--uk` |
 | `--re <code>` | Bundesland code, e.g. `BAY`, `NRW`, `THÜ`; comma-separated or repeated for several (*Region*) |
 | `--uk <radius>` | radius around `--orte`: `10`, `25`, `50`, `100` km, or `Bundesweit` (*Umkreis*); a km radius needs `--orte` |
 | `--ids <id>` | numeric occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`); a non-numeric id or a trailing comma is a usage error (exit `2`) |

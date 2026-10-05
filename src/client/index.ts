@@ -59,6 +59,7 @@ export {
   searchParamKeyProblem,
   searchResultProblem,
   sizeProblem,
+  splitPlaces,
   START_CODES,
   startCodesProblem,
   STY_MAX,

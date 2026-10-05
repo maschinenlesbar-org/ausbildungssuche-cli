@@ -103,7 +103,9 @@ beantwortet `0` oder eine 23-stellige ID mit einem bloßen HTTP 400.
 `Name_lon_lat` mit dem **Längengrad zuerst**, z. B. `Köln_6.957_50.938`. Steht der
 Breitengrad vorn, liefert die API stillschweigend 0 Treffer. Ein bloßer Name (`Köln`) führt
 zu HTTP 400 und Koordinaten außerhalb des Wertebereichs zu HTTP 500, daher lehnen CLI und
-Bibliothek beides ab, bevor eine Anfrage gesendet wird. Bei einer Ortssuche trägt
+Bibliothek beides ab, bevor eine Anfrage gesendet wird. Mehrere Orte, durch Kommas getrennt
+(`Köln_6.957_50.938,Berlin_13.405_52.52`), werden zusammen durchsucht – die Angebote in der
+Nähe eines jeden – und jeder wird geprüft. Bei einer Ortssuche trägt
 jedes Angebot seine Entfernung vom Ort in `abstaende[].abstandInKm`. Ein Ort grenzt die
 Suche nur zusammen mit einem Umkreis (`uk`) ein; allein ergänzt er nur die Entfernungen,
 daher verlangen CLI und Bibliothek neben `orte` auch `uk`.

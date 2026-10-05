@@ -29,7 +29,7 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     // parameter takes comma-separated values, accumulate repeats (commaList).
     .option("--sw <text>", "search keyword (sw); currently ignored by the API, use --ids to filter by occupation", once(parseNonEmpty))
     .option("--sty <n>", `offer type ${STY_MIN}..${STY_MAX} (sty)`, once(parseBoundedInt(STY_MIN, STY_MAX)))
-    .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938" (orte); needs --uk', once(parsePlace))
+    .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938", or several comma-separated (orte); needs --uk', once(parsePlace))
     .option("--re <code>", "Bundesland code (re), e.g. BAY, NRW, THÜ; comma-separated or repeated for several", commaList(parseRegions))
     .option("--uk <radius>", 'radius around --orte: 10, 25, 50, 100 (km), or "Bundesweit" (uk); a km radius needs --orte', once(parseRadius))
     .option("--ids <id>", "numeric occupation id(s), the dkzId from angebot.systematiken[]; comma-separated or repeated for several (ids)", commaList(parseIds))

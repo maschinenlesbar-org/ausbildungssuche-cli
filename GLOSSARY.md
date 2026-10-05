@@ -103,7 +103,8 @@ answers `0` or a 23-digit id with a bare HTTP 400.
 `Name_lon_lat` with the **longitude first**, e.g. `Köln_6.957_50.938`. With the
 latitude first the API silently returns 0 results. A bare name (`Köln`) gets HTTP 400 and
 coordinates out of range get HTTP 500, so the CLI and the library reject both before any
-request. On a place search each offer
+request. Several places, comma-separated (`Köln_6.957_50.938,Berlin_13.405_52.52`), are
+searched together — the offers near any of them — and every one is checked. On a place search each offer
 carries its distance from the place in `abstaende[].abstandInKm`. A place only
 restricts the search together with a radius (`uk`); on its own it just adds the
 distances, so the CLI and the library require `uk` next to `orte`.

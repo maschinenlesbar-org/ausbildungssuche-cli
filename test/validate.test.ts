@@ -313,3 +313,14 @@ test("offer ids, occupation ids and training types the API answers with HTTP 400
   }
   for (const bart of ["102", " 102 ", "999"]) assert.equal(trainingTypeProblem(bart), undefined, bart);
 });
+
+test("placeProblem checks every place of a comma-separated --orte", () => {
+  // Live: Köln_6.957_50.938,Berlin_13.405_52.52 gave Köln's 3 + Berlin's 17 offers;
+  // Hamburg_10.0_999,Köln_6.957_50.938 got HTTP 500 because only the last place was checked.
+  for (const orte of ["Köln_6.957_50.938,Berlin_13.405_52.52", "Frankfurt, Main_8.68_50.11", "Bad_Honnef_7.227_50.645"]) {
+    assert.equal(placeProblem(orte), undefined, orte);
+  }
+  for (const orte of ["Hamburg_10.0_999,Köln_6.957_50.938", "Köln_999_999,Berlin_13.405_52.52", "Köln_6.957_50.938,", "Köln_6.957_50.938,Berlin"]) {
+    assert.match(placeProblem(orte) ?? "", /for every one of the comma-separated places|Name_lon_lat/, orte);
+  }
+});

@@ -285,20 +285,37 @@ export const startCodesProblem: Problem = (bt) =>
     : "Expected start-date codes 0, 1, 2 or 101..112, comma-separated.");
 
 /**
+ * The places of an `orte` value: split at each comma that directly follows a
+ * coordinate (`Köln_6.957_50.938,Berlin_13.405_52.52`), so a comma inside a place
+ * name stays part of that name.
+ */
+export function splitPlaces(orte: string): string[] {
+  return orte.split(/(?<=_-?\d+(?:\.\d+)?),/);
+}
+
+/**
  * The place (`orte`): `Name_lon_lat` with the longitude in -180..180 first and the
- * latitude in -90..90 second. The API answers a bare place name with HTTP 400 and
- * out-of-range coordinates with HTTP 500.
+ * latitude in -90..90 second — or several such places, comma-separated, which the
+ * API searches together (live: Köln's 3 offers + Berlin's 17 = 20). Every place is
+ * checked: the API answers a bare place name with HTTP 400 and out-of-range
+ * coordinates with HTTP 500, also when only one of several places has them.
  */
 export const placeProblem: Problem = (orte) => {
   const blank = nonEmptyProblem(orte);
   if (blank !== undefined) return blank;
-  const m = /^(.*\S.*)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)$/.exec(orte);
-  const lon = m ? Number(m[2]) : NaN;
-  const lat = m ? Number(m[3]) : NaN;
-  return Math.abs(lon) <= 180 && Math.abs(lat) <= 90
-    ? undefined
-    : 'Expected "Name_lon_lat" with the longitude (-180..180) first and the latitude ' +
-        '(-90..90) second, e.g. "Köln_6.957_50.938".';
+  const places = splitPlaces(orte);
+  const ok = places.every((place) => {
+    const m = /^(.*\S.*)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)$/.exec(place);
+    const lon = m ? Number(m[2]) : NaN;
+    const lat = m ? Number(m[3]) : NaN;
+    return Math.abs(lon) <= 180 && Math.abs(lat) <= 90;
+  });
+  if (ok) return undefined;
+  return (
+    'Expected "Name_lon_lat" with the longitude (-180..180) first and the latitude ' +
+    '(-90..90) second, e.g. "Köln_6.957_50.938"' +
+    (places.length > 1 ? ", for every one of the comma-separated places." : ".")
+  );
 };
 
 /**
