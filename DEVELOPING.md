@@ -220,8 +220,9 @@ consumer's custom transport never receives a bad base URL; the CLI's `parseBaseU
 ([`shared.ts`](src/cli/shared.ts)) calls the same rule and makes it a usage error
 (exit `2`) before any client is built. Only `undefined` selects `DEFAULT_BASE_URL`.
 The default transport additionally rejects any non-http(s) URL on every request with
-an `AusbildungNetworkError` — including redirect targets, so a redirect to
-`file:`/`data:` is refused mid-flight. No user-supplied URL ever reaches a
+an `AusbildungNetworkError`, and the engine never hands a non-http(s) redirect target
+(`file:`, `data:`, `javascript:`) to any transport: such a redirect is not followed
+and surfaces as an `AusbildungApiError` naming it. No user-supplied URL ever reaches a
 non-http(s) scheme. Userinfo (`https://user:pass@host`) is allowed and redacted
 from every message; a `%` in it must start a valid escape (write a literal `%` as
 `%25`), since Node decodes the userinfo for the `Authorization` header — anything
@@ -253,8 +254,8 @@ credential headers (`X-API-Key`, `Authorization`, `Cookie`) before following it,
 so a private key is never forwarded to another host. Same-origin redirects keep
 the key.
 
-**Retry / backoff.** Transient `429` (rate limit) and `503` responses are
-retried automatically, up to `maxRetries` / `--max-retries` (`0`..`MAX_RETRIES`, 10). Each retry waits the
+**Retry / backoff.** Transient `429` (rate limit) and `503` responses, and reset
+connections, are retried automatically, up to `maxRetries` / `--max-retries` (`0`..`MAX_RETRIES`, 10). Each retry waits the
 response's `Retry-After` (delay-seconds or an IMF-fixdate HTTP-date, parsed by the
 exported `parseRetryAfter`); without a usable one it backs off linearly
 (`retryDelayMs * attempt`). A `Retry-After` above `MAX_RETRY_AFTER_MS` (30 s) is
@@ -263,6 +264,21 @@ exposes `isRetryable` (true for `429`/`503`).
 
 **maxResponseBytes.** A cap on the response body size in bytes (`0` = unlimited;
 default 100 MiB), guarding against unbounded responses.
+
+**The transport contract, enforced by the engine.** A custom transport (a `fetch`
+wrapper, a test double) gets the same guarantees as the built-in one, because the
+engine checks them itself: every call runs under the `timeoutMs` deadline (the
+request carries an `AbortSignal` that fires then, which the built-in transport
+honours and `fetch(url, { signal })` takes; the engine rejects at the deadline
+either way), the body it gets back is checked against `maxResponseBytes`
+(`sizeLimitMessage` names the option and `--max-response-bytes`), response headers
+are read case-insensitively from a plain record, a `Headers` object or a `Map`, the
+body may be a Buffer, any `ArrayBuffer` view (a `Uint8Array` from fetch), an
+`ArrayBuffer` or a string, and anything a transport throws or returns malformed
+becomes an `AusbildungNetworkError` naming the request (CLI exit `6`). A connection
+reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`, undici's `UND_ERR_SOCKET`, anywhere in
+the `cause` chain; `isTransientNetworkError`) is retried like a `503`, for GET only.
+`test/conformance-p5-transport-contract.test.ts` is the shared check.
 
 **Engine option ranges.** The `RequestEngine` constructor (and so
 `new AusbildungssucheClient(...)`) throws an `AusbildungValidationError` for a

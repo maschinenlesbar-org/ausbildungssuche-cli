@@ -70,7 +70,7 @@ release of this CLI. If the upstream source is unreachable or stops publishing a
 key, `obtain-key` fails loudly with a non-zero exit rather than printing a guess
 — it will never invent a value. The global `--timeout`, `--user-agent`,
 `--max-retries` and `--max-response-bytes` apply to it as to every request (a
-`429`/`503` is retried, a redirect followed); `--base-url` and `--api-key` do not.
+`429`/`503` or a reset connection is retried, a redirect followed); `--base-url` and `--api-key` do not.
 
 ## Quickstart
 
@@ -224,7 +224,7 @@ These apply to every command and may be given before *or* after it:
 | `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled. A rejected key is never repeated in the error, and a key typed without `--api-key` (as a command or an extra argument) is not echoed either |
 | `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`; at most `2147483647`; `0` = no limit, so a hanging server blocks forever) |
 | `--user-agent <ua>` | `User-Agent` header value |
-| `--max-retries <n>` | Retries for transient `429`/`503` responses (`0`..`10`, default `2`); each waits the server's `Retry-After`, up to 30 s |
+| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (`0`..`10`, default `2`); each waits the server's `Retry-After`, up to 30 s, or else backs off |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 
 ### Supplying the API key
