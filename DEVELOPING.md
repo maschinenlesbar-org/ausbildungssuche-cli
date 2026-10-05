@@ -88,7 +88,17 @@ const customTransport: Transport = async (req) => {
 
 ### Methods
 
-`client.search(params)` and `client.details(id)`.
+`client.search(params)` and `client.details(id)`. `search()` resolves with the HAL
+envelope (`page`, and `_embedded.termine` when there are hits); `details()` with a
+JSON **array** of offer records (`AusbildungDetails`, one record for one id — read
+`[0]`).
+
+A 2xx answer without that shape is an `AusbildungParseError` (`Unexpected response
+from <path>: …`, CLI exit `1`), never data: `searchResultProblem` requires an object
+with a `page` whose `totalElements` is a non-negative integer and, if present,
+`_embedded.termine` as an array of objects; `detailsProblem` a non-empty array of
+objects with an `id`. A proxy, captive portal or mirror answering `null`, `{}`, `[]`
+or `{"error": "rate limited"}` with HTTP 200 would otherwise read as "0 offers".
 
 ### What the library rejects
 

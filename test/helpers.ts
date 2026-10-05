@@ -67,6 +67,24 @@ export function makeMockTransport(
   };
 }
 
+/** A search result with no hits, as the API answers it (no `_embedded`). */
+export const EMPTY_SEARCH = { _links: {}, page: { size: 20, totalElements: 0, totalPages: 0, number: 0 } };
+
+/** A details answer: an array with one offer record. */
+export const ONE_OFFER = [{ id: 1, angebot: { titel: "Angebot" } }];
+
+/**
+ * A 200 answer in the shape the client accepts for the request's endpoint: the
+ * search envelope for the collection, an array with one offer for `/{id}`, and `{}`
+ * for anything else (the engine's own tests).
+ */
+export function okResponse(req: HttpRequest): HttpResponse {
+  const path = new URL(req.url).pathname;
+  if (/\/ausbildungsangebot\/[^/]+$/.test(path)) return jsonResponse(ONE_OFFER);
+  if (/\/ausbildungsangebot$/.test(path)) return jsonResponse(EMPTY_SEARCH);
+  return jsonResponse({});
+}
+
 /** A transport that always returns the same JSON body. */
 export function constantJson(body: unknown, status = 200): MockTransport {
   return makeMockTransport(() => jsonResponse(body, status));
@@ -97,7 +115,7 @@ export interface LibOutcome {
 }
 
 export interface ParityOptions {
-  /** Answers every request (both sides); defaults to `200 {}`. */
+  /** Answers every request (both sides); defaults to `okResponse`. */
   responder?: (req: HttpRequest) => HttpResponse | Promise<HttpResponse>;
   /** The CLI's environment (AUSBILDUNGSSUCHE_API_KEY); defaults to none. */
   env?: Record<string, string | undefined>;
@@ -123,7 +141,7 @@ export async function parity(
   libCall: (transport: Transport) => unknown,
   options: ParityOptions = {},
 ): Promise<{ cli: CliOutcome; lib: LibOutcome }> {
-  const mt = makeMockTransport(options.responder ?? (() => jsonResponse({})));
+  const mt = makeMockTransport(options.responder ?? okResponse);
   const out: string[] = [];
   const err: string[] = [];
   const code = await run(argv, {

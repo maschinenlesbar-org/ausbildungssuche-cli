@@ -13,11 +13,15 @@
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import {
   assertValid,
+  detailsProblem,
   headerValueProblem,
   normalizeSearchParams,
   offerIdProblem,
+  searchResultProblem,
   validateSearchParams,
+  type Problem,
 } from "./validate.js";
+import { AusbildungParseError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type {
   AusbildungSearchResult,
@@ -26,6 +30,13 @@ import type {
 } from "./types.js";
 
 const SERVICE = "/infosysbub/absuche";
+
+/** `value` when `problem` accepts it, else an AusbildungParseError naming the endpoint. */
+function expectShape<T>(value: unknown, problem: Problem<unknown>, path: string): T {
+  const reason = problem(value);
+  if (reason !== undefined) throw new AusbildungParseError(`Unexpected response from ${path}: ${reason}.`);
+  return value as T;
+}
 
 /** Options for the Ausbildungssuche client (engine options plus the API key). */
 export interface AusbildungssucheClientOptions extends EngineOptions {
@@ -77,31 +88,30 @@ export class AusbildungssucheClient {
    * into the form the API accepts (normalizeSearchParams: `" nrw"` → `NRW`,
    * `bundesweit` → `Bundesweit`). Rejects with an AusbildungValidationError, before
    * any request, when the parameters break a rule of validateSearchParams (e.g. a
-   * blank filter).
+   * blank filter). A 2xx answer that is not the search envelope (searchResultProblem)
+   * is an AusbildungParseError.
    */
   async search(params: AusbildungSearchParams = {}): Promise<AusbildungSearchResult> {
     const normalized = validateSearchParams(normalizeSearchParams(params));
+    const path = `${SERVICE}/pc/v1/ausbildungsangebot`;
     // The search collection serves HAL+JSON and 406s on plain application/json.
-    return this.engine.getJson(
-      `${SERVICE}/pc/v1/ausbildungsangebot`,
-      prune({ ...normalized }),
-      "application/hal+json",
-    );
+    const result = await this.engine.getJson(path, prune({ ...normalized }), "application/hal+json");
+    return expectShape<AusbildungSearchResult>(result, searchResultProblem, path);
   }
 
   /**
    * Full details for one apprenticeship offer by its numeric id. Rejects with an
    * AusbildungValidationError, before any request, for an id that is not digits
-   * only (offerIdProblem).
+   * only (offerIdProblem). The API answers a JSON array of offer records (one for
+   * one id), not the search envelope; a 2xx answer that is not such an array
+   * (detailsProblem) is an AusbildungParseError.
    */
   async details(id: string): Promise<AusbildungDetails> {
     assertValid("id", id, offerIdProblem);
+    const path = `${SERVICE}/pc/v1/ausbildungsangebot/${id}`;
     // The detail endpoint serves application/json and 406s on HAL+JSON, so we
     // request JSON explicitly. A digits-only id needs no encoding.
-    return this.engine.getJson(
-      `${SERVICE}/pc/v1/ausbildungsangebot/${id}`,
-      undefined,
-      "application/json",
-    );
+    const result = await this.engine.getJson(path, undefined, "application/json");
+    return expectShape<AusbildungDetails>(result, detailsProblem, path);
   }
 }

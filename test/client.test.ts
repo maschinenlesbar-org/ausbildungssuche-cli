@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AusbildungssucheClient } from "../src/client/client.js";
 import { AusbildungApiError, AusbildungValidationError } from "../src/client/errors.js";
-import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
+import { makeMockTransport, jsonResponse, okResponse } from "./helpers.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>, apiKey?: string): AusbildungssucheClient {
   return new AusbildungssucheClient({ transport: mt.transport, ...(apiKey ? { apiKey } : {}) });
@@ -11,7 +11,7 @@ function clientWith(mt: ReturnType<typeof makeMockTransport>, apiKey?: string): 
 const SERVICE = "/infosysbub/absuche";
 
 test("search forwards the supplied X-API-Key and params", async () => {
-  const mt = constantJson({ page: {} });
+  const mt = makeMockTransport(okResponse);
   await clientWith(mt, "test-key").search({ sw: "Informatik", size: 10 });
   const req = mt.last();
   assert.equal(req.headers?.["X-API-Key"], "test-key");
@@ -22,13 +22,13 @@ test("search forwards the supplied X-API-Key and params", async () => {
 });
 
 test("no X-API-Key header is sent when no key is supplied (no bundled default)", async () => {
-  const mt = constantJson({ page: {} });
+  const mt = makeMockTransport(okResponse);
   await clientWith(mt).search();
   assert.equal(mt.last().headers?.["X-API-Key"], undefined);
 });
 
 test("a custom apiKey sets the header", async () => {
-  const mt = constantJson({});
+  const mt = makeMockTransport(okResponse);
   await clientWith(mt, "my-key").search();
   assert.equal(mt.last().headers?.["X-API-Key"], "my-key");
 });
@@ -38,16 +38,16 @@ test("Accept is negotiated per endpoint (search=HAL+JSON, details=JSON)", async 
   // HAL+JSON; the per-id details endpoint 406s on HAL+JSON, so details MUST
   // request application/json. This guards against a spread-order regression in
   // engine.ts that would let one default silently win for both.
-  const mt = constantJson({});
+  const mt = makeMockTransport(okResponse);
   await clientWith(mt).search();
   assert.equal(mt.last().headers?.["Accept"], "application/hal+json");
-  const mt2 = constantJson({});
+  const mt2 = makeMockTransport(okResponse);
   await clientWith(mt2).details("365241044");
   assert.equal(mt2.last().headers?.["Accept"], "application/json");
 });
 
 test("details builds the per-id path from a numeric id", async () => {
-  const mt = constantJson({});
+  const mt = makeMockTransport(okResponse);
   await clientWith(mt).details("365241044");
   assert.equal(new URL(mt.last().url).pathname, `${SERVICE}/pc/v1/ausbildungsangebot/365241044`);
 });
@@ -58,7 +58,7 @@ test("details builds the per-id path from a numeric id", async () => {
 // used to escape the intended path to /v2/secret with the X-API-Key attached).
 for (const id of ["AB/12 3", "AB%20CD", "x%20/../../../v2/secret", "a%20b?apiKey=1", "abc%20#frag", "..", " 1 "]) {
   test(`details rejects the non-numeric id ${JSON.stringify(id)} before any request`, async () => {
-    const mt = constantJson({});
+    const mt = makeMockTransport(okResponse);
     await assert.rejects(
       () => clientWith(mt).details(id),
       (err) =>
@@ -70,7 +70,7 @@ for (const id of ["AB/12 3", "AB%20CD", "x%20/../../../v2/secret", "a%20b?apiKey
 }
 
 test("details rejects a non-string id with a validation error, not a TypeError", async () => {
-  const mt = constantJson({});
+  const mt = makeMockTransport(okResponse);
   await assert.rejects(
     () => clientWith(mt).details(365241044 as unknown as string),
     (err) => err instanceof AusbildungValidationError,

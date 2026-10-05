@@ -4,7 +4,7 @@ import { run } from "../src/cli/run.js";
 import { AusbildungssucheClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { makeMockTransport, jsonResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, okResponse } from "./helpers.js";
 
 const SERVICE = "/infosysbub/absuche";
 
@@ -28,7 +28,7 @@ function makeCli(
 }
 
 test("search builds the query and sends no key when none is configured", async () => {
-  const cli = makeCli(() => jsonResponse({ page: {} }));
+  const cli = makeCli(okResponse);
   const code = await run(["search", "--sw", "Informatik", "--size", "5"], cli.deps);
   assert.equal(code, 0);
   const req = cli.mt.last();
@@ -38,13 +38,13 @@ test("search builds the query and sends no key when none is configured", async (
 });
 
 test("--api-key overrides the header", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   await run(["--api-key", "custom", "search", "--sw", "x"], cli.deps);
   assert.equal(cli.mt.last().headers?.["X-API-Key"], "custom");
 });
 
 test("details builds the per-id path", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   await run(["details", "365241044"], cli.deps);
   assert.equal(
     new URL(cli.mt.last().url).pathname,
@@ -54,7 +54,7 @@ test("details builds the per-id path", async () => {
 
 test("DEL and C1 control characters in server data are escaped in the JSON output", async () => {
   const controls = String.fromCharCode(0x7f, 0x85, 0x9b) + "2J";
-  const served = { id: 12345, titel: `Koch${controls}`, beruf: String.fromCharCode(0x1b) + "[31m" };
+  const served = [{ id: 12345, titel: `Koch${controls}`, beruf: String.fromCharCode(0x1b) + "[31m" }];
   for (const format of [[], ["--compact"]]) {
     const cli = makeCli(() => jsonResponse(served));
     assert.equal(await run([...format, "details", "12345"], cli.deps), 0);
@@ -69,11 +69,11 @@ test("DEL and C1 control characters in server data are escaped in the JSON outpu
 });
 
 test("--timeout accepts up to the largest timer Node supports", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   assert.equal(await run(["--timeout", "2147483647", "details", "12345"], cli.deps), 0);
   assert.equal(cli.mt.last().timeoutMs, 2_147_483_647);
 
-  const over = makeCli(() => jsonResponse({}));
+  const over = makeCli(okResponse);
   assert.equal(await run(["--timeout", "2147483648", "details", "12345"], over.deps), 2);
   assert.equal(over.mt.calls.length, 0);
   assert.match(over.err.join("\n"), /between 0 and 2147483647/);
@@ -105,19 +105,19 @@ test("a 406 maps to exit code 5 with an Accept hint", async () => {
 });
 
 test("AUSBILDUNGSSUCHE_API_KEY env var supplies the key when no --api-key", async () => {
-  const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
+  const cli = makeCli(okResponse, { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
   await run(["search", "--sw", "x"], cli.deps);
   assert.equal(cli.mt.last().headers?.["X-API-Key"], "env-key");
 });
 
 test("--api-key overrides the env var (CLI flag > env > none)", async () => {
-  const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
+  const cli = makeCli(okResponse, { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
   await run(["--api-key", "flag-key", "search", "--sw", "x"], cli.deps);
   assert.equal(cli.mt.last().headers?.["X-API-Key"], "flag-key");
 });
 
 test("no X-API-Key is sent when neither flag nor env is set (no bundled default)", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   await run(["search", "--sw", "x"], cli.deps);
   assert.equal(cli.mt.last().headers?.["X-API-Key"], undefined);
 });
@@ -127,7 +127,7 @@ test("--help does not leak the env API key (commander default disclosure)", asyn
   // made --help render it verbatim. The env is set here, so if the key were
   // still the option default it would appear in the captured help text.
   const secret = "SUPER-SECRET-KEY-123";
-  const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: secret });
+  const cli = makeCli(okResponse, { AUSBILDUNGSSUCHE_API_KEY: secret });
   const code = await run(["--help"], cli.deps);
   assert.equal(code, 0);
   const printed = [...cli.out, ...cli.err].join("\n");
@@ -153,7 +153,7 @@ const blankCases: Array<[string, string[]]> = [
 
 for (const [name, argv] of blankCases) {
   test(`a blank ${name} is rejected before any request`, async () => {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     const code = await run(["--api-key", "dummy", ...argv], cli.deps);
     assert.notEqual(code, 0);
     assert.equal(cli.mt.calls.length, 0, "no request may be sent");
@@ -165,7 +165,7 @@ for (const [name, argv] of blankCases) {
 // not reach the transport (an injected custom transport does no scheme check).
 for (const bad of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
   test(`--base-url ${bad} is rejected before any request`, async () => {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     const code = await run(
       ["--api-key", "dummy", "--base-url", bad, "search", "--sw", "x"],
       cli.deps,
@@ -178,7 +178,7 @@ for (const bad of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
 
 test("--max-retries is bounded to 0..10", async () => {
   for (const [value, ok] of [["0", true], ["10", true], ["11", false], ["1000000", false]] as const) {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     const code = await run(["--max-retries", value, "details", "12345"], cli.deps);
     assert.equal(code, ok ? 0 : 2, value);
     if (!ok) assert.match(cli.err.join("\n"), /between 0 and 10/);
@@ -187,21 +187,21 @@ test("--max-retries is bounded to 0..10", async () => {
 
 for (const id of ["..", ".", "%2e%2e", ".%2e"]) {
   test(`details ${id} exits 2 without a request instead of walking up the path`, async () => {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     assert.equal(await run(["details", "--", id], cli.deps), 2);
     assert.equal(cli.mt.calls.length, 0, "no request may be sent");
   });
 }
 
 test("--uk with a km radius but no --orte is a usage error, before any request", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   assert.equal(await run(["search", "--ids", "9162", "--uk", "10"], cli.deps), 2);
   assert.equal(cli.mt.calls.length, 0);
   assert.match(cli.err.join("\n"), /--uk 10 needs --orte/);
 });
 
 test("--orte without --uk is a usage error, before any request", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   assert.equal(await run(["search", "--orte", "Köln_6.957_50.938"], cli.deps), 2);
   assert.equal(cli.mt.calls.length, 0);
   assert.match(cli.err.join("\n"), /--orte needs --uk/);
@@ -213,14 +213,14 @@ test("--uk Bundesweit alone, and --orte with --uk, are sent", async () => {
     ["search", "--orte", "Köln_6.957_50.938", "--uk", "25"],
     ["search", "--orte", "Köln_6.957_50.938", "--uk", "Bundesweit"],
   ]) {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     assert.equal(await run(argv, cli.deps), 0, argv.join(" "));
     assert.equal(cli.mt.calls.length, 1);
   }
 });
 
 test("repeated list options (--ids, --re, --bt) accumulate into one comma-separated value", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   const code = await run(
     ["search", "--ids", "1", "--ids", "2,3", "--re", "NRW", "--re", "BAY", "--bt", "2", "--bt", "101"],
     cli.deps,
@@ -240,7 +240,7 @@ for (const [opt, a, b] of [
   ["--size", "5", "10"],
 ] as const) {
   test(`repeating the single-valued ${opt} is a usage error, before any request`, async () => {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     assert.equal(await run(["search", opt, a, opt, b], cli.deps), 2);
     assert.equal(cli.mt.calls.length, 0);
     assert.match(cli.err.join("\n"), /Given more than once/);
@@ -252,7 +252,7 @@ test("repeating --orte or --uk is a usage error", async () => {
     ["search", "--orte", "A_1_2", "--orte", "B_3_4", "--uk", "10"],
     ["search", "--orte", "A_1_2", "--uk", "10", "--uk", "50"],
   ]) {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
     assert.equal(cli.mt.calls.length, 0);
   }
@@ -279,14 +279,14 @@ const invalidValues: Array<[string, string[]]> = [
 ];
 for (const [name, argv] of invalidValues) {
   test(`${name} is a usage error, before any request`, async () => {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     assert.equal(await run(argv, cli.deps), 2);
     assert.equal(cli.mt.calls.length, 0, "no request may be sent");
   });
 }
 
 test("valid closed-set values are sent, normalised where the API is case-sensitive", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   const code = await run(
     ["search", "--sty", "3", "--re", "nrw,thü", "--bt", "0,2,112", "--orte", "Köln_6.957_50.938",
       "--uk", "bundesweit", "--page", "499"],
@@ -299,18 +299,18 @@ test("valid closed-set values are sent, normalised where the API is case-sensiti
   assert.equal(q.get("bt"), "0,2,112");
   assert.equal(q.get("page"), "499");
 
-  const last = makeCli(() => jsonResponse({}));
+  const last = makeCli(okResponse);
   assert.equal(await run(["search", "--page", "9999", "--size", "1"], last.deps), 0);
 });
 
 test("a page past the 10000-result window names the last page", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   assert.equal(await run(["search", "--page", "500", "--size", "20"], cli.deps), 2);
   assert.match(cli.err.join("\n"), /10000-result window.*last page is 499/);
 });
 
 test("search --help describes --bt as a code, not a date", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   assert.equal(await run(["search", "--help"], cli.deps), 0);
   const help = cli.out.join("\n");
   assert.match(help, /--bt <code>\s+start-date code\(s\)/);
@@ -318,10 +318,10 @@ test("search --help describes --bt as a code, not a date", async () => {
 });
 
 test("--size is capped at 20, the most the server serves per page", async () => {
-  const ok = makeCli(() => jsonResponse({}));
+  const ok = makeCli(okResponse);
   assert.equal(await run(["search", "--size", "20"], ok.deps), 0);
   for (const size of ["21", "50", "2000"]) {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     assert.equal(await run(["search", "--size", size], cli.deps), 2, size);
     assert.equal(cli.mt.calls.length, 0);
     assert.match(cli.err.join("\n"), /between 1 and 20/);
@@ -334,7 +334,7 @@ for (const [bad, message] of [
   [" http://127.0.0.1:1/echo", /surrounding whitespace/],
 ] as const) {
   test(`--base-url ${JSON.stringify(bad)} is rejected before any request`, async () => {
-    const cli = makeCli(() => jsonResponse({}));
+    const cli = makeCli(okResponse);
     assert.equal(await run(["--base-url", bad, "details", "1"], cli.deps), 2);
     assert.equal(cli.mt.calls.length, 0);
     assert.match(cli.err.join("\n"), message);
@@ -342,7 +342,7 @@ for (const [bad, message] of [
 }
 
 test("a --base-url with a path prefix still works", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   assert.equal(await run(["--base-url", "http://127.0.0.1:1/mirror/", "details", "1"], cli.deps), 0);
   assert.equal(cli.mt.last().url, "http://127.0.0.1:1/mirror/infosysbub/absuche/pc/v1/ausbildungsangebot/1");
 });
@@ -359,7 +359,7 @@ for (const [name, argv, message] of [
   ["non-Latin-1 --user-agent", ["--user-agent", "agent☃"], /outside Latin-1/],
 ] as const) {
   test(`${name} is a usage error, before any request`, async () => {
-    const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
+    const cli = makeCli(okResponse, { AUSBILDUNGSSUCHE_API_KEY: "env-key" });
     assert.equal(await run([...argv, "details", "1"], cli.deps), 2);
     assert.equal(cli.mt.calls.length, 0);
     assert.match(cli.err.join("\n"), message);
@@ -367,20 +367,20 @@ for (const [name, argv, message] of [
 }
 
 test("tab and Latin-1 are fine in --user-agent", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   assert.equal(await run(["--user-agent", "a\tü", "details", "1"], cli.deps), 0);
   assert.equal(cli.mt.last().headers?.["User-Agent"], "a\tü");
 });
 
 test("a control character in the AUSBILDUNGSSUCHE_API_KEY env var is a usage error", async () => {
-  const cli = makeCli(() => jsonResponse({}), { AUSBILDUNGSSUCHE_API_KEY: "k\u0001x" });
+  const cli = makeCli(okResponse, { AUSBILDUNGSSUCHE_API_KEY: "k\u0001x" });
   assert.equal(await run(["details", "1"], cli.deps), 2);
   assert.equal(cli.mt.calls.length, 0);
   assert.match(cli.err.join("\n"), /AUSBILDUNGSSUCHE_API_KEY: Value contains control characters/);
 });
 
 test("bidi controls in server data are escaped in the JSON output", async () => {
-  const served = { titel: `a${String.fromCharCode(0x202e)}b${String.fromCharCode(0x2066)}c` };
+  const served = [{ id: 1, titel: `a${String.fromCharCode(0x202e)}b${String.fromCharCode(0x2066)}c` }];
   const cli = makeCli(() => jsonResponse(served));
   assert.equal(await run(["details", "1"], cli.deps), 0);
   const text = cli.out.join("\n");
@@ -403,7 +403,8 @@ test("userinfo in --base-url is redacted from error messages but still sent", as
 
 test("a too deeply nested response is a clean error, not a stack overflow", async () => {
   const depth = 200_000;
-  const body = "[".repeat(depth) + "]".repeat(depth);
+  // Nested inside a valid offer, so the shape check passes and printing is what fails.
+  const body = '[{"id":1,"x":' + "[".repeat(depth) + "]".repeat(depth) + "}]";
   const responder = (): HttpResponse => ({
     status: 200,
     headers: { "content-type": "application/json" },
@@ -424,7 +425,22 @@ test("a too deeply nested response is a clean error, not a stack overflow", asyn
 });
 
 test("--help says what --timeout 0 means", async () => {
-  const cli = makeCli(() => jsonResponse({}));
+  const cli = makeCli(okResponse);
   assert.equal(await run(["--help"], cli.deps), 0);
   assert.match(cli.out.join("\n"), /--timeout <ms>[\s\S]*0 = no\s+limit/);
+});
+
+test("a 200 that is not the search envelope or an offer array exits 1, never 0", async () => {
+  const notSearch = [null, "hi", [], {}, { message: "maintenance" }, { error: "rate limited" }, { page: { totalElements: "1" } }];
+  for (const body of notSearch) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["--compact", "search", "--ids", "9162"], cli.deps), 1, JSON.stringify(body));
+    assert.equal(cli.out.length, 0);
+    assert.match(cli.err.join("\n"), /Unexpected response from .*ausbildungsangebot: expected a search result/);
+  }
+  for (const body of [{}, [], null, [{}], [{ id: "" }], { error: "x" }]) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["details", "1"], cli.deps), 1, JSON.stringify(body));
+    assert.match(cli.err.join("\n"), /expected an array of offers/);
+  }
 });

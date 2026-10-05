@@ -28,8 +28,14 @@ export interface AusbildungSearchResult {
   page?: PageInfo;
 }
 
-/** A single apprenticeship offer — kept as a faithful raw object. */
-export type AusbildungDetails = JsonObject;
+/** One apprenticeship offer record — kept as a faithful raw object (it has an `id`). */
+export type AusbildungOffer = JsonObject;
+
+/**
+ * The answer of `details(id)`: a JSON array of offer records — one for one id — not
+ * the search envelope. Read element `[0]`.
+ */
+export type AusbildungDetails = AusbildungOffer[];
 
 /** Parameters for the apprenticeship-offer search. */
 export interface AusbildungSearchParams {

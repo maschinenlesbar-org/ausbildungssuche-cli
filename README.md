@@ -190,7 +190,7 @@ do the same thing.
 | `4` | offer not found (`404`) |
 | `5` | server content-type negotiation failed (`406`) |
 | `6` | network/transport failure (DNS, connection, timeout, oversized response) |
-| `1` | any other error |
+| `1` | any other error (also a `200` answer that is not the documented search envelope or offer array) |
 
 A reader that stops early (`… | head`) ends the run quietly with exit `0`; a failed run
 keeps its own code even when its stderr's reader has gone (`2>&1 | head -c 5`).

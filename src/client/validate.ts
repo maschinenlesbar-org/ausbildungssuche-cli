@@ -243,6 +243,70 @@ export const placeProblem: Problem = (orte) => {
 };
 
 /**
+ * A short description of a JSON value for a message: its kind, and for an object its
+ * first keys. A key is server text, so only a plain one (letters, digits, `_ . -`, at
+ * most 40 characters) is shown as it is.
+ */
+function kindOf(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return value.length === 0 ? "an empty array" : "an array";
+  if (typeof value === "object") {
+    const keys = Object.keys(value as object)
+      .slice(0, 5)
+      .map((k) => (/^[\w.-]{1,40}$/.test(k) ? `"${k}"` : "(a key not shown)"));
+    return `an object with ${keys.join(", ") || "no keys"}`;
+  }
+  return `a ${typeof value}`;
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * Why a 2xx body is not a search result, or `undefined` when it is: the HAL envelope,
+ * an object with a `page` object whose `totalElements` is a non-negative integer and,
+ * when there are hits, `_embedded.termine`, an array of objects (a search without hits
+ * has no `_embedded` at all). A proxy, captive portal or mirror answering `null`, a
+ * string, `[]`, `{}` or an error object (`{"error": "rate limited"}`) with HTTP 200
+ * must not be printed as an empty result with exit 0: a script would read it as
+ * "0 offers".
+ */
+export const searchResultProblem: Problem<unknown> = (value) => {
+  const expected = `expected a search result (page, _embedded.termine), got ${kindOf(value)}`;
+  if (!isObject(value)) return expected;
+  const page = value["page"];
+  if (!isObject(page)) return expected;
+  const total = page["totalElements"];
+  if (typeof total !== "number" || !Number.isSafeInteger(total) || total < 0) {
+    return "expected a search result whose page.totalElements is a non-negative integer";
+  }
+  const embedded = value["_embedded"];
+  if (embedded === undefined) return undefined;
+  if (!isObject(embedded)) return "expected a search result whose _embedded is an object";
+  const termine = embedded["termine"];
+  if (termine !== undefined && (!Array.isArray(termine) || termine.some((t) => !isObject(t)))) {
+    return "expected a search result whose _embedded.termine is an array of offers (objects)";
+  }
+  return undefined;
+};
+
+/**
+ * Why a 2xx body is not an offer's details, or `undefined` when it is: the detail
+ * endpoint answers a JSON array of offer records (one, for one id), each an object
+ * with an `id`. An empty array, `{}`, `null` or an error object is not an answer
+ * (an unknown id is a 404).
+ */
+export const detailsProblem: Problem<unknown> = (value) => {
+  const expected = `expected an array of offers (objects with an id), got ${kindOf(value)}`;
+  if (!Array.isArray(value) || value.length === 0) return expected;
+  for (const offer of value) {
+    const id = isObject(offer) ? offer["id"] : undefined;
+    if ((typeof id !== "number" && typeof id !== "string") || String(id).trim() === "") return expected;
+  }
+  return undefined;
+};
+
+/**
  * Largest page size (`size`) the API honours. Its OpenAPI description says 2000,
  * but the server clamps every larger `size` to 20 (it reports `page.size` 20), so
  * `page` would count in pages of 20 while a caller computes offsets from its own
