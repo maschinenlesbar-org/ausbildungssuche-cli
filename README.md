@@ -192,6 +192,9 @@ do the same thing.
 | `6` | network/transport failure (DNS, connection, timeout, oversized response) |
 | `1` | any other error |
 
+A reader that stops early (`… | head`) ends the run quietly with exit `0`; a failed run
+keeps its own code even when its stderr's reader has gone (`2>&1 | head -c 5`).
+
 ## Troubleshooting
 
 - **`command not found: ausbildungssuche`** — the global npm bin directory isn't on

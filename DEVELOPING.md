@@ -261,6 +261,12 @@ like a number. `test/conformance-p1-cli-redaction.test.ts` is the shared check (
 passwords, seven URL shapes, every echo path, plus the key by flag, by environment
 and typed without its flag).
 
+**Closed pipes** (`handleOutputErrors` in [`io.ts`](src/cli/io.ts), installed by the
+bin shim before `run()`). An EPIPE on stdout (`| head` stopped reading) exits `0`
+quietly; an EPIPE on stderr is ignored, so a failed run keeps its exit code (a usage
+error piped through `2>&1 | head -c 5` still exits `2`). Any other write error exits
+`1`. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built bin.
+
 **Secrets in the library.** The engine keeps the base URL and the default headers
 (the `X-API-Key`) in real `#private` fields, so `console.log(client)`,
 `util.inspect` and `JSON.stringify` never show them. It scrubs the base URL's
