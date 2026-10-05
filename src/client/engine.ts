@@ -25,6 +25,9 @@ import {
   AusbildungNetworkError,
   AusbildungParseError,
   AusbildungValidationError,
+  credentialsIn,
+  redactCredentials,
+  redactSecrets,
   redactUrl,
 } from "./errors.js";
 
@@ -315,10 +318,17 @@ function stripCredentialHeaders(headers: Record<string, string>): Record<string,
 }
 
 export class RequestEngine {
-  private readonly baseUrl: string;
+  // Real private fields (not TypeScript's `private`): util.inspect, console.log and
+  // JSON.stringify of a client never show them, so a password in the base URL or
+  // the API key in the default headers can't be logged by accident.
+  readonly #baseUrl: string;
+  readonly #defaultHeaders: Record<string, string>;
+  /** The base URL's userinfo, raw and percent-decoded, for scrubbing server and transport text. */
+  readonly #credentials: string[];
+  /** Secrets without an `@` to anchor on (the API key), for the same scrubbing. */
+  readonly #secrets: string[];
   private readonly transport: Transport;
   private readonly userAgent: string;
-  private readonly defaultHeaders: Record<string, string>;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly retryDelayMs: number;
@@ -329,7 +339,14 @@ export class RequestEngine {
   constructor(options: EngineOptions = {}) {
     // Checked on the raw value, before the trailing-slash strip; only `undefined`
     // selects the default.
-    this.baseUrl = options.baseUrl === undefined ? DEFAULT_BASE_URL : validateBaseUrl(options.baseUrl);
+    this.#baseUrl = options.baseUrl === undefined ? DEFAULT_BASE_URL : validateBaseUrl(options.baseUrl);
+    this.#credentials = credentialsIn(this.#baseUrl).flatMap((raw) => {
+      try {
+        return [raw, decodeURIComponent(raw)];
+      } catch {
+        return [raw];
+      }
+    });
     this.transport = options.transport ?? nodeHttpTransport;
     // Header values are checked here, not only by the CLI: a CR/LF would reach a
     // custom transport as an injected header, and the default transport would fail
@@ -338,11 +355,16 @@ export class RequestEngine {
       options.userAgent === undefined
         ? DEFAULT_USER_AGENT
         : assertValid("userAgent", options.userAgent, headerValueProblem);
-    this.defaultHeaders = options.defaultHeaders ?? {};
-    for (const [name, value] of Object.entries(this.defaultHeaders)) {
+    this.#defaultHeaders = { ...(options.defaultHeaders ?? {}) };
+    for (const [name, value] of Object.entries(this.#defaultHeaders)) {
       assertValid("header name", name, headerNameProblem);
       assertValid(`header ${name}`, value, headerValueProblem);
     }
+    // The secret part of a credential header (`Bearer <token>` → the token; an
+    // X-API-Key as it is), never echoed.
+    this.#secrets = Object.entries(this.#defaultHeaders)
+      .filter(([name]) => CREDENTIAL_HEADERS.includes(name.toLowerCase()))
+      .map(([, value]) => value.replace(/^\S+\s+/, "").trim());
     // Range-check the numeric options: a negative, NaN or fractional value would
     // otherwise silently disable the timeout or the size cap, and an unbounded
     // maxRetries would keep retrying.
@@ -377,7 +399,7 @@ export class RequestEngine {
       );
     }
     const qs = query ? buildQueryString(query) : "";
-    return `${this.baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
+    return `${this.#baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
   }
 
   /** Perform a request with Accept negotiation and transient-error retries. */
@@ -408,7 +430,7 @@ export class RequestEngine {
     // API-wide HAL+JSON default) would permanently shadow per-endpoint
     // negotiation. User-Agent is likewise applied after defaultHeaders.
     let headers: Record<string, string> = {
-      ...this.defaultHeaders,
+      ...this.#defaultHeaders,
       Accept: accept,
       "User-Agent": this.userAgent,
     };
@@ -507,6 +529,36 @@ export class RequestEngine {
   }
 
   /**
+   * `text` without the base URL's credentials or the API key: server text (an error
+   * body that echoes the request URL or its headers) and transport text (fetch's
+   * "Failed to fetch <url>") can carry them.
+   */
+  private scrub(text: string): string {
+    return redactSecrets(redactCredentials(text, this.#credentials), this.#secrets);
+  }
+
+  /**
+   * A transport failure as the `cause` of the error the engine raises: the original
+   * when its text carries no secret, otherwise a copy with them scrubbed (message,
+   * `code` and the cause chain kept), so logging the error with its causes can't
+   * reveal the base URL's password or the key.
+   */
+  private scrubCause(cause: unknown, depth = 0): unknown {
+    if ((this.#credentials.length === 0 && this.#secrets.length === 0) || depth > 5) return cause;
+    if (typeof cause === "string") return this.scrub(cause);
+    if (!(cause instanceof Error)) return cause;
+    const inner = this.scrubCause(cause.cause, depth + 1);
+    const message = this.scrub(cause.message);
+    const stack = cause.stack ?? "";
+    if (message === cause.message && inner === cause.cause && this.scrub(stack) === stack) return cause;
+    const copy = new Error(message, inner === undefined ? undefined : { cause: inner });
+    copy.name = cause.name;
+    const code = (cause as { code?: unknown }).code;
+    if (code !== undefined) Object.assign(copy, { code });
+    return copy;
+  }
+
+  /**
    * Call the transport under the request's time limit (`timeoutMs`): the request gets
    * an AbortSignal that fires at the deadline, and the call rejects then whether the
    * transport stops or not — a custom transport (fetch, a node:http wrapper) that
@@ -539,6 +591,14 @@ export class RequestEngine {
    * as `cause`, so every failure stays an `AusbildungError`.
    */
   private toNetworkError(method: string, url: string, cause: unknown): AusbildungError {
+    if (cause instanceof AusbildungNetworkError) {
+      // The built-in transport's own errors carry no URL; scrub anyway, in case a
+      // custom transport built one from a server's text.
+      const message = this.scrub(cause.message);
+      const inner = this.scrubCause(cause.cause);
+      if (message === cause.message && inner === cause.cause) return cause;
+      return new AusbildungNetworkError(message, inner === undefined ? undefined : { cause: inner });
+    }
     if (cause instanceof AusbildungError) return cause;
     const reason =
       cause instanceof Error && cause.message.trim() !== ""
@@ -546,7 +606,9 @@ export class RequestEngine {
         : typeof cause === "string" && cause.trim() !== ""
           ? cause
           : "the transport failed without a message";
-    return new AusbildungNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(reason)}`, { cause });
+    return new AusbildungNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}`, {
+      cause: this.scrubCause(cause),
+    });
   }
 
   /**
@@ -560,7 +622,7 @@ export class RequestEngine {
     try {
       return JSON.parse(text) as T;
     } catch (cause) {
-      throw new AusbildungParseError(`Failed to parse JSON response from ${path}`, { cause });
+      throw new AusbildungParseError(`Failed to parse JSON response from ${path}`, { cause: this.scrubCause(cause) });
     }
   }
 
@@ -571,7 +633,7 @@ export class RequestEngine {
     body: Buffer,
     locationHeader?: string,
   ): AusbildungApiError {
-    const text = body.toString("utf8");
+    const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
     try {
       const parsed = JSON.parse(text) as { detail?: unknown; message?: unknown };

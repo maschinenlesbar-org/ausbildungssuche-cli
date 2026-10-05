@@ -15,7 +15,15 @@
 // lives on another host and does not exist yet. Testable in-process through the
 // `Transport` seam, without a network.
 
-import { AusbildungApiError, AusbildungError, AusbildungParseError } from "./errors.js";
+import {
+  AusbildungApiError,
+  AusbildungError,
+  AusbildungNetworkError,
+  AusbildungParseError,
+  credentialsIn,
+  redactCredentials,
+  redactUrl,
+} from "./errors.js";
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { assertValid, httpUrlProblem } from "./validate.js";
 
@@ -53,7 +61,7 @@ export interface ObtainKeyOptions
 export interface ObtainedKey {
   /** The public key, ready to put in `API_KEY_ENV_VAR`. */
   key: string;
-  /** Where it was read from, so callers can cite it. */
+  /** Where it was read from, so callers can cite it (userinfo shown as `***@`). */
   sourceUrl: string;
 }
 
@@ -64,9 +72,13 @@ export interface ObtainedKey {
  * no longer states a key, so a caller never proceeds with a made-up value.
  */
 export async function obtainKey(options: ObtainKeyOptions = {}): Promise<ObtainedKey> {
-  const { sourceUrl = KEY_SOURCE_URL, transport, timeoutMs, userAgent, maxRetries } = options;
+  const { sourceUrl: rawSourceUrl = KEY_SOURCE_URL, transport, timeoutMs, userAgent, maxRetries } = options;
   const { retryDelayMs, maxRedirects, maxResponseBytes, sleep } = options;
-  assertValid("sourceUrl", sourceUrl, httpUrlProblem);
+  assertValid("sourceUrl", rawSourceUrl, httpUrlProblem);
+  // A source behind Basic auth (a private mirror) is named without its userinfo, in
+  // the errors and in the result, and its credentials are cut from transport text.
+  const sourceUrl = redactUrl(rawSourceUrl);
+  const sourceCredentials = credentialsIn(rawSourceUrl);
   // Only the request policy is passed on: a caller's baseUrl or defaultHeaders (an
   // API key) have no business on the key source's host. The constructor
   // range-checks the options; inside this async function a bad one rejects.
@@ -83,8 +95,12 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
 
   let response;
   try {
-    response = await engine.getAbsolute(sourceUrl, "text/plain, text/markdown;q=0.9, */*;q=0.8");
+    response = await engine.getAbsolute(rawSourceUrl, "text/plain, text/markdown;q=0.9, */*;q=0.8");
   } catch (err) {
+    if (err instanceof AusbildungNetworkError && sourceCredentials.length > 0) {
+      // The engine scrubs only its base URL's credentials; this source has its own.
+      throw new AusbildungNetworkError(redactCredentials(err.message, sourceCredentials));
+    }
     if (!(err instanceof AusbildungApiError)) throw err;
     throw new AusbildungError(
       `Could not read the key source ${sourceUrl} (HTTP ${err.status}). ` +

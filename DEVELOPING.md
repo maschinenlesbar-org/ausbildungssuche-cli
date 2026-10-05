@@ -243,6 +243,15 @@ like a number. `test/conformance-p1-cli-redaction.test.ts` is the shared check (
 passwords, seven URL shapes, every echo path, plus the key by flag, by environment
 and typed without its flag).
 
+**Secrets in the library.** The engine keeps the base URL and the default headers
+(the `X-API-Key`) in real `#private` fields, so `console.log(client)`,
+`util.inspect` and `JSON.stringify` never show them. It scrubs the base URL's
+userinfo (raw and percent-decoded) and the key from error bodies and details,
+transport error text and the `cause` chain (`scrub`, `scrubCause`), and `obtainKey()`
+names a source behind Basic auth as `***@` in its errors and in
+`ObtainedKey.sourceUrl`. `test/conformance-p2-library-redaction.test.ts` is the
+shared check.
+
 **Default headers / Accept negotiation.** The engine merges `defaultHeaders` into
 every request — the seam that injects `X-API-Key`. The `Accept` header is chosen
 per endpoint (`application/hal+json` for search, `application/json` for details)
