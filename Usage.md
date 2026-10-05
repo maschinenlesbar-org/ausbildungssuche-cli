@@ -150,8 +150,8 @@ ausbildungssuche search --ids 9162 --bg
 Combine the structured filters: `--re` (Bundesland code, e.g. `SLH` for
 Schleswig-Holstein), `--sty` (offer type, `0`..`3`), `--bart` (training type,
 *Bildungsart*) and `--bt` (start-date code, *Beginntermin*: `2` for earlier dates,
-`101`..`112` for January..December of the following year, `0`/`1` also accepted —
-not a date).
+`101`..`112` for January..December of the following year; `0` and `1` filter too,
+with an undocumented meaning — not a date).
 
 The `--re` codes are `BAW`, `BAY`, `BER`, `BRA`, `BRE`, `HAM`, `HES`, `MBV`,
 `NDS`, `NRW`, `RPF`, `SAA`, `SAC`, `SAN`, `SLH` and `THÜ`; several can be
@@ -251,7 +251,7 @@ each (a repeated global option is a usage error, exit `2`):
 | `--ids <id>` | numeric occupation id(s), comma-separated or repeated (*Berufs-id*, the `dkzId`); a non-numeric id or a trailing comma is a usage error (exit `2`) |
 | `--bart <type>` | numeric training type, the `bildungsart.id`, e.g. `102` Berufsausbildung (*Bildungsart*); anything else is a usage error (exit `2`) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
-| `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0`, `1` also accepted (*Beginntermin*) |
+| `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0` and `1` are accepted and filter too (each keeps about half of the offers; their meaning is undocumented) (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
 | `--size <n>` | page size, `1`..`20` (the server serves at most 20 rows per page) |
 

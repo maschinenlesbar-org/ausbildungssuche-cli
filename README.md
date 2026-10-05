@@ -124,7 +124,7 @@ details    <id>        full details for one offer
 | `--sty <n>` | offer type `0`..`3` (*Suchtyp*) |
 | `--bart <type>` | numeric training type, the `bildungsart.id`, e.g. `102` Berufsausbildung (*Bildungsart*); anything else is a usage error (exit `2`) |
 | `--bg` | only education-voucher–eligible offers (*Bildungsgutschein*) |
-| `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0`, `1` also accepted (*Beginntermin*) |
+| `--bt <code>` | start-date code(s): `2` earlier dates, `101`..`112` January..December of the following year; `0` and `1` are accepted and filter too (each keeps about half of the offers; their meaning is undocumented) (*Beginntermin*) |
 | `--page <n>` | 0-based page index |
 | `--size <n>` | page size, `1`..`20` (the server serves at most 20 rows per page) |
 

@@ -76,7 +76,8 @@ export interface AusbildungSearchParams {
   bg?: boolean;
   /**
    * Start-date code(s), not a date: `2` = earlier dates, `101`..`112` = January..December
-   * of the following year (upstream OpenAPI); `0` and `1` are accepted too. Comma-separated
+   * of the following year (upstream OpenAPI); `0` and `1` are accepted and filter too (each
+   * kept about half of one live search's offers), with an undocumented meaning. Comma-separated
    * for several (`START_CODES`).
    */
   bt?: string;

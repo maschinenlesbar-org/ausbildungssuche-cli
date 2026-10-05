@@ -152,9 +152,10 @@ that funds an approved training measure.
 
 **Start date (`bt`, Beginntermin).** A code for the desired training start, not a
 date: per the upstream API description `2` means earlier dates and `101`..`112`
-January..December of the following year. `0` and `1` are accepted too (their meaning
-is undocumented); any other value gets HTTP 400, so the CLI (exit `2`) and the library
-reject it.
+January..December of the following year. `0` and `1` are accepted too and are real
+filters — on 2026-10-05 each kept about half of one search's offers (158 and 156 of
+337) — but their meaning is undocumented, so don't rely on them; any other value gets
+HTTP 400, so the CLI (exit `2`) and the library reject it.
 Several codes can be comma-separated.
 
 **Page (`page`).** Zero-based page index for paging through search results. The
