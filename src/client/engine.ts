@@ -13,6 +13,7 @@ import {
 } from "./http.js";
 import {
   assertValid,
+  isPlainObject,
   baseUrlProblem,
   headerNameProblem,
   headerValueProblem,
@@ -323,6 +324,32 @@ export function isTransientNetworkError(err: unknown): boolean {
   return hasTransientCode(err);
 }
 
+/**
+ * Longest server text (in characters) kept for an error message (a `detail`). A longer
+ * one is cut and ends in "…", so a hostile or buggy body cannot flood stderr or a CI
+ * log with one huge line. `AusbildungApiError.body` keeps the full text.
+ */
+const MAX_DETAIL_LENGTH = 500;
+
+/** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters. */
+function cleanDetail(text: string): string {
+  const clean = sanitizeServerText(text);
+  return clean.length > MAX_DETAIL_LENGTH ? `${clean.slice(0, MAX_DETAIL_LENGTH)}…` : clean;
+}
+
+/**
+ * Read a function option: `undefined` gives the default; anything else that is not a
+ * function is an AusbildungValidationError. A string `transport` used to fail at the
+ * first request as a raw TypeError, and a bad `sleep` on the first retry.
+ */
+function functionOption<F>(name: string, value: F | undefined, fallback: F): F {
+  if (value === undefined) return fallback;
+  if (typeof value !== "function") {
+    throw new AusbildungValidationError(`Invalid ${name}: Expected a function, got ${typeof value}.`);
+  }
+  return value;
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -392,6 +419,11 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
+    // A JavaScript caller may pass null for "no options"; anything else must be an object.
+    options = options ?? {};
+    if (!isPlainObject(options)) {
+      throw new AusbildungValidationError("Invalid options: Expected an object of engine options.");
+    }
     // Checked on the raw value, before the trailing-slash strip; only `undefined`
     // selects the default.
     this.#baseUrl = options.baseUrl === undefined ? DEFAULT_BASE_URL : validateBaseUrl(options.baseUrl);
@@ -402,7 +434,7 @@ export class RequestEngine {
         return [raw];
       }
     });
-    this.transport = options.transport ?? nodeHttpTransport;
+    this.transport = functionOption("transport", options.transport, nodeHttpTransport);
     // Header values are checked here, not only by the CLI: a CR/LF would reach a
     // custom transport as an injected header, and the default transport would fail
     // late with a raw TypeError. Only `undefined` selects the default User-Agent.
@@ -410,6 +442,9 @@ export class RequestEngine {
       options.userAgent === undefined
         ? DEFAULT_USER_AGENT
         : assertValid("userAgent", options.userAgent, headerValueProblem);
+    if (options.defaultHeaders !== undefined && !isPlainObject(options.defaultHeaders)) {
+      throw new AusbildungValidationError("Invalid defaultHeaders: Expected an object of header names and values.");
+    }
     this.#defaultHeaders = { ...(options.defaultHeaders ?? {}) };
     for (const [name, value] of Object.entries(this.#defaultHeaders)) {
       assertValid("header name", name, headerNameProblem);
@@ -435,7 +470,7 @@ export class RequestEngine {
       Number.MAX_SAFE_INTEGER,
       DEFAULT_MAX_RESPONSE_BYTES,
     );
-    this.sleep = options.sleep ?? realSleep;
+    this.sleep = functionOption("sleep", options.sleep, realSleep);
   }
 
   /**
@@ -759,7 +794,7 @@ export class RequestEngine {
     // endpoint cannot inject terminal escape sequences via the stderr error message
     // (run.ts prints AusbildungApiError.message raw). The CLI's JSON output is
     // escaped separately (escapeControlChars in cli/shared.ts).
-    if (detail !== undefined) detail = sanitizeServerText(detail);
+    if (detail !== undefined) detail = cleanDetail(detail);
     // Name the target of a redirect that was not followed.
     const location =
       status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;

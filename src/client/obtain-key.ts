@@ -20,12 +20,13 @@ import {
   AusbildungError,
   AusbildungNetworkError,
   AusbildungParseError,
+  AusbildungValidationError,
   credentialsIn,
   redactCredentials,
   redactUrl,
 } from "./errors.js";
 import { RequestEngine, decodeBody, type EngineOptions } from "./engine.js";
-import { assertValid, httpUrlProblem } from "./validate.js";
+import { assertValid, httpUrlProblem, isPlainObject } from "./validate.js";
 
 /** The environment variable the client and CLI read the key from. */
 export const API_KEY_ENV_VAR = "AUSBILDUNGSSUCHE_API_KEY";
@@ -75,6 +76,11 @@ export interface ObtainedKey {
  * no longer states a key, so a caller never proceeds with a made-up value.
  */
 export async function obtainKey(options: ObtainKeyOptions = {}): Promise<ObtainedKey> {
+  // A JavaScript caller may pass null for "no options"; anything else must be an object.
+  options = options ?? {};
+  if (!isPlainObject(options)) {
+    throw new AusbildungValidationError("Invalid options: Expected an object of obtainKey options.");
+  }
   const { sourceUrl: rawSourceUrl = KEY_SOURCE_URL, transport, timeoutMs, userAgent, maxRetries } = options;
   const { retryDelayMs, maxRedirects, maxResponseBytes, sleep } = options;
   assertValid("sourceUrl", rawSourceUrl, httpUrlProblem);

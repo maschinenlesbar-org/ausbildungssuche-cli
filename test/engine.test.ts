@@ -434,3 +434,15 @@ test("a body is decoded by its declared charset; a BOM is dropped; an unknown ch
   const mt = makeMockTransport(() => rawResponse("{}", "application/json; charset=x-no-such-charset"));
   await assert.rejects(new RequestEngine({ transport: mt.transport }).getJson("/x"), AusbildungParseError);
 });
+
+test("a server detail is cut at 500 characters in the message; the body keeps it whole", async () => {
+  const long = "x".repeat(5000);
+  const mt = makeMockTransport(() => jsonResponse({ detail: long }, 400));
+  await assert.rejects(new RequestEngine({ transport: mt.transport }).getJson("/x"), (e: unknown) => {
+    assert.ok(e instanceof AusbildungApiError);
+    assert.ok(e.message.length < 700, `${e.message.length}`);
+    assert.match(e.message, /x…$/);
+    assert.ok(e.body.includes(long));
+    return true;
+  });
+});

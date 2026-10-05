@@ -41,6 +41,17 @@ export function intRangeProblem(min: number, max: number): Problem<number> {
     typeof n === "number" && Number.isSafeInteger(n) && n >= min && n <= max ? undefined : reason;
 }
 
+/**
+ * True for a plain object (`{}` or `Object.create(null)`): not null, an array, a
+ * string, a Map or a class instance. Options and parameter bags must be one: `{...5}`
+ * is `{}` (an unfiltered search) and `{..."x"}` is `{0: "x"}`.
+ */
+export function isPlainObject(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value) as unknown;
+  return proto === Object.prototype || proto === null;
+}
+
 /** True for a string that is empty or only whitespace. */
 export function isBlank(value: string): boolean {
   return value.trim() === "";
@@ -396,6 +407,10 @@ function firstProblem(values: readonly string[], problem: Problem): string | und
  * `NRW` and `Bundesweit`, as the CLI sends them.
  */
 export function normalizeSearchParams(params: AusbildungSearchParams): AusbildungSearchParams {
+  // Checked before the copy: `{...5}` is `{}`, which would search unfiltered.
+  if (!isPlainObject(params)) {
+    throw new AusbildungValidationError("Invalid search parameters: Expected an object of search parameters.");
+  }
   const out: AusbildungSearchParams = { ...params };
   if (params.re !== undefined) out.re = mapStrings(params.re, normalizeRegions);
   if (params.uk !== undefined) out.uk = mapStrings(params.uk, normalizeRadius);
@@ -426,6 +441,15 @@ function mapStrings(value: string, fn: (s: string) => string): string {
  * `undefined` means "not set" and is never checked.
  */
 export function validateSearchParams(params: AusbildungSearchParams): AusbildungSearchParams {
+  if (!isPlainObject(params)) {
+    throw new AusbildungValidationError("Invalid search parameters: Expected an object of search parameters.");
+  }
+  for (const [name, value] of Object.entries(params)) {
+    for (const item of listOf(value)) {
+      const reason = paramTypeProblem(name, item);
+      if (reason !== undefined) throw new AusbildungValidationError(`Invalid ${name}: ${reason}`);
+    }
+  }
   for (const [name, value] of Object.entries(params)) {
     for (const item of listOf(value)) {
       if (typeof item === "string") assertValid(name, item, nonEmptyProblem);
@@ -448,6 +472,37 @@ export function validateSearchParams(params: AusbildungSearchParams): Ausbildung
   assertValid("orte and uk", params, (p) => placeAndRadiusProblem(p));
   assertValid("page", params, resultWindowProblem);
   return params;
+}
+
+/** The search parameters whose value is text (a JavaScript caller may pass a number). */
+const TEXT_PARAMS = new Set(["sw", "ids", "orte", "re", "uk", "bart", "bt"]);
+/** The search parameters whose value is an integer (checked by their own range rule). */
+const INT_PARAMS = new Set(["sty", "page", "size"]);
+
+/**
+ * Why one value of search parameter `name` has the wrong type, or `undefined`. Text
+ * parameters take a string or a finite number (`uk: 25`), the integer ones a number
+ * (their range rules say which), `bg` a boolean. Anything else — an object, a Date,
+ * NaN, a function — was sent as "[object Object]", an ISO date or "NaN".
+ */
+function paramTypeProblem(name: string, value: unknown): string | undefined {
+  if (TEXT_PARAMS.has(name)) {
+    return typeof value === "string" || (typeof value === "number" && Number.isFinite(value))
+      ? undefined
+      : `Expected a string, got ${describeType(value)}.`;
+  }
+  if (INT_PARAMS.has(name)) {
+    return typeof value === "number" ? undefined : `Expected an integer, got ${describeType(value)}.`;
+  }
+  if (name === "bg") return typeof value === "boolean" ? undefined : `Expected true or false, got ${describeType(value)}.`;
+  return undefined;
+}
+
+function describeType(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "an array";
+  if (value instanceof Date) return "a Date";
+  return typeof value === "number" && Number.isNaN(value) ? "NaN" : `a ${typeof value}`;
 }
 
 /** The values a query parameter sends: none for undefined/null, each element of an array. */

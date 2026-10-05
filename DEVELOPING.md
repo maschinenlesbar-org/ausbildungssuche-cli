@@ -145,6 +145,14 @@ run them up front.
   size and overrides `0`), and `(page + 1) × size` (size defaulting to
   `DEFAULT_PAGE_SIZE`) at most `MAX_RESULT_WINDOW` (10000), past which the API
   answers HTTP 500 (`pageProblem`, `sizeProblem`, `resultWindowProblem`).
+- **Wrong-typed input** (P13). Every rule checks the type first, so a JavaScript
+  caller gets an `AusbildungValidationError`, never a raw `TypeError` or a request
+  with `[object Object]` in it: the search parameters, the client and engine options,
+  `defaultHeaders` and `obtainKey()`'s options must be plain objects (`isPlainObject`;
+  `search(5)` would otherwise search unfiltered), text parameters strings or finite
+  numbers, `sty`/`page`/`size` numbers, `bg` a boolean, `transport` and `sleep`
+  functions. A server `detail` is cut at 500 characters in a message
+  (`AusbildungApiError.body` keeps it whole).
 - **Non-numeric offer ids.** `details()` accepts an id of digits only
   (`offerIdProblem`); a blank, padded, signed, decimal, percent-encoded or
   separator-bearing id (`" 123 "`, `"12/34"`, `"%31%32"`, `".."`) is rejected

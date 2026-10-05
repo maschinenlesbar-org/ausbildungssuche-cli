@@ -13,6 +13,7 @@
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import {
   assertValid,
+  isPlainObject,
   detailsProblem,
   headerValueProblem,
   normalizeSearchParams,
@@ -21,7 +22,7 @@ import {
   validateSearchParams,
   type Problem,
 } from "./validate.js";
-import { AusbildungParseError } from "./errors.js";
+import { AusbildungParseError, AusbildungValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import type {
   AusbildungSearchResult,
@@ -62,7 +63,15 @@ export class AusbildungssucheClient {
   private readonly engine: RequestEngine;
 
   constructor(options: AusbildungssucheClientOptions = {}) {
-    const { apiKey, ...engineOptions } = options;
+    // A JavaScript caller may pass null for "no options"; anything else must be an object.
+    if (options !== undefined && options !== null && !isPlainObject(options)) {
+      throw new AusbildungValidationError("Invalid options: Expected an object of client options.");
+    }
+    const { apiKey, ...engineOptions } = options ?? {};
+    // Checked before the merge below: `{..."x"}` is `{0: "x"}`, a header named "0".
+    if (engineOptions.defaultHeaders !== undefined && !isPlainObject(engineOptions.defaultHeaders)) {
+      throw new AusbildungValidationError("Invalid defaultHeaders: Expected an object of header names and values.");
+    }
     // Only send X-API-Key when a non-blank key was supplied; never default one.
     // (An empty `X-API-Key` is rejected by the service with 403, so a blank value
     // is treated as absent rather than forwarded.) The key is sent trimmed, so a

@@ -34,6 +34,7 @@ export {
   httpUrlProblem,
   intRangeProblem,
   isBlank,
+  isPlainObject,
   MAX_PAGE_SIZE,
   MAX_RESULT_WINDOW,
   nonEmptyProblem,
