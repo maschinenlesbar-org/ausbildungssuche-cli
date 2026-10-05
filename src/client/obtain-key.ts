@@ -24,7 +24,7 @@ import {
   redactCredentials,
   redactUrl,
 } from "./errors.js";
-import { RequestEngine, type EngineOptions } from "./engine.js";
+import { RequestEngine, decodeBody, type EngineOptions } from "./engine.js";
 import { assertValid, httpUrlProblem } from "./validate.js";
 
 /** The environment variable the client and CLI read the key from. */
@@ -116,7 +116,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   // engine) may have led elsewhere, and the provenance note must not claim the
   // configured source for a key another host served.
   const readFrom = response.url === withoutUserinfo(rawSourceUrl) ? sourceUrl : redactUrl(response.url);
-  const text = response.data.toString("utf8");
+  const text = decodeBody(response.data, response.contentType, readFrom);
   const key = KEY_PATTERN.exec(text)?.[1]?.trim();
   if (!key) {
     throw new AusbildungParseError(

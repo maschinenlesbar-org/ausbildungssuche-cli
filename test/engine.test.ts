@@ -419,3 +419,18 @@ test("the base URL is checked on the raw value; only undefined selects the defau
   assert.equal(validateBaseUrl("https://h.test/p//"), "https://h.test/p");
   assert.equal(new RequestEngine().buildUrl("/x"), "https://rest.arbeitsagentur.de/x");
 });
+
+test("a body is decoded by its declared charset; a BOM is dropped; an unknown charset is a parse error", async () => {
+  const text = "Müller Köln";
+  for (const [contentType, body] of [
+    ["application/json; charset=iso-8859-1", Buffer.from(JSON.stringify({ t: text }), "latin1")],
+    ["application/json; charset=utf-8", Buffer.from(JSON.stringify({ t: text }), "utf8")],
+    ["application/json", Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(JSON.stringify({ t: text }))])],
+  ] as const) {
+    const mt = makeMockTransport(() => rawResponse(body, contentType));
+    const e = new RequestEngine({ transport: mt.transport });
+    assert.deepEqual(await e.getJson("/x"), { t: text }, contentType);
+  }
+  const mt = makeMockTransport(() => rawResponse("{}", "application/json; charset=x-no-such-charset"));
+  await assert.rejects(new RequestEngine({ transport: mt.transport }).getJson("/x"), AusbildungParseError);
+});

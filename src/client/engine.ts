@@ -2,6 +2,7 @@
 // requests via a Transport, applies retry/backoff for transient statuses
 // (429, 503), and decodes responses.
 
+import { TextDecoder } from "node:util";
 import {
   MAX_TIMEOUT_MS,
   nodeHttpTransport,
@@ -728,7 +729,7 @@ export class RequestEngine {
    */
   async getJson<T>(path: string, query?: QueryParams, accept = "application/json"): Promise<T> {
     const res = await this.request("GET", path, { query, accept });
-    const text = res.data.toString("utf8");
+    const text = decodeBody(res.data, res.contentType, path);
     try {
       return JSON.parse(text) as T;
     } catch (cause) {
@@ -773,6 +774,24 @@ export class RequestEngine {
       ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
     });
   }
+}
+
+/**
+ * Decode a response body by the charset its Content-Type names (UTF-8 when it names
+ * none). TextDecoder drops a leading byte order mark, which Buffer#toString keeps and
+ * JSON.parse then rejects, so a BOM added by a proxy cannot turn a valid answer into
+ * a parse error, and an `iso-8859-1` body keeps its umlauts. An unknown charset label
+ * is an `AusbildungParseError` naming it and `where`.
+ */
+export function decodeBody(body: Buffer, contentType: string, where: string): string {
+  const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
+  let decoder: TextDecoder;
+  try {
+    decoder = new TextDecoder(charset);
+  } catch {
+    throw new AusbildungParseError(`Unsupported response charset "${sanitizeServerText(charset)}" from ${where}.`);
+  }
+  return decoder.decode(body);
 }
 
 /** Resolve a Location header against the current URL; undefined if missing or malformed. */

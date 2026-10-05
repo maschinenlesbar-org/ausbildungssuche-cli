@@ -261,6 +261,11 @@ like a number. `test/conformance-p1-cli-redaction.test.ts` is the shared check (
 passwords, seven URL shapes, every echo path, plus the key by flag, by environment
 and typed without its flag).
 
+**Charset.** `getJson()` and `obtainKey()` decode a body by the charset its
+`Content-Type` declares (UTF-8 when none; `decodeBody`, built on `TextDecoder`), so an
+`iso-8859-1` answer keeps its umlauts and a byte order mark added by a proxy does not
+break `JSON.parse`. An unknown charset label is an `AusbildungParseError` naming it.
+
 **Closed pipes** (`handleOutputErrors` in [`io.ts`](src/cli/io.ts), installed by the
 bin shim before `run()`). An EPIPE on stdout (`| head` stopped reading) exits `0`
 quietly; an EPIPE on stderr is ignored, so a failed run keeps its exit code (a usage
