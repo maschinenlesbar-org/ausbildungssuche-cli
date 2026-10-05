@@ -20,7 +20,7 @@ export {
 export type { CredentialsDropped, EngineOptions, RawResponse } from "./engine.js";
 export { MAX_TIMEOUT_MS, nodeHttpTransport, sizeLimitMessage } from "./http.js";
 export type { Transport, HttpRequest, HttpResponse } from "./http.js";
-export { obtainKey, API_KEY_ENV_VAR, KEY_SOURCE_URL } from "./obtain-key.js";
+export { obtainKey, looksLikeApiKey, API_KEY_ENV_VAR, KEY_SOURCE_URL } from "./obtain-key.js";
 export type { ObtainKeyOptions, ObtainedKey } from "./obtain-key.js";
 export { buildQueryString } from "./query.js";
 export {

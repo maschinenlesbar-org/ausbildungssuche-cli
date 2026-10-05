@@ -197,6 +197,16 @@ defaults and range checks; `sourceUrl` must be an absolute http(s) URL
 `AusbildungError` naming the status; the CLI forwards every global option except
 `--base-url` and `--api-key`.
 
+`obtainKey()` accepts only a value shaped like the published key (`looksLikeApiKey`:
+8–64 letters and digits in runs joined by `-`, `_` or `.`, as `infosysbub-absuche`,
+and no placeholder word such as `YOUR`/`API-KEY`/`example`). A placeholder, trailing
+punctuation (`infosysbub-absuche,`), a flag, a terminal escape, a non-ASCII or
+oversized value, or two different keys in the document is an `AusbildungParseError`
+that never repeats the value, so `eval "$(… --export)"` can't store a guess.
+`ObtainedKey.sourceUrl` names the document the key was read from, after redirects.
+The skills check `AUSBILDUNGSSUCHE_API_KEY` without printing it and never echo or
+inline a key that came from the environment (it may be a private one).
+
 The script scrapes the key from the upstream
 [bundesAPI README](https://github.com/bundesAPI/ausbildungssuche-api); it is a
 dev/CI tool only and is not part of the published package.
@@ -207,10 +217,11 @@ serves `application/json` (and `406`s on HAL). The client therefore picks the
 `Accept` header per endpoint; this is asserted by the test suite.
 
 **Redirect safety.** When the API issues a redirect that crosses an origin
-boundary (a different scheme, host, or port), the client **strips credential
-headers** (`X-API-Key`, `Authorization`, `Cookie`) before following it, so your
-key — including a private one passed via `--api-key`/env — is never forwarded to
-another host. Same-origin redirects keep the key.
+boundary (a different scheme, host, or port), the client **drops the credentials**
+(`X-API-Key`, `Authorization`, `Cookie`, the base URL's userinfo) for the rest of the
+chain, so your key — including a private one passed via `--api-key`/env — is never
+forwarded to another host. Same-origin redirects keep the key. See *Credentials per
+origin, hop by hop* below.
 
 ## Architecture
 

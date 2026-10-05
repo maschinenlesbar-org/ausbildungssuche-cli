@@ -31,25 +31,33 @@ This skill drives the `ausbildungssuche` command. **Before anything else, valida
 This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
 **API key — obtain it once, then reuse it.** The API needs a static `X-API-Key`. **None is
-bundled**, and it is **not a secret**: one public value, the same for everyone. Finding it is
-not the user's job either. If `AUSBILDUNGSSUCHE_API_KEY` is already set in the environment,
-use that; otherwise obtain it with the CLI's own command:
+bundled.** First check, without printing it, whether the environment already has one:
+
+```bash
+[ -n "$AUSBILDUNGSSUCHE_API_KEY" ] && echo "key set" || echo "no key"
+```
+
+If it is set, every command inherits it: run `ausbildungssuche …` as it is, and **never
+print, echo or inline that value** — it may be the user's own private key. Otherwise obtain
+the public key (one value, the same for everyone, not a secret) with the CLI's own command:
 
 ```bash
 ausbildungssuche obtain-key
 ```
 
 It prints the key on stdout (the "obtained from …" note goes to stderr) and reads it from the
-published upstream source, so a rotated key needs no new release. **Keep that value for the
-rest of the session** and put it on every later call — a shell `export` does not survive
-between separate commands:
+published upstream source, so a rotated key needs no new release; it fails rather than print
+anything that is not shaped like the published key. **Keep that value for the rest of the
+session** and put it on every later call — a shell `export` does not survive between separate
+commands:
 
 ```bash
 AUSBILDUNGSSUCHE_API_KEY="<the key obtain-key printed>" ausbildungssuche --compact search --size 1
 ```
 
-Say which key you used when you report back — it is public, not a credential to hide. If
-`obtain-key` exits non-zero, stop and tell the user; never guess a key or hard-code one.
+When you report back, say where the key came from (the environment, or the public key
+`obtain-key` read) — never its value. If `obtain-key` exits non-zero, stop and tell the user;
+never guess a key or hard-code one.
 
 Always pass `--compact` so each result is one line for `jq`.
 
