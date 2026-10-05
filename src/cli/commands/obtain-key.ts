@@ -17,8 +17,10 @@ export function registerObtainKeyCommands(program: Command, deps: CliDeps): void
     .command("obtain-key")
     .description(
       "Obtain the public X-API-Key this API requires and print it. The key is " +
-        "published by the Bundesagentur für Arbeit and is not a secret; none is " +
-        "bundled with this package, so it is read from the source at run time.",
+        "the same for everyone and not a secret; it is documented by the community " +
+        "project bundesAPI (github.com/bundesAPI/ausbildungssuche-api), not by the " +
+        "Bundesagentur für Arbeit. None is bundled with this package, so it is read " +
+        "from that README at run time.",
     )
     .option("--export", `print "export ${API_KEY_ENV_VAR}=<key>" for use with eval`)
     .action(async (...args: unknown[]) => {

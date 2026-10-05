@@ -1,8 +1,9 @@
 // Obtain the public `X-API-Key` the Ausbildungssuche API requires.
 //
-// No key ships with this package (see client.ts). the Bundesagentur für Arbeit publishes a
-// single static key for public use, and this module reads it at run time from the
-// document that publishes it — so a rotated key needs no release of this CLI.
+// No key ships with this package (see client.ts). One static key works for everyone;
+// the community project bundesAPI documents it in its README (it is not an official
+// Bundesagentur für Arbeit publication), and this module reads it at run time from
+// that document — so a rotated key needs no release of this CLI.
 //
 // The value is deliberately *public*, not a secret: printing it, putting it in an
 // environment variable and showing it to the user are all intended. What this

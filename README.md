@@ -37,10 +37,11 @@ ausbildungssuche --help
 
 ## Obtain key
 
-The Bundesagentur für Arbeit publishes one static key for public use. It is
-**not a secret** — it is the same value for everyone, printed in the upstream
+One static key works for everyone. It is **not a secret** — it is the same value
+for everyone, documented by the community project
 [bundesAPI/ausbildungssuche-api](https://github.com/bundesAPI/ausbildungssuche-api)
-README — but finding and copying it shouldn't be your job either. `obtain-key`
+in its README (not by the Bundesagentur für Arbeit itself) — but finding and copying
+it shouldn't be your job either. `obtain-key`
 reads it from that published source at run time and prints it:
 
 ```bash
