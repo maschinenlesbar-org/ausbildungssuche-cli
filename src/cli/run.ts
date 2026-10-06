@@ -161,6 +161,13 @@ export function withRedactedOutput(deps: CliDeps, argv: readonly string[]): CliD
   };
 }
 
+/** True when this run supplies a key: a non-blank AUSBILDUNGSSUCHE_API_KEY or an --api-key flag. */
+function keyGiven(argv: readonly string[], deps: CliDeps): boolean {
+  const envKey = deps.env[API_KEY_ENV_VAR];
+  if (typeof envKey === "string" && envKey.trim() !== "") return true;
+  return argv.some((token) => token === "--api-key" || token.startsWith("--api-key="));
+}
+
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
   deps = withRedactedOutput(deps, argv);
   const program = buildProgram(deps);
@@ -204,12 +211,16 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       }
       if (err.status === 401 || err.status === 403) {
         // A 403 is not always an auth failure (e.g. a malformed request path can
-        // 403 with the valid public key). Only mention the key for 401, or for a
-        // 403 when a non-default key is in play; otherwise point at the request.
+        // 403 with the valid public key). Without any key the cause is plain, so say
+        // so; with one, point at the key and the request alike.
         deps.io.err(
-          "Hint: the API rejected the request (401/403). This is often — but not " +
-            "always — the X-API-Key; verify the request path/params, or check " +
-            "--api-key / the AUSBILDUNGSSUCHE_API_KEY env var.",
+          keyGiven(argv, deps)
+            ? "Hint: the API rejected the request (401/403). This is often — but not " +
+                "always — the X-API-Key; verify the request path/params, or check " +
+                "--api-key / the AUSBILDUNGSSUCHE_API_KEY env var."
+            : "Hint: no API key was set, and the API wants one. Get the public key with " +
+                "`ausbildungssuche obtain-key` and pass it with --api-key or " +
+                "AUSBILDUNGSSUCHE_API_KEY (`eval \"$(ausbildungssuche obtain-key --export)\"`).",
         );
         return EXIT.AUTH;
       }

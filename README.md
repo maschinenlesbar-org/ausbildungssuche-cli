@@ -211,7 +211,8 @@ keeps its own code even when its stderr's reader has gone (`2>&1 | head -c 5`).
 - **Exit `3` / "rejected"** — the upstream service declined the request (401/403).
   Most often no key was supplied, or the key is wrong: run
   `eval "$(ausbildungssuche obtain-key --export)"`, or pass `--api-key`. It can also mean the
-  service is temporarily restricting access; retry later.
+  service is temporarily restricting access; retry later. When no key was set at all,
+  the hint on stderr says so and points at `obtain-key`.
 - **Exit `4` / "not found"** — the offer id doesn't exist. Re-fetch it from a fresh
   `search` result; ids can change as the catalogue updates.
 - **Exit `6` / network error** — connectivity, DNS, or a timeout. Try again, or raise

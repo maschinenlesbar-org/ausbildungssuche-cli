@@ -87,9 +87,20 @@ test("a 404 from the API maps to exit code 4", async () => {
 
 test("a 401 maps to exit code 3 with an auth hint", async () => {
   const cli = makeCli(() => jsonResponse({}, 401));
-  const code = await run(["search", "--sw", "x"], cli.deps);
+  const code = await run(["--api-key", "some-key-1", "search", "--sw", "x"], cli.deps);
   assert.equal(code, 3);
   assert.ok(cli.err.some((line) => line.includes("X-API-Key")));
+});
+
+test("a 401/403 without any key says no key was set and points at obtain-key", async () => {
+  for (const status of [401, 403]) {
+    const cli = makeCli(() => jsonResponse({}, status));
+    assert.equal(await run(["search", "--sw", "x"], cli.deps), 3);
+    assert.match(cli.err.join("\n"), /no API key was set.*obtain-key/);
+  }
+  const withEnv = makeCli(() => jsonResponse({}, 403), { AUSBILDUNGSSUCHE_API_KEY: "env-key-1" });
+  await run(["search", "--sw", "x"], withEnv.deps);
+  assert.doesNotMatch(withEnv.err.join("\n"), /no API key was set/);
 });
 
 test("a 403 maps to exit code 3", async () => {
