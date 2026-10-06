@@ -436,6 +436,13 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`client.test.ts`** — the X-API-Key header, the `Accept: application/hal+json` override, search params and the details path — mocked transport.
 - **`cli.test.ts`** — command parsing, `--api-key` override, env-var precedence, 401/403/404/406 exit codes — mocked client.
 - **`validate.test.ts`** — `assertValid`, the exit-2 mapping of `AusbildungValidationError`, and the CLI ↔ library parity tests. `parity()` in `test/helpers.ts` runs one input through `run()` and through the library on one recording mock transport; a parity test asserts both reject without a request, or both send the identical request.
+- **`conformance-p*.test.ts`** — the checks shared across the `*-cli` repos (fix plan of
+  2026-10-06; only the adapter block at the top is this repo's): P1 CLI redaction, P2
+  library redaction, P3 credentials across redirects, P4/P19 configuration validation, P5
+  the transport contract, P6 retry policy, P7 pipes and exit codes (runs the built bin),
+  P8/P9/P13 charset, 2xx shapes and error classes, P10 strict filters. Mock fixtures answer
+  in the API's real shapes (`okResponse` in `test/helpers.ts`), because the client rejects
+  any other 2xx body.
 
 ## Continuous integration
 
