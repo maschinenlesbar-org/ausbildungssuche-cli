@@ -222,6 +222,13 @@ Precedence is `--api-key` flag > `AUSBILDUNGSSUCHE_API_KEY` env var > no key. On
 redirect that crosses an origin boundary the client strips credential headers, so
 a private key is never forwarded to another host.
 
+A base URL on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
+`::1`) works, but the CLI writes one line to stderr before the first request, naming the
+host and what travels unencrypted without printing it, e.g.
+`warning: the API key is sent unencrypted to proxy.internal.example (http:, not https:)`
+(or `requests to … are sent unencrypted` with no key, or `the base URL's credentials` for a
+`user:password@` part). stdout and the exit code are unchanged.
+
 ## Global options
 
 These apply to every command and may be given before *or* after the subcommand, once

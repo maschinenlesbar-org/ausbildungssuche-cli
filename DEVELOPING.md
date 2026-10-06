@@ -356,6 +356,16 @@ source redirected. `test/conformance-p3-redirect-credentials.test.ts` is the sha
 check (two local origins, a fetch transport, a transport-reported final URL, the
 http→https hint).
 
+**Plain `http:` gets a warning, not a refusal.** `cleartextProblem(baseUrl, secrets)`
+(engine, exported) returns one sentence naming the host (`url.host`, never the userinfo)
+and what travels unencrypted — each phrase in `secrets`, plus the base URL's credentials
+when it carries userinfo — or `undefined` for `https:`, an unparseable URL and loopback
+hosts (`localhost`, `127.0.0.0/8`, `::1`). The CLI's `action()` wrapper (`shared.ts`,
+`warnOnCleartext`) passes `"the API key"` when a key is set (flag or env var) and prints
+the sentence once per run as `warning: <sentence>` on stderr, after the options are parsed
+and before the first request; `--help`, `--version` and usage errors never get there, and
+`obtain-key` (fixed https source, no `--base-url`) never warns.
+
 **Retry / backoff.** Transient `429` (rate limit) and `503` responses, and reset
 connections, are retried automatically, up to `maxRetries` / `--max-retries` (`0`..`MAX_RETRIES`, 10). Each retry waits the
 linear backoff (`retryDelayMs * attempt`), or the response's `Retry-After`
@@ -440,7 +450,9 @@ npm test          # builds, then runs `node --test` over dist/test
   2026-10-06; only the adapter block at the top is this repo's): P1 CLI redaction, P2
   library redaction, P3 credentials across redirects, P4/P19 configuration validation, P5
   the transport contract, P6 retry policy, P7 pipes and exit codes (runs the built bin),
-  P8/P9/P13 charset, 2xx shapes and error classes, P10 strict filters. Mock fixtures answer
+  P8/P9/P13 charset, 2xx shapes and error classes, P10 strict filters, P20 the stderr
+  warning for a plain-`http:` base URL (its env-variable case is skipped: the base URL
+  has no environment variable). Mock fixtures answer
   in the API's real shapes (`okResponse` in `test/helpers.ts`), because the client rejects
   any other 2xx body.
 

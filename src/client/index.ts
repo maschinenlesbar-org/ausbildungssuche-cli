@@ -11,6 +11,7 @@ export {
   DEFAULT_USER_AGENT,
   intOption,
   validateBaseUrl,
+  cleartextProblem,
   MAX_REDIRECTS,
   MAX_RETRIES,
   MAX_RETRY_AFTER_MS,

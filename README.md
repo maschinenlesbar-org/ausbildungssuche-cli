@@ -260,6 +260,13 @@ process table and shell history. Precedence is `--api-key` flag >
 boundary (different scheme/host/port), the tool **strips your key** before
 following, so a private key never leaks to another host.
 
+A base URL on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
+`::1`) works, but the CLI writes one line to stderr before the first request, naming the
+host and what travels unencrypted without printing it, e.g.
+`warning: the API key is sent unencrypted to proxy.internal.example (http:, not https:)`
+(or `requests to … are sent unencrypted` with no key, or `the base URL's credentials` for a
+`user:password@` part). stdout and the exit code are unchanged.
+
 ## Learn more
 
 - **[SKILLS.md](SKILLS.md)** — Claude Code Agent Skills that drive this CLI.
