@@ -452,7 +452,9 @@ npm test          # builds, then runs `node --test` over dist/test
   the transport contract, P6 retry policy, P7 pipes and exit codes (runs the built bin),
   P8/P9/P13 charset, 2xx shapes and error classes, P10 strict filters, P20 the stderr
   warning for a plain-`http:` base URL (its env-variable case is skipped: the base URL
-  has no environment variable). Mock fixtures answer
+  has no environment variable), P21 the README's relative links (README.md ships to
+  npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
+  GitHub URL). Mock fixtures answer
   in the API's real shapes (`okResponse` in `test/helpers.ts`), because the client rejects
   any other 2xx body.
 

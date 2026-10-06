@@ -19,7 +19,7 @@ full record for any offer — as clean JSON you can pipe straight into
 - **Nothing personal to leak** — the API's documented key is a public value; no personal credentials are involved.
 
 > Want to use this as a TypeScript library or understand how it's built?
-> See **[DEVELOPING.md](DEVELOPING.md)**.
+> See **[DEVELOPING.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/DEVELOPING.md)**.
 
 ## Install
 
@@ -137,11 +137,11 @@ says so: the API answers an id or training type it doesn't know with an empty
 result, not an error.
 
 The flag names mirror the API's German abbreviations — the
-**[Glossary](GLOSSARY.md)** decodes every one.
+**[Glossary](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/GLOSSARY.md)** decodes every one.
 
 ## Common tasks
 
-A few recipes to get going — see **[Usage.md](Usage.md)** for the full,
+A few recipes to get going — see **[Usage.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/Usage.md)** for the full,
 use-case-driven set.
 
 ```bash
@@ -269,10 +269,10 @@ host and what travels unencrypted without printing it, e.g.
 
 ## Learn more
 
-- **[SKILLS.md](SKILLS.md)** — Claude Code Agent Skills that drive this CLI.
-- **[Usage.md](Usage.md)** — full use-case-driven cookbook.
-- **[GLOSSARY.md](GLOSSARY.md)** — every flag and domain term explained.
-- **[DEVELOPING.md](DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
+- **[SKILLS.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/SKILLS.md)** — Claude Code Agent Skills that drive this CLI.
+- **[Usage.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/Usage.md)** — full use-case-driven cookbook.
+- **[GLOSSARY.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/GLOSSARY.md)** — every flag and domain term explained.
+- **[DEVELOPING.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
 
 ## Data license
 
