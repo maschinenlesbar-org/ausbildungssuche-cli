@@ -311,8 +311,8 @@ and typed without its flag).
 break `JSON.parse`. An unknown charset label is an `AusbildungParseError` naming it.
 
 **Closed pipes** (`handleOutputErrors` in [`io.ts`](src/cli/io.ts), installed by the
-bin shim before `run()`). An EPIPE on stdout (`| head` stopped reading) exits `0`
-quietly; an EPIPE on stderr is ignored, so a failed run keeps its exit code (a usage
+bin shim before `run()`). An EPIPE on stdout (`| head` stopped reading; ENOTCONN when
+stdout is a socket, as with a Node parent's piped stdio on macOS) exits `0` quietly; an EPIPE on stderr is ignored, so a failed run keeps its exit code (a usage
 error piped through `2>&1 | head -c 5` still exits `2`). Any other write error exits
 `1`. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built bin.
 
