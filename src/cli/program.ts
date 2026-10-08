@@ -13,6 +13,8 @@ import { MAX_RETRIES } from "../client/engine.js";
 import { parseApiKey, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg } from "./shared.js";
 import { registerAusbildungCommands } from "./commands/ausbildung.js";
 import { registerObtainKeyCommands } from "./commands/obtain-key.js";
+import { registerConfigCommands } from "./commands/config.js";
+import { CredentialStore } from "./credentials.js";
 import { nodeHttpTransport } from "../client/http.js";
 
 /**
@@ -39,6 +41,7 @@ export const defaultDeps: CliDeps = {
   createClient: (options) => new AusbildungssucheClient(options),
   env: process.env,
   transport: nodeHttpTransport,
+  credentials: () => CredentialStore.fromEnv(process.env),
 };
 
 export function buildProgram(deps: CliDeps = defaultDeps): Command {
@@ -49,7 +52,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .description(
       "CLI for the Bundesagentur für Arbeit Ausbildungssuche API " +
         "(rest.arbeitsagentur.de/infosysbub/absuche). Requires an X-API-Key: " +
-        "pass --api-key or set AUSBILDUNGSSUCHE_API_KEY (no key is bundled).",
+        "pass --api-key, set AUSBILDUNGSSUCHE_API_KEY, or store it once with " +
+        "`ausbildungssuche config set api-key` (no key is bundled).",
     )
     .version(VERSION)
     .option("--base-url <url>", "API base URL", parseBaseUrl, "https://rest.arbeitsagentur.de")
@@ -79,8 +83,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
   // renders defaults in --help output — seeding it there would print a private key
   // verbatim in the help text. Instead set it as the option value here, which an
   // explicit --api-key on the command line overrides during parse: precedence is
-  // CLI flag > env var > (no key). No key is bundled; with none set the X-API-Key
-  // header is omitted. (The env is read from the injected deps.env so this is
+  // CLI flag > env var > the credentials file (read in `action()`) > (no key). No key
+  // is bundled; with none set the X-API-Key header is omitted. (The env is read from the injected deps.env so this is
   // unit-testable.)
   const envApiKey = deps.env[API_KEY_ENV_VAR];
   if (typeof envApiKey === "string" && envApiKey.trim().length > 0) {
@@ -88,6 +92,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
   }
 
   registerObtainKeyCommands(program, deps);
+  registerConfigCommands(program, deps);
   registerAusbildungCommands(program, deps);
 
   return program;

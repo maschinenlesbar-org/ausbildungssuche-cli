@@ -37,6 +37,7 @@ the 10000-result cap) so Claude doesn't have to rediscover them each time.
   ```bash
   eval "$(ausbildungssuche obtain-key --export)"        # this shell
   ausbildungssuche obtain-key --export >> ~/.zshrc      # or keep it for later
+  ausbildungssuche obtain-key | ausbildungssuche config set api-key   # or store it once
   ```
   Without it the service answers `403` (CLI exit `3`).
 

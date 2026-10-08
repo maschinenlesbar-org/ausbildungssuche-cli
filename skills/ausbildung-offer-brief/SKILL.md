@@ -12,8 +12,9 @@ compatibility: >
   Requires the `ausbildungssuche` CLI (npm package
   @maschinenlesbar.org/ausbildungssuche-cli) on PATH, installed by the user; the
   skill never installs it. Uses jq for JSON filtering. Network access to
-  rest.arbeitsagentur.de. Needs the public API key via --api-key or
-  AUSBILDUNGSSUCHE_API_KEY (`ausbildungssuche obtain-key` prints it).
+  rest.arbeitsagentur.de. Needs the public API key via --api-key,
+  AUSBILDUNGSSUCHE_API_KEY or a key stored with `ausbildungssuche config set
+  api-key` (`ausbildungssuche obtain-key` prints it).
 ---
 
 # Ausbildung Offer Brief
@@ -29,14 +30,18 @@ This skill drives the `ausbildungssuche` command. **Before anything else, valida
 This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
 **API key — obtain it once, then reuse it.** The API needs a static `X-API-Key`. **None is
-bundled.** First check, without printing it, whether the environment already has one:
+bundled.** First check, without printing it, whether the environment already has one, or a
+key is stored:
 
 ```bash
 [ -n "$AUSBILDUNGSSUCHE_API_KEY" ] && echo "key set" || echo "no key"
+ausbildungssuche config get api-key >/dev/null 2>&1 && echo "key stored" || echo "none stored"
 ```
 
-If it is set, every command inherits it: run `ausbildungssuche …` as it is, and **never
-print, echo or inline that value** — it may be the user's own private key. Otherwise obtain
+If it is set, or a key is stored (`ausbildungssuche config get api-key` exits 0), every
+command uses it — the CLI reads a stored key by itself: run `ausbildungssuche …` as it is,
+skip `obtain-key`, and **never print, echo or inline that value** (never `config get
+--reveal`) — it may be the user's own private key. Otherwise obtain
 the public key (one value, the same for everyone, not a secret) with the CLI's own command:
 
 ```bash
@@ -53,8 +58,8 @@ commands:
 AUSBILDUNGSSUCHE_API_KEY="<the key obtain-key printed>" ausbildungssuche --compact search --size 1
 ```
 
-When you report back, say where the key came from (the environment, or the public key
-`obtain-key` read) — never its value. If `obtain-key` exits non-zero, stop and tell the user;
+When you report back, say where the key came from (the environment, the stored key, or the
+public key `obtain-key` read) — never its value. If `obtain-key` exits non-zero, stop and tell the user;
 never guess a key or hard-code one.
 
 Use `--compact`.

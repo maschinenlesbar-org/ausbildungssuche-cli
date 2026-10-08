@@ -15,6 +15,7 @@ import {
   redactSecrets,
 } from "../client/errors.js";
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
+import { API_KEY_CREDENTIAL } from "./shared.js";
 
 /**
  * Process exit codes. Distinct codes let scripts tell apart a usage error, an
@@ -161,11 +162,21 @@ export function withRedactedOutput(deps: CliDeps, argv: readonly string[]): CliD
   };
 }
 
-/** True when this run supplies a key: a non-blank AUSBILDUNGSSUCHE_API_KEY or an --api-key flag. */
+/**
+ * True when this run supplies a key: a non-blank AUSBILDUNGSSUCHE_API_KEY, an
+ * --api-key flag, or a key stored with `ausbildungssuche config set api-key`. The
+ * request was already made with it, so the file reads as it did then; a file that
+ * cannot be read counts as no key.
+ */
 function keyGiven(argv: readonly string[], deps: CliDeps): boolean {
   const envKey = deps.env[API_KEY_ENV_VAR];
   if (typeof envKey === "string" && envKey.trim() !== "") return true;
-  return argv.some((token) => token === "--api-key" || token.startsWith("--api-key="));
+  if (argv.some((token) => token === "--api-key" || token.startsWith("--api-key="))) return true;
+  try {
+    return deps.credentials?.().get(API_KEY_CREDENTIAL) !== undefined;
+  } catch {
+    return false;
+  }
 }
 
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
@@ -217,10 +228,12 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
           keyGiven(argv, deps)
             ? "Hint: the API rejected the request (401/403). This is often — but not " +
                 "always — the X-API-Key; verify the request path/params, or check " +
-                "--api-key / the AUSBILDUNGSSUCHE_API_KEY env var."
+                "--api-key / the AUSBILDUNGSSUCHE_API_KEY env var / the stored key " +
+                "(`ausbildungssuche config get api-key`)."
             : "Hint: no API key was set, and the API wants one. Get the public key with " +
                 "`ausbildungssuche obtain-key` and pass it with --api-key or " +
-                "AUSBILDUNGSSUCHE_API_KEY (`eval \"$(ausbildungssuche obtain-key --export)\"`).",
+                "AUSBILDUNGSSUCHE_API_KEY (`eval \"$(ausbildungssuche obtain-key --export)\"`), " +
+                "or store it once with `ausbildungssuche obtain-key | ausbildungssuche config set api-key`.",
         );
         return EXIT.AUTH;
       }

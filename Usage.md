@@ -13,14 +13,16 @@ npm i -g @maschinenlesbar.org/ausbildungssuche-cli
 
 The installed binary is **`ausbildungssuche`**. All examples below use it. No key
 is bundled: supply the public, documented `X-API-Key` via `--api-key` or the
-`AUSBILDUNGSSUCHE_API_KEY` env var before running (see the API-key section below).
+`AUSBILDUNGSSUCHE_API_KEY` env var, or store it once with `ausbildungssuche config set
+api-key`, before running (see the API-key section below).
 Output is pretty-printed JSON on stdout (`--compact` for a single line), which
 makes the examples pipe cleanly into [`jq`](https://jqlang.github.io/jq/).
 
-The three commands are:
+The commands are:
 
 ```text
 ausbildungssuche obtain-key [--export]  # print the public API key (run once first)
+ausbildungssuche config     set|get|unset|list api-key  # keep the API key in a credentials file
 ausbildungssuche search     [filters…]  # search offers (HAL+JSON envelope)
 ausbildungssuche details    <id>        # full details for one offer
 ```
@@ -218,7 +220,20 @@ AUSBILDUNGSSUCHE_API_KEY="$MY_KEY" ausbildungssuche search --ids 9162
 ausbildungssuche --base-url https://proxy.internal.example search --ids 9162
 ```
 
-Precedence is `--api-key` flag > `AUSBILDUNGSSUCHE_API_KEY` env var > no key. On a
+```bash
+# Or stored once in a credentials file (piped in, or typed without echo)
+ausbildungssuche obtain-key | ausbildungssuche config set api-key
+ausbildungssuche config set api-key
+```
+
+Precedence is `--api-key` flag > `AUSBILDUNGSSUCHE_API_KEY` env var > the credentials
+file > no key. `ausbildungssuche config` keeps the key in
+`$XDG_CONFIG_HOME/ausbildungssuche/credentials` (else
+`~/.config/ausbildungssuche/credentials`), mode 0600, written atomically; `config set`
+reads the value from a prompt without echo or from stdin, never from the command line;
+`config get` shows it masked (`--reveal` prints it whole); `config list` and `config
+unset` do what they say. A file that others can read is refused, and only when it is
+needed. On a
 redirect that crosses an origin boundary the client strips credential headers, so
 a private key is never forwarded to another host.
 

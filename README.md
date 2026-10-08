@@ -13,9 +13,9 @@ find training offers by keyword, location, profession or region, and fetch the
 full record for any offer — as clean JSON you can pipe straight into
 [`jq`](https://jqlang.github.io/jq/).
 
-- **One key to supply** — pass the public, documented API key with `--api-key` or the `AUSBILDUNGSSUCHE_API_KEY` env var. No key is bundled.
+- **One key to supply** — pass the public, documented API key with `--api-key` or the `AUSBILDUNGSSUCHE_API_KEY` env var, or store it once with `ausbildungssuche config set api-key`. No key is bundled.
 - **Clean JSON output** — pretty-printed by default, `--compact` for one-line/scripting.
-- **Just three commands** — `obtain-key` to get the public key once, then `search` and `details`.
+- **Just three commands** — `obtain-key` to get the public key once (`config` keeps it), then `search` and `details`.
 - **Nothing personal to leak** — the API's documented key is a public value; no personal credentials are involved.
 
 > Want to use this as a TypeScript library or understand how it's built?
@@ -66,6 +66,23 @@ your profile). The plain form composes too:
 export AUSBILDUNGSSUCHE_API_KEY="$(ausbildungssuche obtain-key)"
 ```
 
+**Or store it once**, in a credentials file of its own (the same mechanism as
+[openka-cli](https://github.com/maschinenlesbar-org/openka-cli)'s `ka config`):
+
+```bash
+ausbildungssuche obtain-key | ausbildungssuche config set api-key   # the published key, piped in
+ausbildungssuche config set api-key                 # or typed at a prompt, without echo
+ausbildungssuche config get api-key                 # masked: info…uche (--reveal prints it whole)
+ausbildungssuche config list                        # what is stored, and where
+ausbildungssuche config unset api-key
+```
+
+The value is never taken from the command line, so it reaches neither shell history
+nor `ps`. The file is `$XDG_CONFIG_HOME/ausbildungssuche/credentials` (else
+`~/.config/ausbildungssuche/credentials`): mode 0600 in a directory of mode 0700,
+replaced atomically, and not read at all while anyone else could read it. It is
+consulted only when neither `--api-key` nor `AUSBILDUNGSSUCHE_API_KEY` gives a key.
+
 Because the key is fetched rather than compiled in, a rotated key needs no
 release of this CLI. If the upstream source is unreachable, stops publishing a
 key, states a value that is not shaped like the published key (a placeholder such
@@ -109,6 +126,7 @@ ausbildungssuche details 365241044
 
 ```text
 obtain-key [--export]  print the public API key (see Obtain key)
+config     set|get|unset|list api-key  keep the API key in a credentials file
 search     [filters…]  search training offers
 details    <id>        full details for one offer
 ```
@@ -243,7 +261,8 @@ These apply to every command and may be given before *or* after it, once each:
 
 No key is bundled. Get the public one with `ausbildungssuche obtain-key` (see
 [Obtain key](#obtain-key)), or supply your own via the env var, or override it
-per-invocation with `--api-key`. You can also point at a proxy/staging host with
+per-invocation with `--api-key`, or store it once with `ausbildungssuche config set
+api-key` (see [Obtain key](#obtain-key)). You can also point at a proxy/staging host with
 `--base-url`:
 
 ```bash
@@ -256,7 +275,7 @@ ausbildungssuche --base-url https://proxy.internal.example search --ids 9162
 
 Prefer the env var for a private key — an `--api-key` argument is visible in the
 process table and shell history. Precedence is `--api-key` flag >
-`AUSBILDUNGSSUCHE_API_KEY` env var > no key. If the API redirects across an origin
+`AUSBILDUNGSSUCHE_API_KEY` env var > the credentials file > no key. If the API redirects across an origin
 boundary (different scheme/host/port), the tool **strips your key** before
 following, so a private key never leaks to another host.
 

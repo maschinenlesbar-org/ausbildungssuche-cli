@@ -177,11 +177,25 @@ run them up front.
 
 The API requires a static, publicly-documented `X-API-Key` on every request. **No
 key is bundled** with this client — supply it via `apiKey` (library), `--api-key`,
-or the `AUSBILDUNGSSUCHE_API_KEY` env var. Precedence is **`--api-key` flag > env
-var > no key**; an empty/whitespace key is treated as absent (header omitted), and
+the `AUSBILDUNGSSUCHE_API_KEY` env var, or the credentials file. Precedence is
+**`--api-key` flag > env var > the credentials file > no key**; an empty/whitespace key is treated as absent (header omitted), and
 the API then answers `401`/`403`. The client sends the key trimmed, whichever way it
 came; the CLI passes the flag or env value through unchanged. The env value is seeded onto the option after
 parse (not as a commander default), so it never appears in `--help` output.
+
+The credentials file is the CLI's, not the library's: `src/cli/credentials.ts`
+(`CredentialStore`, the same mechanism as openka-cli's `ka config`) and
+`ausbildungssuche config` (`src/cli/commands/config.ts`). It reaches the CLI through
+`CliDeps.credentials`, which only `defaultDeps` sets, so a test that does not ask for
+one never reads the user's file; `action()` (`src/cli/shared.ts`) reads it only when
+neither the flag nor the env var gave a key, and `obtain-key` never reads it. The file
+is `$XDG_CONFIG_HOME/ausbildungssuche/credentials` (else
+`~/.config/ausbildungssuche/credentials`): JSON, mode 0600 in a 0700 directory,
+replaced atomically; a link, another user's file or one others can read is an
+`AusbildungError` (exit 1) naming the fix. A stored key that `apiKeyProblem` rejects
+is a usage error (exit 2) naming the file. `config set` reads through
+`CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the whole
+input from a pipe), never from argv, and refuses an extra argument without repeating it.
 
 Because the key is publicly documented, you can fetch it out-of-band (for CI or
 local live testing — never from production) with the bundled script:
@@ -241,9 +255,10 @@ src/
     errors.ts    # AusbildungError / AusbildungApiError / AusbildungNetworkError / AusbildungParseError
     client.ts    # AusbildungssucheClient — search + details over the engine (injects X-API-Key)
   cli/
-    io.ts        # injectable I/O seam (stdout/stderr) + injectable env (for AUSBILDUNGSSUCHE_API_KEY)
+    io.ts        # injectable I/O seam (stdout/stderr, readSecret) + injectable env (for AUSBILDUNGSSUCHE_API_KEY) + credentials
+    credentials.ts # CredentialStore — the credentials file behind `config`
     shared.ts    # option parsers, global-option resolver (incl. --api-key), JSON renderer
-    commands/    # search / details
+    commands/    # search / details, obtain-key, config
     program.ts   # assembles the commander program from injectable deps
     run.ts       # parses argv -> exit code (no process.exit; testable)
     index.ts     # #! bin shim
@@ -415,7 +430,8 @@ as `true`/`false`, dates as ISO-8601, and encodes spaces as `%20` (not `+`).
 
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
 ([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`) and
-an injectable `env` (for `AUSBILDUNGSSUCHE_API_KEY`). Lets the whole CLI run in
+an injectable `env` (for `AUSBILDUNGSSUCHE_API_KEY`), and an optional `credentials`
+store (set only by `defaultDeps`). Lets the whole CLI run in
 tests with a mocked client and captured output — no subprocess.
 
 **Input validation.** [`validate.ts`](src/client/validate.ts) — the library owns
@@ -445,6 +461,7 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry, redirect following + `maxRedirects`, cross-origin credential stripping, network-error propagation, `maxResponseBytes=0` — mocked transport.
 - **`client.test.ts`** — the X-API-Key header, the `Accept: application/hal+json` override, search params and the details path — mocked transport.
 - **`cli.test.ts`** — command parsing, `--api-key` override, env-var precedence, 401/403/404/406 exit codes — mocked client.
+- **`config.test.ts`** — `config set/get/unset/list`, the credentials file (mode, path, links, bad JSON), key precedence flag > env > file — temporary directories, never the real home.
 - **`validate.test.ts`** — `assertValid`, the exit-2 mapping of `AusbildungValidationError`, and the CLI ↔ library parity tests. `parity()` in `test/helpers.ts` runs one input through `run()` and through the library on one recording mock transport; a parity test asserts both reject without a request, or both send the identical request.
 - **`conformance-p*.test.ts`** — the checks shared across the `*-cli` repos (fix plan of
   2026-10-06; only the adapter block at the top is this repo's): P1 CLI redaction, P2

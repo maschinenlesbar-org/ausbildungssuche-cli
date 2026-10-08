@@ -45,8 +45,8 @@ operates the Ausbildungssuche service and its API.
 **X-API-Key.** A static, publicly-documented API key
 required on every request (documented by the community project bundesAPI, not by
 the Bundesagentur für Arbeit itself). It is **not bundled** — obtain it with `obtain-key` or supply
-it via `--api-key`, the `AUSBILDUNGSSUCHE_API_KEY` env var, or the `apiKey` client
-option, else the header is omitted and the service answers `401`/`403`. An
+it via `--api-key`, the `AUSBILDUNGSSUCHE_API_KEY` env var, a key stored with
+`ausbildungssuche config set api-key` (CLI only), or the `apiKey` client option, else the header is omitted and the service answers `401`/`403`. An
 empty/whitespace key is treated as absent (no header sent); any other key is sent
 with surrounding whitespace trimmed, however it was supplied. A key with an inner
 control character or a character above U+00FF is rejected by the CLI (exit `2`) and the

@@ -29,6 +29,9 @@ import {
   type Problem,
 } from "../client/validate.js";
 
+/** The name the API key is stored under in the credentials file (`ausbildungssuche config set api-key`). */
+export const API_KEY_CREDENTIAL = "api-key";
+
 /**
  * commander value-parser: a plain base-10 non-negative integer.
  *
@@ -271,7 +274,7 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
 /**
  * Write one `warning: …` line to stderr when the effective base URL is plain `http:` to
  * a host other than loopback (cleartextProblem): requests travel unencrypted, and with
- * them the API key (from --api-key or AUSBILDUNGSSUCHE_API_KEY) and any credentials in
+ * them the API key (from --api-key, AUSBILDUNGSSUCHE_API_KEY or the credentials file) and any credentials in
  * the URL — named, never printed. Called once per run, after the options are parsed and
  * before the first request; stdout and the exit code are untouched.
  */
@@ -303,13 +306,28 @@ export function action(
   return async (...args: unknown[]) => {
     const command = args[args.length - 1] as Command;
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
-    const global = command.optsWithGlobals() as GlobalOptions;
+    let global = command.optsWithGlobals() as GlobalOptions;
     // A --api-key flag went through parseApiKey; a key seeded from the env var did
     // not. The client rejects it too (as apiKey); checking it here with the same
     // library rule names the env variable in the message instead.
     const keyProblem = global.apiKey === undefined ? undefined : apiKeyProblem(global.apiKey);
     if (keyProblem !== undefined) {
       throw new AusbildungValidationError(`${API_KEY_ENV_VAR}: ${keyProblem}`);
+    }
+    // flag > AUSBILDUNGSSUCHE_API_KEY > the credentials file (`ausbildungssuche config
+    // set api-key`) > none. The file is read only here, when no key came from the
+    // first two, so a problem with it never stands in the way of a key given another
+    // way. Set before the cleartext warning, which then names the key too.
+    if (global.apiKey === undefined && deps.credentials !== undefined) {
+      const store = deps.credentials();
+      const stored = store.get(API_KEY_CREDENTIAL);
+      if (stored !== undefined) {
+        const storedProblem = apiKeyProblem(stored);
+        if (storedProblem !== undefined) {
+          throw new AusbildungValidationError(`${API_KEY_CREDENTIAL} in ${store.path}: ${storedProblem}`);
+        }
+        global = { ...global, apiKey: stored };
+      }
     }
     warnOnCleartext(deps, global);
     const client = deps.createClient(toEngineOptions(global));

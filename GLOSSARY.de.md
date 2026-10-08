@@ -44,7 +44,8 @@ seine API betreibt.
 **X-API-Key.** Ein statischer, öffentlich dokumentierter API-Schlüssel
 , der bei jeder Anfrage erforderlich ist (dokumentiert vom Community-Projekt bundesAPI,
 nicht von der Bundesagentur für Arbeit selbst). Er ist **nicht mitgeliefert** – mit `obtain-key` abrufen oder
-übergeben Sie ihn per `--api-key`, über die Umgebungsvariable `AUSBILDUNGSSUCHE_API_KEY` oder
+übergeben Sie ihn per `--api-key`, über die Umgebungsvariable `AUSBILDUNGSSUCHE_API_KEY`, als
+mit `ausbildungssuche config set api-key` gespeicherten Schlüssel (nur CLI) oder über
 die Client-Option `apiKey`; andernfalls entfällt der Header, und der Dienst antwortet mit
 `401`/`403`. Ein leerer oder nur aus Leerzeichen bestehender Schlüssel gilt als nicht
 vorhanden (es wird kein Header gesendet); jeder andere Schlüssel wird ohne umgebende
