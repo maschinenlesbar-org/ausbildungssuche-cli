@@ -517,3 +517,14 @@ test("a parse error is logged in the format commander would have parsed: the fir
   assert.equal(record["topic"], "ausbildungssuche.cli");
   assert.match(record["msg"] as string, /--log-format <format>' was given more than once/);
 });
+
+test("a rejected --re value is quoted at most 200 characters long (L3)", async () => {
+  const cli = makeCli(okResponse);
+  // commander echoes the whole value itself (the record's cap bounds that); the
+  // library's own message quotes it cut.
+  assert.equal(await run(["search", "--re", "X".repeat(1000)], cli.deps), 2);
+  const record = cli.err.find((line) => line.includes("Unknown Bundesland code")) ?? "";
+  const own = record.slice(record.indexOf("Unknown Bundesland code"));
+  assert.match(own, /^Unknown Bundesland code "X{200}…"\. /);
+  assert.ok(own.length < 400, `${own.length}`);
+});

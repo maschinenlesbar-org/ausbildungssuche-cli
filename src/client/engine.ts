@@ -31,7 +31,7 @@ import {
   redactCredentials,
   redactSecrets,
   redactUrl,
-  cutText,
+  cutForMessage,
 } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
@@ -367,7 +367,7 @@ const MAX_DETAIL_LENGTH = 500;
 /** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters (never inside a surrogate pair). */
 function cleanDetail(text: string): string {
   const clean = sanitizeServerText(text);
-  return clean.length > MAX_DETAIL_LENGTH ? `${cutText(clean, MAX_DETAIL_LENGTH)}…` : clean;
+  return cutForMessage(clean, MAX_DETAIL_LENGTH);
 }
 
 /**
@@ -857,7 +857,7 @@ export function decodeBody(body: Buffer, contentType: string, where: string): st
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new AusbildungParseError(`Unsupported response charset "${sanitizeServerText(charset)}" from ${where}.`);
+    throw new AusbildungParseError(`Unsupported response charset "${cutForMessage(sanitizeServerText(charset))}" from ${where}.`);
   }
   return decoder.decode(body);
 }

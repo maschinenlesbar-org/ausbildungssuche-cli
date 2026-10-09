@@ -9,6 +9,7 @@ import {
   validateBaseUrl,
 } from "../src/client/engine.js";
 import { MAX_TIMEOUT_MS } from "../src/client/http.js";
+import { regionCodeProblem } from "../src/client/validate.js";
 import {
   AusbildungApiError,
   AusbildungParseError,
@@ -464,4 +465,13 @@ test("a server detail cut at 500 characters keeps the message well-formed", asyn
     assert.match(err.message, /…$/);
     return true;
   });
+});
+
+test("own messages quote a server or user value at most 200 characters long (L3)", async () => {
+  const long = "x".repeat(5000);
+  const redirect = new RequestEngine({ maxRedirects: 0, transport: async () => ({ status: 302, headers: { location: `https://other.example/${long}` }, body: Buffer.alloc(0) }) });
+  await assert.rejects(redirect.getJson("/x"), (err: Error) => err.message.length < 400 && /redirect to https:\/\/other\.example\/x+… not followed/.test(err.message));
+  const charset = new RequestEngine({ transport: async () => ({ status: 200, headers: { "content-type": `application/json; charset=${long}` }, body: Buffer.from("{}") }) });
+  await assert.rejects(charset.getJson("/x"), (err: Error) => err.message.length < 400 && /Unsupported response charset "x+…"/.test(err.message));
+  assert.match(regionCodeProblem(long) ?? "", /^Unknown Bundesland code "x{200}…"\./);
 });
