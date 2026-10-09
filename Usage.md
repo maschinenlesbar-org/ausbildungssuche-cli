@@ -230,7 +230,8 @@ Precedence is `--api-key` flag > `AUSBILDUNGSSUCHE_API_KEY` env var > the creden
 file > no key. `ausbildungssuche config` keeps the key in
 `$XDG_CONFIG_HOME/ausbildungssuche/credentials` (else
 `~/.config/ausbildungssuche/credentials`), mode 0600, written atomically; `config set`
-reads the value from a prompt without echo or from stdin (at most 64 KiB), never from the command line;
+reads the value from a prompt without echo or from stdin (at most 64 KiB), never from the command line
+(a key given with `--api-key` is a usage error, exit 2, and is not repeated);
 `config get` shows it masked (`abcd…wxyz`; `****` below 20 characters, so for the
 published key; `--reveal` prints it whole); `config list` and `config
 unset` do what they say. A file that others can read is refused, and only when it is
