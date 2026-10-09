@@ -475,3 +475,17 @@ test("own messages quote a server or user value at most 200 characters long (L3)
   await assert.rejects(charset.getJson("/x"), (err: Error) => err.message.length < 400 && /Unsupported response charset "x+…"/.test(err.message));
   assert.match(regionCodeProblem(long) ?? "", /^Unknown Bundesland code "x{200}…"\./);
 });
+
+test("credentials a server echoes are scrubbed from the error: Basic, user:password, password (L13)", async () => {
+  const basic = Buffer.from("alice:pa ss-pw", "latin1").toString("base64");
+  const body = JSON.stringify({ detail: `no: Basic ${basic} / alice:pa ss-pw / pa ss-pw` });
+  const engine = new RequestEngine({
+    baseUrl: "https://alice:pa%20ss-pw@mirror.example",
+    transport: async () => ({ status: 401, headers: { "content-type": "application/json" }, body: Buffer.from(body) }),
+  });
+  await assert.rejects(engine.getJson("/x"), (err: AusbildungApiError) => {
+    for (const form of [basic, "alice:pa ss-pw", "pa ss-pw"]) assert.ok(!err.message.includes(form), err.message);
+    assert.match(err.message, /no: Basic \*\*\* \/ \*\*\* \/ \*\*\*/);
+    return true;
+  });
+});

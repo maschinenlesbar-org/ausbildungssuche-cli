@@ -207,6 +207,19 @@ test("P23: a secret with DEL, C1 or bidi characters is replaced before the recor
   }
 });
 
+test("P23: credentials a server echoes back are replaced in the record (Basic, user:password, password)", async () => {
+  const basic = `Basic ${Buffer.from("alice:s3cret-pw", "latin1").toString("base64")}`;
+  const echo = `denied: Authorization: ${basic}; user alice:s3cret-pw; password s3cret-pw`;
+  for (const format of ["text", "jsonl"]) {
+    const r = await cli(["--log-format", format, "--base-url", "https://alice:s3cret-pw@mirror.example", ...SIMPLE_COMMAND], errorAnswer(echo));
+    const all = r.err.join("\n");
+    assert.ok(all.includes("denied"), `${format}: the message is there:\n${all}`);
+    for (const form of [basic.slice("Basic ".length), "alice:s3cret-pw", "s3cret-pw"]) {
+      assert.ok(!all.includes(form), `${format}: ${form} printed:\n${all}`);
+    }
+  }
+});
+
 test("P23: the log format is the one commander parsed, also where an option's value looks like --log-format", async () => {
   // commander takes "--log-format=jsonl" as the User-Agent: the log stays text.
   const ua = await cli(["--user-agent", "--log-format=jsonl", ...SIMPLE_COMMAND], errorAnswer("boom"));

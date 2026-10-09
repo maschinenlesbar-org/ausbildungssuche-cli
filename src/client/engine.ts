@@ -32,6 +32,7 @@ import {
   redactSecrets,
   redactUrl,
   cutForMessage,
+  echoedCredentialForms,
 } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
@@ -484,10 +485,14 @@ export class RequestEngine {
       assertValid(`header ${name}`, value, headerValueProblem);
     }
     // The secret part of a credential header (`Bearer <token>` → the token; an
-    // X-API-Key as it is), never echoed.
+    // X-API-Key as it is), never echoed. And the forms a server echoes a base URL's
+    // userinfo in: the Basic value, the decoded `user:password`, the password alone.
     this.#secrets = Object.entries(this.#defaultHeaders)
       .filter(([name]) => CREDENTIAL_HEADERS.includes(name.toLowerCase()))
-      .map(([, value]) => value.replace(/^\S+\s+/, "").trim());
+      .map(([, value]) => value.replace(/^\S+\s+/, "").trim())
+      .concat(credentialsIn(this.#baseUrl).flatMap(echoedCredentialForms))
+      // Longest first, so a password never leaves half of the user:password around it.
+      .sort((a, b) => b.length - a.length);
     // Range-check the numeric options: a negative, NaN or fractional value would
     // otherwise silently disable the timeout or the size cap, and an unbounded
     // maxRetries would keep retrying.

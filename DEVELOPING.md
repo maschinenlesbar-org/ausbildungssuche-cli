@@ -326,7 +326,10 @@ The userinfo of every URL-like
 argument (`credentialsIn`, which finds it whether the value parses or not, then
 `redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value and
 the `AUSBILDUNGSSUCHE_API_KEY` value become `***` on stderr (`redactSecrets`). Not on
-stdout, where `obtain-key` prints the key. A private key has no fixed shape, so a key
+stdout, where `obtain-key` prints the key. The forms a server echoes a userinfo back in
+are replaced too: the `Basic` value and the decoded `user:password` on stdout and
+stderr, the password alone (4 characters or more) on stderr only, since it may well
+occur in the data. A private key has no fixed shape, so a key
 typed without its flag is kept out by not echoing the value at all
 (`withoutStrayValues`): `unknown command` shows the value only when it reads like a
 command name, `too many arguments` drops the values, `unknown option '--x=…'` drops
@@ -350,7 +353,9 @@ error piped through `2>&1 | head -c 5` still exits `2`). Any other write error e
 **Secrets in the library.** The engine keeps the base URL and the default headers
 (the `X-API-Key`) in real `#private` fields, so `console.log(client)`,
 `util.inspect` and `JSON.stringify` never show them. It scrubs the base URL's
-userinfo (raw and percent-decoded) and the key from error bodies and details,
+userinfo (raw and percent-decoded), the forms a server echoes it back in (the `Basic`
+value, the decoded `user:password`, the password alone from 4 characters:
+`echoedCredentialForms`) and the key from error bodies and details,
 transport error text and the `cause` chain (`scrub`, `scrubCause`), and `obtainKey()`
 names a source behind Basic auth as `***@` in its errors and in
 `ObtainedKey.sourceUrl`. `test/conformance-p2-library-redaction.test.ts` is the

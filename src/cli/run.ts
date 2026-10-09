@@ -12,6 +12,7 @@ import {
   AusbildungNetworkError,
   AusbildungValidationError,
   credentialsIn,
+  echoedCredentialForms,
   redactCredentials,
   redactSecrets,
 } from "../client/errors.js";
@@ -168,10 +169,18 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
   );
   const envKey = env[API_KEY_ENV_VAR] ?? "";
   const userinfo = new Set<string>();
+  const echoed = new Set<string>();
+  const passwords = new Set<string>();
   for (const source of [...argv, ...values, envKey]) {
     for (const secret of credentialsIn(source)) {
       userinfo.add(secret);
       userinfo.add(JSON.stringify(secret).slice(1, -1));
+      // What a server echoes back: the Basic value and the decoded user:password on
+      // stdout and stderr, the password alone (it may well occur in the data) on stderr.
+      const [basic, pair, password] = echoedCredentialForms(secret);
+      if (basic !== undefined) echoed.add(basic);
+      if (pair !== undefined) echoed.add(pair);
+      if (password !== undefined) passwords.add(password);
     }
   }
   const keys = new Set<string>();
@@ -183,6 +192,7 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
     }
   };
   addKey(envKey);
+  for (const password of passwords) addKey(password);
   argv.forEach((token, i) => {
     if (SECRET_FLAGS.includes(token)) addKey(argv[i + 1]);
     const eq = token.indexOf("=");
@@ -192,7 +202,8 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
   // Longest first, so a key is never left half-replaced by one of its own substrings.
   const sortedKeys = (): string[] => [...keys].sort((a, b) => b.length - a.length);
   let keyList = sortedKeys();
-  const out = (text: string): string => redactCredentials(text, urlList);
+  const echoedList = [...echoed].sort((a, b) => b.length - a.length);
+  const out = (text: string): string => redactSecrets(redactCredentials(text, urlList), echoedList);
   return {
     out,
     err: (text) => redactSecrets(out(text), keyList),
