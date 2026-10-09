@@ -196,6 +196,9 @@ replaced atomically; a link, another user's file or one others can read is an
 is a usage error (exit 2) naming the file. `config set` reads through
 `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the whole
 input from a pipe, at most 64 KiB either way), never from argv, and refuses an extra argument without repeating it.
+On a terminal it drops escape sequences (arrow keys, bracketed-paste markers), keeps
+every other character (so a tab is refused, as from a pipe) and refuses a paste with
+more after its first line break.
 
 Because the key is publicly documented, you can fetch it out-of-band (for CI or
 local live testing — never from production) with the bundled script:
