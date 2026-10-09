@@ -186,7 +186,7 @@ cap); `1` for any other error. `--help`/`--version` return `0`.
 with `--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
 commander's messages, unexpected errors), `api` (the API's answers: an error status and
 the hints after it, and a malformed answer — bad JSON, the wrong shape), `http` (the
-connection, the cleartext warning), `config`, `obtain-key` and `output` (a failed write
+connection, the cleartext warning, and one WARN per retry before it waits), `config`, `obtain-key` and `output` (a failed write
 to stdout). A record is always one line; control characters in it are escaped.
 
 ---

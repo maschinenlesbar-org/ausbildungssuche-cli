@@ -258,7 +258,7 @@ each (a repeated global option is a usage error, exit `2`):
 | `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled. A rejected key is never repeated in the error, and a key typed without `--api-key` (as a command or an extra argument) is not echoed either |
 | `--timeout <ms>` | Time limit per request in milliseconds, reading the whole response included (default `30000`; at most `2147483647`; `0` = no limit) |
 | `--user-agent <ua>` | `User-Agent` header value |
-| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (`0`..`10`); each waits at least the linear backoff, longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait) |
+| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (`0`..`10`); each waits at least the linear backoff, longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait). Each retry logs one WARN record of `ausbildungssuche.http` before it waits (`HTTP 503 from host: retry 1 of 3 in 2 s`). |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [ausbildungssuche.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |

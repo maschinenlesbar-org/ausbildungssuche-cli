@@ -18,7 +18,7 @@ export {
   isTransientNetworkError,
   parseRetryAfter,
 } from "./engine.js";
-export type { CredentialsDropped, EngineOptions, RawResponse } from "./engine.js";
+export type { CredentialsDropped, EngineOptions, RawResponse, RetryEvent } from "./engine.js";
 export { MAX_TIMEOUT_MS, nodeHttpTransport, sizeLimitMessage } from "./http.js";
 export type { Transport, HttpRequest, HttpResponse } from "./http.js";
 export { obtainKey, looksLikeApiKey, API_KEY_ENV_VAR, KEY_SOURCE_URL } from "./obtain-key.js";

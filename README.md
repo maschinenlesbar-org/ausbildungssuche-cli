@@ -275,7 +275,7 @@ These apply to every command and may be given before *or* after it, once each:
 | `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled. A rejected key is never repeated in the error, and a key typed without `--api-key` (as a command or an extra argument) is not echoed either |
 | `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`; at most `2147483647`; `0` = no limit, so a hanging server blocks forever) |
 | `--user-agent <ua>` | `User-Agent` header value |
-| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (`0`..`10`, default `2`); each waits at least the linear backoff, longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait) |
+| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (`0`..`10`, default `2`); each waits at least the linear backoff, longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait). Each retry logs one WARN record of `ausbildungssuche.http` before it waits (`HTTP 503 from host: retry 1 of 3 in 2 s`). |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 
 ### Supplying the API key

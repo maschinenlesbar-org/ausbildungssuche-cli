@@ -190,7 +190,7 @@ Zeitstempel, eine Stufe (`ERROR`, `WARN`, `INFO`) und ein Thema `ausbildungssuch
 als Text (im Stil von log4j) oder mit `--log-format jsonl` als ein JSON-Objekt pro Zeile.
 Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `api` (die
 Antworten der API: ein Fehlerstatus und die Hinweise danach sowie eine fehlerhafte Antwort —
-ungültiges JSON, die falsche Form), `http` (die Verbindung, die Klartext-Warnung), `config`,
+ungültiges JSON, die falsche Form), `http` (die Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten), `config`,
 `obtain-key` und `output` (ein Schreibfehler auf stdout). Ein Eintrag ist immer eine Zeile;
 Steuerzeichen darin werden maskiert.
 
