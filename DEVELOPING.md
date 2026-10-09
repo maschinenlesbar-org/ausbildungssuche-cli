@@ -560,7 +560,12 @@ and `obtain-key`. Code logs through `logOf(deps)` and never writes diagnostics w
 (`logFormatFromArgv`: the first `--log-format`, the value of an option that takes one
 skipped, used only for the records of a parse error; a `preAction` hook then sets the
 format commander parsed, so `--user-agent --log-format=jsonl` logs text), so
-commander's own usage errors are records too, and with the run's redaction
+commander's own usage errors are records too: its `error: …` an ERROR of `cli` (a
+`(Did you mean …?)` line joined to it), the help it shows after one an INFO record per
+line, and a command group run without its subcommand (or the program with global
+options only) an ERROR "missing command: `ausbildungssuche config <subcommand>`" before
+that help, so every failed run has an ERROR record (`writeCommanderErr`). The log is
+built with the run's redaction
 (`withRedactedOutput`), which replaces a secret in the message only, before it is
 escaped: the frame is never touched, and a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
 testable. stdout carries data only. Two things on stderr are not records: the no-echo
