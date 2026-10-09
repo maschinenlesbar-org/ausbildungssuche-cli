@@ -438,3 +438,25 @@ test("the stored key is a secret of the run the moment it is read: no record sho
     cli.cleanup();
   }
 });
+
+test("the stored key typed as the details id is not echoed, as the same key from the env var is not (02 Bug 1)", async () => {
+  const stored = "stored-key-ABCDEF123";
+  const cli = makeCli();
+  try {
+    cli.store.set("api-key", stored);
+    for (const format of ["text", "jsonl"]) {
+      cli.err.length = 0;
+      assert.equal(await run(["--log-format", format, "details", stored], cli.deps), 2);
+      const all = cli.err.join("\n");
+      assert.match(all, /command-argument value \(not shown: not a number\) is invalid for argument 'id'/, `${format}: ${all}`);
+      assert.ok(!all.includes("ABCDEF"), `${format}: ${all}`);
+    }
+    // A number-like id is still shown, so a typo can be seen.
+    cli.err.length = 0;
+    assert.equal(await run(["details", "-1"], cli.deps), 2);
+    assert.equal(await run(["details", "1.5"], cli.deps), 2);
+    assert.match(cli.err.join("\n"), /command-argument value '1\.5' is invalid for argument 'id'/);
+  } finally {
+    cli.cleanup();
+  }
+});

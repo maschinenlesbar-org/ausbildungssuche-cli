@@ -50,11 +50,17 @@ const EXIT = {
  *   name (lower-case letters and hyphens), so a key typed without `--api-key` is not
  *   echoed while a typo such as `serach` still is;
  * - a rejected value of a numeric option (`--timeout <ms>`, `--size <n>`, …) is shown
- *   only when it reads like a number, so a key typed after `--timeout` is not.
+ *   only when it reads like a number, so a key typed after `--timeout` is not;
+ * - so is a rejected command argument (`details <id>`, a numeric offer id), so a key
+ *   typed as the id is not — a stored key above all, which the run learns only after
+ *   parsing, too late for the redaction.
  */
 export function withoutStrayValues(message: string): string {
   return message
     .replace(/^(error: option '[^']*<(?:ms|n)>' argument )'([\s\S]*?)'( is invalid\.)/, (whole, head: string, value: string, tail: string) =>
+      /^[\s\d.,+\-eExX]{0,24}$/.test(value) ? whole : `${head}(not shown: not a number)${tail}`,
+    )
+    .replace(/^(error: command-argument value )'([\s\S]*?)'( is invalid for argument )/, (whole, head: string, value: string, tail: string) =>
       /^[\s\d.,+\-eExX]{0,24}$/.test(value) ? whole : `${head}(not shown: not a number)${tail}`,
     )
     .replace(/^(error: too many arguments for '[^']*'\. Expected \d+ arguments? but got \d+): [\s\S]*?\.(\n|$)/, "$1.$2")

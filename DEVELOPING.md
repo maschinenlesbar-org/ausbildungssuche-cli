@@ -330,8 +330,9 @@ stdout, where `obtain-key` prints the key. A private key has no fixed shape, so 
 typed without its flag is kept out by not echoing the value at all
 (`withoutStrayValues`): `unknown command` shows the value only when it reads like a
 command name, `too many arguments` drops the values, `unknown option '--x=…'` drops
-what follows `=`, and a numeric option shows its rejected value only when it reads
-like a number. `test/conformance-p1-cli-redaction.test.ts` is the shared check (ten
+what follows `=`, and a numeric option, like the `details` id, shows its rejected value
+only when it reads like a number (a stored key typed as the id is learnt only after
+parsing, too late for the redaction). `test/conformance-p1-cli-redaction.test.ts` is the shared check (ten
 passwords, seven URL shapes, every echo path, plus the key by flag, by environment
 and typed without its flag).
 
