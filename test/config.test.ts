@@ -460,3 +460,15 @@ test("the stored key typed as the details id is not echoed, as the same key from
     cli.cleanup();
   }
 });
+
+test("config get --reveal prints the value as stored, untouched by the run's redaction (C9)", async () => {
+  const stored = "alice:s3cret-pw@mirror.example";
+  const cli = makeCli();
+  try {
+    cli.store.set("api-key", stored);
+    assert.equal(await run(["--base-url", "https://alice:s3cret-pw@mirror.example", "config", "get", "api-key", "--reveal"], cli.deps), 0);
+    assert.deepEqual(cli.out, [stored]);
+  } finally {
+    cli.cleanup();
+  }
+});
