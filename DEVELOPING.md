@@ -161,7 +161,8 @@ run them up front.
   `defaultHeaders` and `obtainKey()`'s options must be plain objects (`isPlainObject`;
   `search(5)` would otherwise search unfiltered), text parameters strings or finite
   numbers, `sty`/`page`/`size` numbers, `bg` a boolean, `transport` and `sleep`
-  functions. A server `detail` is cut at 500 characters in a message
+  functions. A server `detail` is cut at 500 characters in a message, never inside a
+  surrogate pair (`cutText`), so the message stays well-formed
   (`AusbildungApiError.body` keeps it whole).
 - **Ids and training types the API answers with HTTP 400.** `ids` must be numeric
   `dkzId`s, comma-separated, without an empty item (`idsProblem`; `9162,` from a
@@ -531,7 +532,9 @@ and `msg`. A record is always one line: `formatLogRecord` runs `escapeForRecord`
 the message (text) or the whole JSON object (jsonl), which writes CR and LF as `\r`/`\n`,
 every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
 controls as `\uXXXX`, so no text that reaches a record, by whatever path, can split it,
-forge another one or steer the terminal. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+forge another one or steer the terminal. Before that a lone surrogate (half a
+character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellFormed`).
+The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's error answers, the hints after them and the "no offers matched" note, as
 `INFO`), `http` (network errors and the size-cap hint, the cleartext warning), `config`
 and `obtain-key`. Code logs through `logOf(deps)` and never writes diagnostics with
