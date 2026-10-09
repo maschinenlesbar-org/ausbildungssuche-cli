@@ -574,7 +574,9 @@ escaped: the frame is never touched, and a secret is kept out of the log in eith
 Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`) are WARN records of
 `ausbildungssuche.cli` too: the bin shim installs `installWarningLog`, which removes
 Node's default `warning` listener and logs `(node) <name>: <message>` through
-`processLogger(argv)`. `CliDeps.now` makes the timestamps
+`processLogger(argv)`. In `defaultDeps` a record waits for stdout (`stderrAfterStdout`):
+it is held while stdout has a backlog and written, in order, once it is gone, so with
+`2>&1 |` and a slow reader it never lands inside the data. `CliDeps.now` makes the timestamps
 testable. stdout carries data only. One thing on stderr is not a record: the no-echo
 prompt of `config set` (`readSecret`), which is interaction, not a diagnostic. What
 happens outside `run()`, in the bin shim (a failed write to stdout), is logged through
