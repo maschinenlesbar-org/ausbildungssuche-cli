@@ -570,7 +570,11 @@ options only) an ERROR "missing command: `ausbildungssuche config <subcommand>`"
 that help, so every failed run has an ERROR record (`writeCommanderErr`). The log is
 built with the run's redaction
 (`withRedactedOutput`), which replaces a secret in the message only, before it is
-escaped: the frame is never touched, and a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
+escaped: the frame is never touched, and a secret is kept out of the log in either format.
+Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`) are WARN records of
+`ausbildungssuche.cli` too: the bin shim installs `installWarningLog`, which removes
+Node's default `warning` listener and logs `(node) <name>: <message>` through
+`processLogger(argv)`. `CliDeps.now` makes the timestamps
 testable. stdout carries data only. One thing on stderr is not a record: the no-echo
 prompt of `config set` (`readSecret`), which is interaction, not a diagnostic. What
 happens outside `run()`, in the bin shim (a failed write to stdout), is logged through
