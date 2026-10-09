@@ -349,8 +349,10 @@ break `JSON.parse`. An unknown charset label is an `AusbildungParseError` naming
 **Closed pipes** (`handleOutputErrors` in [`io.ts`](src/cli/io.ts), installed by the
 bin shim before `run()`). An EPIPE on stdout (`| head` stopped reading; ENOTCONN when
 stdout is a socket, as with a Node parent's piped stdio on macOS) exits `0` quietly; an EPIPE on stderr is ignored, so a failed run keeps its exit code (a usage
-error piped through `2>&1 | head -c 5` still exits `2`). Any other write error exits
-`1`. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built bin.
+error piped through `2>&1 | head -c 5` still exits `2`). Any other stdout write error
+is an ERROR record of `ausbildungssuche.output` (`Could not write to stdout: …`, in the
+format argv asks for: `processLogger`) and exits `1`; any other stderr write error exits
+`1` silently. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built bin.
 
 **Secrets in the library.** The engine keeps the base URL and the default headers
 (the `X-API-Key`) in real `#private` fields, so `console.log(client)`,
@@ -554,8 +556,8 @@ character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellF
 and a message longer than `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a
 code point and ends in `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's error answers, the hints after them and the "no offers matched" note, as
-`INFO`), `http` (network errors and the size-cap hint, the cleartext warning), `config`
-and `obtain-key`. Code logs through `logOf(deps)` and never writes diagnostics with
+`INFO`), `http` (network errors and the size-cap hint, the cleartext warning), `config`,
+`obtain-key` and `output` (a failed write to stdout). Code logs through `logOf(deps)` and never writes diagnostics with
 `io.err` directly. `run()` builds the logger from argv before commander parses it
 (`logFormatFromArgv`: the first `--log-format`, the value of an option that takes one
 skipped, used only for the records of a parse error; a `preAction` hook then sets the
@@ -568,8 +570,8 @@ that help, so every failed run has an ERROR record (`writeCommanderErr`). The lo
 built with the run's redaction
 (`withRedactedOutput`), which replaces a secret in the message only, before it is
 escaped: the frame is never touched, and a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
-testable. stdout carries data only. Two things on stderr are not records: the no-echo
-prompt of `config set` (`readSecret`), which is interaction, not a diagnostic, and the bin
-shim's `Output error: …` line (`handleOutputErrors`, a failed write to stdout), written
-straight to `process.stderr` outside `run()`. Conformance test P23 checks all of this, and
+testable. stdout carries data only. One thing on stderr is not a record: the no-echo
+prompt of `config set` (`readSecret`), which is interaction, not a diagnostic. What
+happens outside `run()`, in the bin shim (a failed write to stdout), is logged through
+`processLogger(argv)`, in the same format and with the same redaction. Conformance test P23 checks all of this, and
 its body is shared across the *-cli repos.
