@@ -22,6 +22,13 @@ const SIMPLE_COMMAND = ["details", "12345"];
 const okBody = [{ id: 12345, angebot: { titel: "Angebot" } }];
 /** The exit code of a usage error. */
 const USAGE_EXIT = 2;
+/**
+ * An option that takes a value and validates it: a rejected value is echoed in the record.
+ * Not --timeout here: a numeric option shows a rejected value only when it reads like a
+ * number (withoutStrayValues, so a key typed after it is never echoed). --log-format is
+ * global, echoes what it rejects, and a second one is refused only after its value is.
+ */
+const VALUE_OPTION = "--log-format";
 /** An error answer whose ERROR record quotes `message` (as far as the repo keeps it). */
 function errorAnswer(message: string): HttpResponse {
   return { status: 500, headers: { "content-type": "application/json" }, body: Buffer.from(JSON.stringify({ detail: message })) };
@@ -52,6 +59,8 @@ async function cli(argv: string[], answer?: HttpResponse) {
   return { code, out, err };
 }
 
+/** A message built to break a record: line breaks, a forged record, escapes, C1, bidi, DEL. */
+const HOSTILE = `one\ntwo\r${TS} ERROR [${PROGRAM}.cli] forged\u001b[31m red\u0085nel\u2028ls\u2029ps\u202eevil\u2066iso\u007fdel\u009bcsi`;
 /** Characters a record never carries raw: C0 but TAB, DEL, C1, the line and paragraph separators, bidi controls. */
 const RAW = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f\u2028\u2029\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
 
@@ -118,6 +127,23 @@ test("P23: a secret is kept out of the log in either format", async () => {
     const r = await cli(["--log-format", format, "--base-url", "http://alice:s3cr3t-pw@mirror.example", ...SIMPLE_COMMAND]);
     assert.ok(!r.err.join("\n").includes("s3cr3t-pw"), `${format}: ${r.err.join("\n")}`);
   }
+});
+
+test("P23: a hostile message is one record, one line, with nothing raw (server text and user input)", async () => {
+  for (const format of ["text", "jsonl"]) {
+    const server = await cli(["--log-format", format, ...SIMPLE_COMMAND], errorAnswer(HOSTILE));
+    assert.notEqual(server.code, 0);
+    assertOneRecordEach(server.err, format, `${format}, server`);
+    assert.equal(server.err.filter((line) => line.includes("forged")).length, 1, `${format}: ${server.err.join("\n")}`);
+
+    const typed = await cli(["--log-format", format, VALUE_OPTION, HOSTILE, ...SIMPLE_COMMAND]);
+    assert.equal(typed.code, USAGE_EXIT);
+    assertOneRecordEach(typed.err, format, `${format}, typed`);
+    assert.equal(typed.err.filter((line) => line.includes("forged")).length, 1, `${format}: ${typed.err.join("\n")}`);
+  }
+  // The text form keeps the message readable: a line break is shown as \n.
+  const text = await cli([VALUE_OPTION, "a\nb", ...SIMPLE_COMMAND]);
+  assert.ok(text.err.some((line) => line.includes("a\\nb")), text.err.join("\n"));
 });
 
 test("P23: the log format is the one commander parsed, also where an option's value looks like --log-format", async () => {

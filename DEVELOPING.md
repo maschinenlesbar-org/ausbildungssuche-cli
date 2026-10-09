@@ -467,6 +467,8 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`client.test.ts`** — the X-API-Key header, the `Accept: application/hal+json` override, search params and the details path — mocked transport.
 - **`cli.test.ts`** — command parsing, `--api-key` override, env-var precedence, 401/403/404/406 exit codes — mocked client.
 - **`config.test.ts`** — `config set/get/unset/list`, the credentials file (mode, path, links, bad JSON), key precedence flag > env > file — temporary directories, never the real home.
+- **`log.test.ts`** — the record helpers of `src/cli/log.ts` on their own
+  (`escapeForRecord`, `formatLogRecord`); the CLI-level checks are P23's.
 - **`validate.test.ts`** — `assertValid`, the exit-2 mapping of `AusbildungValidationError`, and the CLI ↔ library parity tests. `parity()` in `test/helpers.ts` runs one input through `run()` and through the library on one recording mock transport; a parity test asserts both reject without a request, or both send the identical request.
 - **`conformance-p*.test.ts`** — the checks shared across the `*-cli` repos (fix plan of
   2026-10-06; only the adapter block at the top is this repo's): P1 CLI redaction, P2
@@ -525,7 +527,11 @@ Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp,
 (`ERROR`, `WARN`, `INFO`) and a topic, `ausbildungssuche.<area>`. `--log-format text` (the
 default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
-and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+and `msg`. A record is always one line: `formatLogRecord` runs `escapeForRecord` over
+the message (text) or the whole JSON object (jsonl), which writes CR and LF as `\r`/`\n`,
+every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
+controls as `\uXXXX`, so no text that reaches a record, by whatever path, can split it,
+forge another one or steer the terminal. The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's error answers, the hints after them and the "no offers matched" note, as
 `INFO`), `http` (network errors and the size-cap hint, the cleartext warning), `config`
 and `obtain-key`. Code logs through `logOf(deps)` and never writes diagnostics with
