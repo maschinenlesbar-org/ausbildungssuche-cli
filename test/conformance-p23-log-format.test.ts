@@ -22,13 +22,17 @@ const SIMPLE_COMMAND = ["details", "12345"];
 const okBody = [{ id: 12345, angebot: { titel: "Angebot" } }];
 /** The exit code of a usage error. */
 const USAGE_EXIT = 2;
-/** Builds the CliDeps for a run, on a transport that answers `okBody` and a fixed clock. */
-function makeDeps(out: string[], err: string[], now: () => Date): CliDeps {
-  const transport = async (): Promise<HttpResponse> => ({
+/** An error answer whose ERROR record quotes `message` (as far as the repo keeps it). */
+function errorAnswer(message: string): HttpResponse {
+  return { status: 500, headers: { "content-type": "application/json" }, body: Buffer.from(JSON.stringify({ detail: message })) };
+}
+/** Builds the CliDeps for a run, on a transport that answers `okBody` (or `answer`) and a fixed clock. */
+function makeDeps(out: string[], err: string[], now: () => Date, answer?: HttpResponse): CliDeps {
+  const transport = async (): Promise<HttpResponse> => answer ?? {
     status: 200,
     headers: { "content-type": "application/json" },
     body: Buffer.from(JSON.stringify(okBody)),
-  });
+  };
   return {
     io: { out: (s) => out.push(s), err: (s) => err.push(s) },
     env: {},
@@ -41,11 +45,28 @@ function makeDeps(out: string[], err: string[], now: () => Date): CliDeps {
 const TS = "2026-01-02T03:04:05.678Z";
 const TOPIC = new RegExp(`^${PROGRAM}\\.[a-z0-9-]+$`);
 
-async function cli(argv: string[]) {
+async function cli(argv: string[], answer?: HttpResponse) {
   const out: string[] = [];
   const err: string[] = [];
-  const code = await run(argv, makeDeps(out, err, () => new Date(TS)));
+  const code = await run(argv, makeDeps(out, err, () => new Date(TS), answer));
   return { code, out, err };
+}
+
+/** Characters a record never carries raw: C0 but TAB, DEL, C1, the line and paragraph separators, bidi controls. */
+const RAW = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f\u2028\u2029\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
+
+/** Every stderr chunk is one record: one line, nothing raw, in text or (parsed) jsonl. */
+function assertOneRecordEach(err: string[], format: string, context: string): void {
+  assert.ok(err.length > 0, context);
+  for (const line of err) {
+    assert.ok(!RAW.test(line), `${context}: raw control or bidi character in ${JSON.stringify(line)}`);
+    if (format === "jsonl") {
+      const record = JSON.parse(line) as Record<string, unknown>;
+      assert.deepEqual(Object.keys(record), ["ts", "level", "topic", "msg"], context);
+    } else {
+      assert.match(line, new RegExp(`^${TS} (ERROR|WARN |INFO ) \\[${PROGRAM}\\.[a-z0-9-]+\\] `), `${context}: ${JSON.stringify(line)}`);
+    }
+  }
 }
 
 test("P23: a usage error is a log4j-style ERROR record by default", async () => {
@@ -97,4 +118,15 @@ test("P23: a secret is kept out of the log in either format", async () => {
     const r = await cli(["--log-format", format, "--base-url", "http://alice:s3cr3t-pw@mirror.example", ...SIMPLE_COMMAND]);
     assert.ok(!r.err.join("\n").includes("s3cr3t-pw"), `${format}: ${r.err.join("\n")}`);
   }
+});
+
+test("P23: the log format is the one commander parsed, also where an option's value looks like --log-format", async () => {
+  // commander takes "--log-format=jsonl" as the User-Agent: the log stays text.
+  const ua = await cli(["--user-agent", "--log-format=jsonl", ...SIMPLE_COMMAND], errorAnswer("boom"));
+  assert.notEqual(ua.code, 0);
+  assertOneRecordEach(ua.err, "text", "--user-agent --log-format=jsonl");
+  // commander takes "--" as the User-Agent and then parses --log-format jsonl.
+  const dashes = await cli(["--user-agent", "--", "--log-format", "jsonl", ...SIMPLE_COMMAND], errorAnswer("boom"));
+  assert.notEqual(dashes.code, 0);
+  assertOneRecordEach(dashes.err, "jsonl", "--user-agent -- --log-format jsonl");
 });

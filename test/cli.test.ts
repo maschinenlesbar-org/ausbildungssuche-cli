@@ -504,3 +504,16 @@ test("malformed --ids, --bart and offer ids are usage errors before any request"
   assert.equal(sent.get("ids"), "9162,9106");
   assert.equal(sent.get("bart"), "102");
 });
+
+test("a parse error is logged in the format commander would have parsed: the first --log-format, an option's value skipped", async () => {
+  // --user-agent takes "--log-format" as its value; "jsonl" is then an unknown command, logged in text.
+  const ua = makeCli(okResponse);
+  assert.equal(await run(["--user-agent", "--log-format", "jsonl", "details", "12345"], ua.deps), 2);
+  assert.match(ua.err[0] ?? "", /^\S+ ERROR \[ausbildungssuche\.cli\] unknown command 'jsonl'/);
+  // A repeated --log-format is refused; the refusal is in the first one's format.
+  const twice = makeCli(okResponse);
+  assert.equal(await run(["--log-format", "jsonl", "--log-format", "text", "details", "12345"], twice.deps), 2);
+  const record = JSON.parse(twice.err[0] ?? "") as Record<string, unknown>;
+  assert.equal(record["topic"], "ausbildungssuche.cli");
+  assert.match(record["msg"] as string, /--log-format <format>' was given more than once/);
+});

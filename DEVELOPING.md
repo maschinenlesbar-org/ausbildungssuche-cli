@@ -529,7 +529,10 @@ and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected e
 `api` (the API's error answers, the hints after them and the "no offers matched" note, as
 `INFO`), `http` (network errors and the size-cap hint, the cleartext warning), `config`
 and `obtain-key`. Code logs through `logOf(deps)` and never writes diagnostics with
-`io.err` directly. `run()` builds the logger from argv before commander parses it, so
+`io.err` directly. `run()` builds the logger from argv before commander parses it
+(`logFormatFromArgv`: the first `--log-format`, the value of an option that takes one
+skipped, used only for the records of a parse error; a `preAction` hook then sets the
+format commander parsed, so `--user-agent --log-format=jsonl` logs text), so
 commander's own usage errors are records too, and on top of the redacted `io.err`, so a
 secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
 testable. stdout carries data only. Two things on stderr are not records: the no-echo
