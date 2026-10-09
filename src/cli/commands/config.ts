@@ -61,6 +61,7 @@ export function registerConfigCommands(program: Command, deps: CliDeps): void {
       const name = credentialNameArg(command, "ausbildungssuche config set");
       if (deps.io.readSecret === undefined) throw new AusbildungValidationError("No way to read a secret here: pipe it in, or run ausbildungssuche config set on a terminal.");
       const value = (await deps.io.readSecret(`${name}: `)).trim();
+      deps.addSecret?.(value);
       const reason = valueProblem(name, value);
       if (reason !== undefined) throw new AusbildungValidationError(`${reason} Nothing was stored.`);
       const store = storeOf(deps);
@@ -79,6 +80,7 @@ export function registerConfigCommands(program: Command, deps: CliDeps): void {
       const store = storeOf(deps);
       const value = store.get(name);
       if (value === undefined) throw new AusbildungError(`No ${name} is stored in ${store.path}; ausbildungssuche config set ${name} stores one.`);
+      deps.addSecret?.(value);
       deps.io.out(options.reveal === true ? value : maskCredential(value, name));
     });
 

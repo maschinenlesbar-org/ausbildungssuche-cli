@@ -322,6 +322,7 @@ export function action(
       const store = deps.credentials();
       const stored = store.get(API_KEY_CREDENTIAL);
       if (stored !== undefined) {
+        deps.addSecret?.(stored);
         const storedProblem = apiKeyProblem(stored);
         if (storedProblem !== undefined) {
           throw new AusbildungValidationError(`${API_KEY_CREDENTIAL} in ${store.path}: ${storedProblem}`);

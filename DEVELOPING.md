@@ -192,7 +192,9 @@ The credentials file is the CLI's, not the library's: `src/cli/credentials.ts`
 `ausbildungssuche config` (`src/cli/commands/config.ts`). It reaches the CLI through
 `CliDeps.credentials`, which only `defaultDeps` sets, so a test that does not ask for
 one never reads the user's file; `action()` (`src/cli/shared.ts`) reads it only when
-neither the flag nor the env var gave a key, and `obtain-key` never reads it. The file
+neither the flag nor the env var gave a key, and makes the value a secret of the run the
+moment it is read (`deps.addSecret`, set by `run()`), so the log replaces it like a flag
+or env key; `obtain-key` never reads it. The file
 is `$XDG_CONFIG_HOME/ausbildungssuche/credentials` (else
 `~/.config/ausbildungssuche/credentials`): JSON, mode 0600 in a 0700 directory,
 replaced atomically by one writer at a time (`credentials.lock` beside it, created
