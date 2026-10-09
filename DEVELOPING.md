@@ -314,9 +314,13 @@ from every message; a `%` in it must start a valid escape (write a literal `%` a
 `%25`), since Node decodes the userinfo for the `Authorization` header — anything
 else is a usage error (exit `2`) instead of a late network error.
 
-**Secrets in the CLI's output** (`withRedactedOutput` in [`run.ts`](src/cli/run.ts)).
-Commander echoes a rejected value in its usage error and names an unknown command or
-option as typed, so `run()` wraps `deps.io` first. The userinfo of every URL-like
+**Secrets in the CLI's output** (`redactionFor` and `withRedactedOutput` in
+[`run.ts`](src/cli/run.ts)). Commander echoes a rejected value in its usage error and
+names an unknown command or option as typed, so `run()` wraps `deps.io` and builds the
+log first. The log replaces the secrets in each record's *message*, before the record
+is cut and escaped, and writes it to the raw stderr: the frame (time, level, topic) is
+never touched, and a secret with DEL, C1 or bidi characters is matched in its raw form.
+The userinfo of every URL-like
 argument (`credentialsIn`, which finds it whether the value parses or not, then
 `redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value and
 the `AUSBILDUNGSSUCHE_API_KEY` value become `***` on stderr (`redactSecrets`). Not on
@@ -546,8 +550,9 @@ and `obtain-key`. Code logs through `logOf(deps)` and never writes diagnostics w
 (`logFormatFromArgv`: the first `--log-format`, the value of an option that takes one
 skipped, used only for the records of a parse error; a `preAction` hook then sets the
 format commander parsed, so `--user-agent --log-format=jsonl` logs text), so
-commander's own usage errors are records too, and on top of the redacted `io.err`, so a
-secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
+commander's own usage errors are records too, and with the run's redaction
+(`withRedactedOutput`), which replaces a secret in the message only, before it is
+escaped: the frame is never touched, and a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
 testable. stdout carries data only. Two things on stderr are not records: the no-echo
 prompt of `config set` (`readSecret`), which is interaction, not a diagnostic, and the bin
 shim's `Output error: …` line (`handleOutputErrors`, a failed write to stdout), written

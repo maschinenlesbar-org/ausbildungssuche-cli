@@ -528,3 +528,15 @@ test("a rejected --re value is quoted at most 200 characters long (L3)", async (
   assert.match(own, /^Unknown Bundesland code "X{200}…"\. /);
   assert.ok(own.length < 400, `${own.length}`);
 });
+
+test("a rejected --api-key holding DEL or a bidi control is masked in jsonl as in text (03 Bug 1, C6)", async () => {
+  for (const key of ["Other\u007fSecretValue99", "Abc⁦SecretValue99", "MyS3cretKey‮Tail"]) {
+    for (const format of ["text", "jsonl"]) {
+      const cli = makeCli(okResponse);
+      assert.equal(await run(["--log-format", format, "--api-key", key, "search"], cli.deps), 2, `${format} ${JSON.stringify(key)}`);
+      const all = cli.err.join("\n");
+      assert.match(all, /argument '\*\*\*' is invalid/, `${format}: ${all}`);
+      assert.doesNotMatch(all, /SecretValue|S3cretKey/, `${format}: ${all}`);
+    }
+  }
+});
