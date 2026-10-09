@@ -10,7 +10,7 @@ import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { API_KEY_ENV_VAR, KEY_SOURCE_URL, obtainKey } from "../src/client/obtain-key.js";
 import { AusbildungError, AusbildungParseError, AusbildungValidationError } from "../src/client/errors.js";
-import { makeMockTransport, rawResponse, redirectResponse } from "./helpers.js";
+import { makeMockTransport, rawResponse, redirectResponse, untimed } from "./helpers.js";
 
 const SOURCE_DOC = ["# ausbildungssuche-api", "", "```bash", 'curl -H "X-API-Key: infosysbub-absuche" https://rest.arbeitsagentur.de/...', "```"].join("\\n");
 const EXPECTED_KEY = "infosysbub-absuche";
@@ -200,6 +200,6 @@ test("after a redirect, obtain-key names the document it actually read the key f
   assert.equal(result.sourceUrl, moved);
   const cli = makeCli(responder);
   assert.equal(await run(["obtain-key"], cli.deps), 0);
-  assert.match(cli.err.join("\n"), /Obtained the public key from https:\/\/mirror\.example\/key\.txt/);
+  assert.match(untimed(cli.err.join("\n")), /^INFO  \[ausbildungssuche\.obtain-key\] Obtained the public key from https:\/\/mirror\.example\/key\.txt/m);
   assert.ok(!cli.err.join("\n").includes("raw.githubusercontent.com"));
 });

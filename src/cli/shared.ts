@@ -3,7 +3,7 @@
 
 import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
-import type { CliDeps } from "./io.js";
+import { logOf, type CliDeps } from "./io.js";
 import type { AusbildungssucheClientOptions } from "../client/client.js";
 import { AusbildungError, AusbildungValidationError } from "../client/errors.js";
 import { API_KEY_ENV_VAR } from "../client/obtain-key.js";
@@ -272,7 +272,7 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
 }
 
 /**
- * Write one `warning: …` line to stderr when the effective base URL is plain `http:` to
+ * Log one warning (a WARN record of `ausbildungssuche.http`) when the effective base URL is plain `http:` to
  * a host other than loopback (cleartextProblem): requests travel unencrypted, and with
  * them the API key (from --api-key, AUSBILDUNGSSUCHE_API_KEY or the credentials file) and any credentials in
  * the URL — named, never printed. Called once per run, after the options are parsed and
@@ -281,7 +281,7 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
 export function warnOnCleartext(deps: CliDeps, global: GlobalOptions): void {
   const secrets = global.apiKey !== undefined && global.apiKey.trim() !== "" ? ["the API key"] : [];
   const problem = cleartextProblem(global.baseUrl ?? DEFAULT_BASE_URL, secrets);
-  if (problem !== undefined) deps.io.err(`warning: ${problem}`);
+  if (problem !== undefined) logOf(deps).warn("http", problem);
 }
 
 export interface ActionContext {

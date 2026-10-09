@@ -185,6 +185,21 @@ from a search result.
 Every command prints **pretty JSON to stdout**. Errors and diagnostics go to
 stderr, so piping stdout into `jq` stays clean.
 
+Each line on stderr is a **log record**: a timestamp (UTC), a level (`ERROR`, `WARN`,
+`INFO`) and a topic, the program and the area it comes from (`ausbildungssuche.cli` for usage
+errors, `ausbildungssuche.api` for the API's answers and the hints after them, `ausbildungssuche.http` for
+the connection, `ausbildungssuche.config`, `ausbildungssuche.obtain-key`). By default it is written log4j
+style; `--log-format jsonl` writes one JSON object per line instead:
+
+```text
+2026-10-09T14:03:12.481Z WARN  [ausbildungssuche.http] requests to mirror.example are sent unencrypted (http:, not https:)
+2026-10-09T14:03:12.902Z ERROR [ausbildungssuche.api] HTTP 404 for GET https://rest.arbeitsagentur.de/infosysbub/absuche/pc/v1/ausbildungsangebot/1
+```
+
+```bash
+ausbildungssuche --log-format jsonl details 1 2>log.jsonl   # {"ts":"…","level":"ERROR","topic":"ausbildungssuche.api","msg":"HTTP 404 …"}
+```
+
 ```bash
 # How many results does a query have? Read the page block. totalElements is capped
 # at 10000: a reading of exactly 10000 means "10000 or more".
@@ -250,6 +265,7 @@ These apply to every command and may be given before *or* after it, once each:
 | `-V, --version` | Print the version number |
 | `-h, --help` | Show help for the program or a command |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
+| `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [ausbildungssuche.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
 | `--base-url <url>` | API base URL (default `https://rest.arbeitsagentur.de`). A `user:password@` part is sent but shown as `***@` in everything the CLI prints, usage errors included; write a literal `%` in it as `%25` (an unescaped `%` is a usage error, exit `2`) |
 | `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled. A rejected key is never repeated in the error, and a key typed without `--api-key` (as a command or an extra argument) is not echoed either |
 | `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`; at most `2147483647`; `0` = no limit, so a hanging server blocks forever) |
@@ -280,9 +296,9 @@ boundary (different scheme/host/port), the tool **strips your key** before
 following, so a private key never leaks to another host.
 
 A base URL on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
-`::1`) works, but the CLI writes one line to stderr before the first request, naming the
+`::1`) works, but the CLI writes one warning record to stderr before the first request, naming the
 host and what travels unencrypted without printing it, e.g.
-`warning: the API key is sent unencrypted to proxy.internal.example (http:, not https:)`
+`… WARN  [ausbildungssuche.http] the API key is sent unencrypted to proxy.internal.example (http:, not https:)`
 (or `requests to … are sent unencrypted` with no key, or `the base URL's credentials` for a
 `user:password@` part). stdout and the exit code are unchanged.
 

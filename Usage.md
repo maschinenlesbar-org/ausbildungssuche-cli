@@ -238,9 +238,9 @@ redirect that crosses an origin boundary the client strips credential headers, s
 a private key is never forwarded to another host.
 
 A base URL on plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`,
-`::1`) works, but the CLI writes one line to stderr before the first request, naming the
+`::1`) works, but the CLI writes one warning record to stderr before the first request, naming the
 host and what travels unencrypted without printing it, e.g.
-`warning: the API key is sent unencrypted to proxy.internal.example (http:, not https:)`
+`… WARN  [ausbildungssuche.http] the API key is sent unencrypted to proxy.internal.example (http:, not https:)`
 (or `requests to … are sent unencrypted` with no key, or `the base URL's credentials` for a
 `user:password@` part). stdout and the exit code are unchanged.
 
@@ -259,6 +259,7 @@ each (a repeated global option is a usage error, exit `2`):
 | `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (`0`..`10`); each waits at least the linear backoff, longer when the server's `Retry-After` asks (up to 30 s; a longer one is not retried, and the error names the requested wait) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
+| `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [ausbildungssuche.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
 | `-h, --help` | Show help for the program or a command |
 
 ### `search` filters

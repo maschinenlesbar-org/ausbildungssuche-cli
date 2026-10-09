@@ -13,7 +13,7 @@ import type { CliDeps } from "../src/cli/io.js";
 import { readSecretFrom } from "../src/cli/io.js";
 import { CredentialStore, maskCredential, resolveCredentialsPath } from "../src/cli/credentials.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { makeMockTransport, jsonResponse, okResponse, rawResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, okResponse, rawResponse, untimed } from "./helpers.js";
 
 const KEY = "fake-test-key-0123456789abcdef";
 const MASKED = "fake…cdef";
@@ -70,7 +70,7 @@ test("config set stores the key from the prompt, mode 0600 in a 0700 directory, 
     assert.equal(cli.store.get("api-key"), KEY);
     assert.equal(statSync(cli.store.path).mode & 0o777, 0o600);
     assert.equal(statSync(join(cli.dir, "ausbildungssuche")).mode & 0o777, 0o700);
-    assert.match(cli.err.join("\n"), new RegExp(`Stored api-key \\(${MASKED}\\) in `));
+    assert.match(untimed(cli.err.join("\n")), new RegExp(`^INFO  \\[ausbildungssuche\\.config\\] Stored api-key \\(${MASKED}\\) in `));
     assert.ok(!(cli.err.join("\n") + cli.out.join("\n")).includes(KEY));
 
     cli.out.length = 0;

@@ -255,7 +255,8 @@ src/
     errors.ts    # AusbildungError / AusbildungApiError / AusbildungNetworkError / AusbildungParseError
     client.ts    # AusbildungssucheClient — search + details over the engine (injects X-API-Key)
   cli/
-    io.ts        # injectable I/O seam (stdout/stderr, readSecret) + injectable env (for AUSBILDUNGSSUCHE_API_KEY) + credentials
+    io.ts        # injectable I/O seam (stdout/stderr, readSecret) + injectable env (for AUSBILDUNGSSUCHE_API_KEY) + credentials, the logger and the clock
+    log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
     credentials.ts # CredentialStore — the credentials file behind `config`
     shared.ts    # option parsers, global-option resolver (incl. --api-key), JSON renderer
     commands/    # search / details, obtain-key, config
@@ -377,7 +378,7 @@ and what travels unencrypted — each phrase in `secrets`, plus the base URL's c
 when it carries userinfo — or `undefined` for `https:`, an unparseable URL and loopback
 hosts (`localhost`, `127.0.0.0/8`, `::1`). The CLI's `action()` wrapper (`shared.ts`,
 `warnOnCleartext`) passes `"the API key"` when a key is set (flag or env var) and prints
-the sentence once per run as `warning: <sentence>` on stderr, after the options are parsed
+the sentence once per run as a `WARN` record of `ausbildungssuche.http` on stderr, after the options are parsed
 and before the first request; `--help`, `--version` and usage errors never get there, and
 `obtain-key` (fixed https source, no `--base-url`) never warns.
 
@@ -442,7 +443,7 @@ every rule about what a request may contain. A rule is a pure, exported
 methods check their input before any request, and a method that returns a promise
 rejects rather than throwing synchronously. The CLI's value-parsers call the same
 functions, and `run.ts` maps an `AusbildungValidationError` to exit `2`
-(`Error: <message>`), so CLI and library accept and reject the same inputs.
+(an `ERROR` record of `ausbildungssuche.cli`), so CLI and library accept and reject the same inputs.
 
 **Error types.** [`errors.ts`](src/client/errors.ts): `AusbildungApiError`
 (non-2xx, carries `status`/`detail`), `AusbildungNetworkError` (transport
@@ -471,7 +472,7 @@ npm test          # builds, then runs `node --test` over dist/test
   warning for a plain-`http:` base URL (its env-variable case is skipped: the base URL
   has no environment variable), P21 the README's relative links (README.md ships to
   npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
-  GitHub URL). Mock fixtures answer
+  GitHub URL), P23 the log records on stderr and `--log-format`. Mock fixtures answer
   in the API's real shapes (`okResponse` in `test/helpers.ts`), because the client rejects
   any other 2xx body.
 
@@ -513,3 +514,22 @@ npm run serve                        # http://127.0.0.1:4000/ausbildungssuche-cl
 Dual-licensed under **[AGPL-3.0-or-later](LICENSE)** or a commercial license — see
 **[LICENSING.md](LICENSING.md)**. This project does **not** accept external code
 contributions; see **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
+## The log on stderr
+
+Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic, `ausbildungssuche.<area>`. `--log-format text` (the
+default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
+`--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
+and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
+`api` (the API's error answers, the hints after them and the "no offers matched" note, as
+`INFO`), `http` (network errors and the size-cap hint, the cleartext warning), `config`
+and `obtain-key`. Code logs through `logOf(deps)` and never writes diagnostics with
+`io.err` directly. `run()` builds the logger from argv before commander parses it, so
+commander's own usage errors are records too, and on top of the redacted `io.err`, so a
+secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
+testable. stdout carries data only. Two things on stderr are not records: the no-echo
+prompt of `config set` (`readSecret`), which is interaction, not a diagnostic, and the bin
+shim's `Output error: …` line (`handleOutputErrors`, a failed write to stdout), written
+straight to `process.stderr` outside `run()`. Conformance test P23 checks all of this, and
+its body is shared across the *-cli repos.

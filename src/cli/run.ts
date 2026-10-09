@@ -4,7 +4,8 @@
 
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
-import type { CliDeps } from "./io.js";
+import { logOf, type CliDeps } from "./io.js";
+import { createLogger, logFormatFromArgv } from "./log.js";
 import {
   AusbildungApiError,
   AusbildungError,
@@ -74,7 +75,15 @@ function configureTree(command: Command, deps: CliDeps): void {
   if (command.parent === null) rejectRepeatedOptions(command);
   command.configureOutput({
     writeOut: (str) => deps.io.out(str.replace(/\n$/, "")),
-    writeErr: (str) => deps.io.err(str.replace(/\n$/, "")),
+    // commander's own messages are log records too: its "error: …" an ERROR, the help it
+    // shows after one an INFO.
+    writeErr: (str) => {
+      const text = str.replace(/\n$/, "");
+      // The blank line commander writes between an error and the help it shows after.
+      if (text === "") return;
+      if (text.startsWith("error: ")) logOf(deps).error("cli", text.slice("error: ".length));
+      else logOf(deps).info("cli", text);
+    },
     outputError: (str, write) => write(withoutStrayValues(str)),
   });
   for (const child of command.commands) configureTree(child, deps);
@@ -181,6 +190,13 @@ function keyGiven(argv: readonly string[], deps: CliDeps): boolean {
 
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
   deps = withRedactedOutput(deps, argv);
+  // Every record goes through the redacted `io.err`, so a secret is kept out of the
+  // log in either format.
+  const redacted = deps;
+  deps = {
+    ...deps,
+    log: createLogger({ format: logFormatFromArgv(argv), write: (line) => redacted.io.err(line), ...(deps.now === undefined ? {} : { now: deps.now }) }),
+  };
   const program = buildProgram(deps);
   configureTree(program, deps);
 
@@ -204,13 +220,14 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       // the catch-all). exitCode 0 (help/version) is preserved.
       return err.exitCode === 0 ? 0 : EXIT.USAGE;
     }
+    const log = logOf(deps);
     // Client-side validation (e.g. an empty id) — a usage error, not a request.
     if (err instanceof AusbildungValidationError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("cli", err.message);
       return EXIT.USAGE;
     }
     if (err instanceof AusbildungApiError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("api", err.message);
       // Map a few notable statuses to distinct exit codes for scripting, and
       // nudge the user toward the likely cause for the auth/negotiation ones.
       if (err.status === 404) return EXIT.NOT_FOUND;
@@ -224,13 +241,14 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
         // A 403 is not always an auth failure (e.g. a malformed request path can
         // 403 with the valid public key). Without any key the cause is plain, so say
         // so; with one, point at the key and the request alike.
-        deps.io.err(
+        log.info(
+          "api",
           keyGiven(argv, deps)
-            ? "Hint: the API rejected the request (401/403). This is often — but not " +
+            ? "the API rejected the request (401/403). This is often — but not " +
                 "always — the X-API-Key; verify the request path/params, or check " +
                 "--api-key / the AUSBILDUNGSSUCHE_API_KEY env var / the stored key " +
                 "(`ausbildungssuche config get api-key`)."
-            : "Hint: no API key was set, and the API wants one. Get the public key with " +
+            : "no API key was set, and the API wants one. Get the public key with " +
                 "`ausbildungssuche obtain-key` and pass it with --api-key or " +
                 "AUSBILDUNGSSUCHE_API_KEY (`eval \"$(ausbildungssuche obtain-key --export)\"`), " +
                 "or store it once with `ausbildungssuche obtain-key | ausbildungssuche config set api-key`.",
@@ -238,8 +256,9 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
         return EXIT.AUTH;
       }
       if (err.status === 406) {
-        deps.io.err(
-          "Hint: the API could not satisfy the Accept header (406). " +
+        log.info(
+          "api",
+          "the API could not satisfy the Accept header (406). " +
             "The endpoint does not serve the requested media type.",
         );
         return EXIT.NOT_ACCEPTABLE;
@@ -247,20 +266,21 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       return EXIT.OTHER;
     }
     if (err instanceof AusbildungNetworkError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("http", err.message);
       if (/maxResponseBytes/.test(err.message)) {
-        deps.io.err(
-          "Hint: the response exceeded the size cap. " +
+        log.info(
+          "http",
+          "the response exceeded the size cap. " +
             "Raise it with --max-response-bytes <n> (0 = unlimited).",
         );
       }
       return EXIT.NETWORK;
     }
     if (err instanceof AusbildungError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error("cli", err.message);
       return EXIT.OTHER;
     }
-    deps.io.err(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+    log.error("cli", `Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
     return EXIT.OTHER;
   }
 }

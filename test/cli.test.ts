@@ -4,7 +4,7 @@ import { run } from "../src/cli/run.js";
 import { AusbildungssucheClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { makeMockTransport, jsonResponse, okResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, okResponse, untimed } from "./helpers.js";
 
 const SERVICE = "/infosysbub/absuche";
 
@@ -96,7 +96,7 @@ test("a 401/403 without any key says no key was set and points at obtain-key", a
   for (const status of [401, 403]) {
     const cli = makeCli(() => jsonResponse({}, status));
     assert.equal(await run(["search", "--sw", "x"], cli.deps), 3);
-    assert.match(cli.err.join("\n"), /no API key was set.*obtain-key/);
+    assert.match(untimed(cli.err.join("\n")), /^INFO  \[ausbildungssuche\.api\] no API key was set.*obtain-key/m);
   }
   const withEnv = makeCli(() => jsonResponse({}, 403), { AUSBILDUNGSSUCHE_API_KEY: "env-key-1" });
   await run(["search", "--sw", "x"], withEnv.deps);
@@ -424,14 +424,14 @@ test("a too deeply nested response is a clean error, not a stack overflow", asyn
   const pretty = makeCli(responder);
   assert.equal(await run(["details", "1"], pretty.deps), 1);
   assert.equal(
-    pretty.err.join("\n"),
-    "Error: The response is nested too deeply to pretty-print; try --compact.",
+    untimed(pretty.err.join("\n")),
+    "ERROR [ausbildungssuche.cli] The response is nested too deeply to pretty-print; try --compact.",
   );
   // Compact may cope, or fail with its own message — never "Unexpected error".
   const compact = makeCli(responder);
   const code = await run(["--compact", "details", "1"], compact.deps);
   if (code !== 0) {
-    assert.equal(compact.err.join("\n"), "Error: The response is nested too deeply to print.");
+    assert.equal(untimed(compact.err.join("\n")), "ERROR [ausbildungssuche.cli] The response is nested too deeply to print.");
   }
 });
 
@@ -478,7 +478,7 @@ test("an empty result for --ids or --bart gets a note on stderr, stdout stays JS
   const cli = makeCli(okResponse);
   assert.equal(await run(["--compact", "search", "--ids", "99999999"], cli.deps), 0);
   assert.deepEqual(JSON.parse(cli.out.join("\n")).page.totalElements, 0);
-  assert.match(cli.err.join("\n"), /no offers matched.*unknown --ids value/);
+  assert.match(untimed(cli.err.join("\n")), /^INFO  \[ausbildungssuche\.api\] no offers matched.*unknown --ids value/);
   const plain = makeCli(okResponse);
   await run(["search", "--re", "NRW"], plain.deps);
   assert.deepEqual(plain.err, []);

@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import type { CliDeps } from "../io.js";
+import { logOf, type CliDeps } from "../io.js";
 import {
   action,
   commaList,
@@ -63,8 +63,9 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
         // not an error, so say which filter may be the reason (stderr; stdout stays JSON).
         const named = (["ids", "bart"] as const).filter((p) => params[p] !== undefined);
         if (result.page?.totalElements === 0 && named.length > 0) {
-          deps.io.err(
-            `Note: no offers matched. The API answers an unknown ${named.map((p) => `--${p}`).join(" or ")} ` +
+          logOf(deps).info(
+            "api",
+            `no offers matched. The API answers an unknown ${named.map((p) => `--${p}`).join(" or ")} ` +
               "value with an empty result, not an error; check the value.",
           );
         }
