@@ -322,9 +322,11 @@ names an unknown command or option as typed, so `run()` wraps `deps.io` and buil
 log first. The log replaces the secrets in each record's *message*, before the record
 is cut and escaped, and writes it to the raw stderr: the frame (time, level, topic) is
 never touched, and a secret with DEL, C1 or bidi characters is matched in its raw form.
-The userinfo of every URL-like
+The userinfo of every URL
 argument (`credentialsIn`, which finds it whether the value parses or not, then
-`redactCredentials`) becomes `***@` on stdout and stderr; the `--api-key` value and
+`redactCredentials`) becomes `***@` on stdout and stderr. Only a value that starts with
+a scheme counts (a bare `a:b@c` is a search text, a User-Agent or a file name as often
+as a credential), except as the `--base-url` value; the `--api-key` value and
 the `AUSBILDUNGSSUCHE_API_KEY` value become `***` on stderr (`redactSecrets`). Not on
 stdout, where `obtain-key` prints the key. The forms a server echoes a userinfo back in
 are replaced too: the `Basic` value and the decoded `user:password` on stdout and

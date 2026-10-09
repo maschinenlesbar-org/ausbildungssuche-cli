@@ -5,6 +5,7 @@ import { AusbildungssucheClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, okResponse, untimed } from "./helpers.js";
+import { credentialsIn } from "../src/client/errors.js";
 
 const SERVICE = "/infosysbub/absuche";
 
@@ -539,4 +540,12 @@ test("a rejected --api-key holding DEL or a bidi control is masked in jsonl as i
       assert.doesNotMatch(all, /SecretValue|S3cretKey/, `${format}: ${all}`);
     }
   }
+});
+
+test("an a:b@c argument (here a User-Agent) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
+  const cli = makeCli(() => jsonResponse([{ id: 12345, titel: "run:2026-10-09@x" }]));
+  assert.equal(await run(["--user-agent", "run:2026-10-09@x", "details", "12345"], cli.deps), 0);
+  assert.match(cli.out.join("\n"), /"titel": "run:2026-10-09@x"/);
+  assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
+  assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });
