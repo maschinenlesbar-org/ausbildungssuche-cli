@@ -185,6 +185,15 @@ den Schlüssel verworfen hat, der antwortende Server ihn also nie gesehen hat); 
 fehlgeschlagen); `6` bei einem Netzwerk- oder Transportfehler (DNS, Verbindung, Timeout,
 Obergrenze der Antwortgröße); `1` bei allen anderen Fehlern. `--help`/`--version` liefern `0`.
 
+**Log-Eintrag (log record).** Jede Diagnosezeile, die die CLI nach stderr schreibt: ein
+Zeitstempel, eine Stufe (`ERROR`, `WARN`, `INFO`) und ein Thema `ausbildungssuche.<Bereich>`,
+als Text (im Stil von log4j) oder mit `--log-format jsonl` als ein JSON-Objekt pro Zeile.
+Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `api` (die
+Antworten der API: ein Fehlerstatus und die Hinweise danach sowie eine fehlerhafte Antwort —
+ungültiges JSON, die falsche Form), `http` (die Verbindung, die Klartext-Warnung), `config`,
+`obtain-key` und `output` (ein Schreibfehler auf stdout). Ein Eintrag ist immer eine Zeile;
+Steuerzeichen darin werden maskiert.
+
 ---
 
 > **Bibliothek & Interna.** Begriffe zum TypeScript-Client und seinen Interna –

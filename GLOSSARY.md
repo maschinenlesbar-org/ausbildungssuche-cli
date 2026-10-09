@@ -181,6 +181,14 @@ server that answered never saw it); `4` on `404`; `5` on `406` (Accept negotiati
 `6` on a network / transport failure (DNS, connection, timeout, response-size
 cap); `1` for any other error. `--help`/`--version` return `0`.
 
+**Log record.** Every diagnostic line the CLI writes to stderr: a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic `ausbildungssuche.<area>`, as text (log4j style) or
+with `--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
+commander's messages, unexpected errors), `api` (the API's answers: an error status and
+the hints after it, and a malformed answer — bad JSON, the wrong shape), `http` (the
+connection, the cleartext warning), `config`, `obtain-key` and `output` (a failed write
+to stdout). A record is always one line; control characters in it are escaped.
+
 ---
 
 > **Library & internals.** Terms for the TypeScript client and its internals —

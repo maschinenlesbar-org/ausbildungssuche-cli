@@ -187,7 +187,7 @@ stderr, so piping stdout into `jq` stays clean.
 
 Each line on stderr is a **log record**: a timestamp (UTC), a level (`ERROR`, `WARN`,
 `INFO`) and a topic, the program and the area it comes from (`ausbildungssuche.cli` for usage
-errors, `ausbildungssuche.api` for the API's answers and the hints after them, `ausbildungssuche.http` for
+errors, `ausbildungssuche.api` for the API's answers (a malformed one included) and the hints after them, `ausbildungssuche.http` for
 the connection, `ausbildungssuche.config`, `ausbildungssuche.obtain-key`, `ausbildungssuche.output`
 for a failed write to stdout). By default it is written log4j
 style; `--log-format jsonl` writes one JSON object per line instead. A record is always
