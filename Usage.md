@@ -231,7 +231,8 @@ file > no key. `ausbildungssuche config` keeps the key in
 `$XDG_CONFIG_HOME/ausbildungssuche/credentials` (else
 `~/.config/ausbildungssuche/credentials`), mode 0600, written atomically; `config set`
 reads the value from a prompt without echo or from stdin, never from the command line;
-`config get` shows it masked (`--reveal` prints it whole); `config list` and `config
+`config get` shows it masked (`abcd…wxyz`; `****` below 20 characters, so for the
+published key; `--reveal` prints it whole); `config list` and `config
 unset` do what they say. A file that others can read is refused, and only when it is
 needed. On a
 redirect that crosses an origin boundary the client strips credential headers, so

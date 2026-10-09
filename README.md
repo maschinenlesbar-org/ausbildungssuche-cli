@@ -72,7 +72,7 @@ export AUSBILDUNGSSUCHE_API_KEY="$(ausbildungssuche obtain-key)"
 ```bash
 ausbildungssuche obtain-key | ausbildungssuche config set api-key   # the published key, piped in
 ausbildungssuche config set api-key                 # or typed at a prompt, without echo
-ausbildungssuche config get api-key                 # masked: info…uche (--reveal prints it whole)
+ausbildungssuche config get api-key                 # masked: **** (abcd…wxyz from 20 characters; --reveal prints it whole)
 ausbildungssuche config list                        # what is stored, and where
 ausbildungssuche config unset api-key
 ```
