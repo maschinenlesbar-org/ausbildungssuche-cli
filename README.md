@@ -80,7 +80,7 @@ ausbildungssuche config unset api-key
 The value is never taken from the command line, so it reaches neither shell history
 nor `ps`. The file is `$XDG_CONFIG_HOME/ausbildungssuche/credentials` (else
 `~/.config/ausbildungssuche/credentials`): mode 0600 in a directory of mode 0700,
-replaced atomically, and not read at all while anyone else could read it. It is
+replaced atomically by one writer at a time (`credentials.lock` beside it), and not read at all while anyone else could read it. It is
 consulted only when neither `--api-key` nor `AUSBILDUNGSSUCHE_API_KEY` gives a key.
 
 Because the key is fetched rather than compiled in, a rotated key needs no

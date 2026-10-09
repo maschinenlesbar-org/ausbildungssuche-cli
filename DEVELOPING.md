@@ -191,7 +191,8 @@ one never reads the user's file; `action()` (`src/cli/shared.ts`) reads it only 
 neither the flag nor the env var gave a key, and `obtain-key` never reads it. The file
 is `$XDG_CONFIG_HOME/ausbildungssuche/credentials` (else
 `~/.config/ausbildungssuche/credentials`): JSON, mode 0600 in a 0700 directory,
-replaced atomically; a link, another user's file or one others can read is an
+replaced atomically by one writer at a time (`credentials.lock` beside it, created
+exclusively, waited for up to 2 s, taken over after 30 s); a link, another user's file or one others can read is an
 `AusbildungError` (exit 1) naming the fix. A stored key that `apiKeyProblem` rejects
 is a usage error (exit 2) naming the file. `config set` reads through
 `CliIO.readSecret` (`readSecretFrom`: raw mode without echo on a terminal, the whole
