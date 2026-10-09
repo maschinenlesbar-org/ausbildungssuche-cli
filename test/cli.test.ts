@@ -559,3 +559,11 @@ test("a command group without its subcommand, or no command at all, logs an ERRO
     assert.ok(records.slice(1).every((line) => /^INFO  \[ausbildungssuche\.cli\] .*\S/.test(line)), records.join("\n"));
   }
 });
+
+test("a subcommand's value option does not swallow the program's --log-format, in a parse error too (L6)", async () => {
+  // commander takes the program's --log-format out of argv first; --sw is left without its value.
+  const cli = makeCli(okResponse);
+  assert.equal(await run(["search", "--sw", "--log-format", "jsonl"], cli.deps), 2);
+  assert.ok(cli.err.length > 0 && cli.err.every((line) => line.startsWith("{")), cli.err.join("\n"));
+  assert.match((JSON.parse(cli.err[0] ?? "") as Record<string, unknown>)["msg"] as string, /--sw <text>' argument missing/);
+});
