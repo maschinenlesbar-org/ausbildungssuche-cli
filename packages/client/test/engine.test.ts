@@ -1,0 +1,491 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  MAX_REDIRECTS,
+  MAX_RETRIES,
+  MAX_RETRY_AFTER_MS,
+  RequestEngine,
+  parseRetryAfter,
+  validateBaseUrl,
+} from "../src/engine.js";
+import { MAX_TIMEOUT_MS } from "../src/http.js";
+import { regionCodeProblem } from "../src/validate.js";
+import {
+  AusbildungApiError,
+  AusbildungParseError,
+  AusbildungNetworkError,
+  AusbildungValidationError,
+  cutText,
+  toWellFormed,
+} from "../src/errors.js";
+import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
+
+// Control chars built via char codes so no raw control byte appears in this file.
+const ESC = String.fromCharCode(0x1b);
+const BEL = String.fromCharCode(0x07);
+const CSI = String.fromCharCode(0x9b); // a C1 control
+
+/** True if the string contains any C0/C1 control char except tab/newline. */
+function hasControlChars(s: string): boolean {
+  return [...s].some((c) => {
+    const n = c.charCodeAt(0);
+    return n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f);
+  });
+}
+
+test("buildUrl normalises the path and appends the query", () => {
+  const e = new RequestEngine({ baseUrl: "https://example.test/" });
+  assert.equal(e.buildUrl("infosysbub/"), "https://example.test/infosysbub/");
+  assert.equal(
+    e.buildUrl("/x", { a: "1", b: ["2", "3"] }),
+    "https://example.test/x?a=1&b=2&b=3",
+  );
+});
+
+test("getJson parses a JSON body", async () => {
+  const mt = makeMockTransport(() => jsonResponse({ ok: true }));
+  const e = new RequestEngine({ transport: mt.transport });
+  assert.deepEqual(await e.getJson("/x"), { ok: true });
+});
+
+test("getJson throws AusbildungParseError on invalid JSON", async () => {
+  const mt = makeMockTransport(() => rawResponse("not json", "application/json"));
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(() => e.getJson("/x"), AusbildungParseError);
+});
+
+test("a 503 is retried up to maxRetries then surfaces as AusbildungApiError", async () => {
+  let calls = 0;
+  const mt = makeMockTransport(() => {
+    calls += 1;
+    return jsonResponse({ detail: "busy" }, 503);
+  });
+  const e = new RequestEngine({
+    transport: mt.transport,
+    maxRetries: 2,
+    sleep: async () => {},
+  });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => err instanceof AusbildungApiError && err.status === 503,
+  );
+  assert.equal(calls, 3); // initial + 2 retries
+});
+
+test("a retried request that then succeeds resolves", async () => {
+  let calls = 0;
+  const mt = makeMockTransport(() => {
+    calls += 1;
+    return calls === 1 ? jsonResponse({}, 503) : jsonResponse({ ok: 1 });
+  });
+  const e = new RequestEngine({ transport: mt.transport, sleep: async () => {} });
+  assert.deepEqual(await e.getJson("/x"), { ok: 1 });
+  assert.equal(calls, 2);
+});
+
+test("the User-Agent and Accept headers are sent", async () => {
+  const mt = makeMockTransport(() => jsonResponse({}));
+  const e = new RequestEngine({ transport: mt.transport, userAgent: "ua/1" });
+  await e.getJson("/x");
+  assert.equal(mt.last().headers?.["User-Agent"], "ua/1");
+  assert.equal(mt.last().headers?.["Accept"], "application/json");
+});
+
+test("a redirect is followed to the Location target", async () => {
+  let calls = 0;
+  const mt = makeMockTransport((req) => {
+    calls += 1;
+    if (calls === 1) {
+      assert.equal(new URL(req.url).pathname, "/start");
+      return redirectResponse("/moved");
+    }
+    assert.equal(new URL(req.url).pathname, "/moved");
+    return jsonResponse({ ok: 1 });
+  });
+  const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport });
+  assert.deepEqual(await e.getJson("/start"), { ok: 1 });
+  assert.equal(calls, 2);
+});
+
+test("maxRedirects is honoured (stops following and surfaces the 3xx)", async () => {
+  let calls = 0;
+  const mt = makeMockTransport(() => {
+    calls += 1;
+    return redirectResponse("/loop");
+  });
+  const e = new RequestEngine({
+    baseUrl: "https://example.test",
+    transport: mt.transport,
+    maxRedirects: 2,
+  });
+  await assert.rejects(
+    () => e.getJson("/start"),
+    (err) => err instanceof AusbildungApiError && err.status === 302,
+  );
+  assert.equal(calls, 3); // initial + 2 redirects, then the 3xx surfaces
+});
+
+test("a same-origin redirect KEEPS the X-API-Key header", async () => {
+  let lastHeaders: Record<string, string> | undefined;
+  const mt = makeMockTransport((req) => {
+    lastHeaders = req.headers;
+    return req.url.includes("/moved")
+      ? jsonResponse({ ok: 1 })
+      : redirectResponse("https://example.test/moved");
+  });
+  const e = new RequestEngine({
+    baseUrl: "https://example.test",
+    transport: mt.transport,
+    defaultHeaders: { "X-API-Key": "secret-key" },
+  });
+  await e.getJson("/start");
+  assert.equal(lastHeaders?.["X-API-Key"], "secret-key");
+});
+
+test("a cross-origin redirect STRIPS credential headers", async () => {
+  let lastHeaders: Record<string, string> | undefined;
+  const mt = makeMockTransport((req) => {
+    lastHeaders = req.headers;
+    return req.url.startsWith("https://evil.test")
+      ? jsonResponse({ ok: 1 })
+      : redirectResponse("https://evil.test/grab");
+  });
+  const e = new RequestEngine({
+    baseUrl: "https://example.test",
+    transport: mt.transport,
+    defaultHeaders: {
+      "X-API-Key": "secret-key",
+      Authorization: "Bearer t0ken",
+      Cookie: "sid=abc",
+    },
+  });
+  await e.getJson("/start");
+  assert.equal(lastHeaders?.["X-API-Key"], undefined);
+  assert.equal(lastHeaders?.["Authorization"], undefined);
+  assert.equal(lastHeaders?.["Cookie"], undefined);
+  // Non-credential headers still travel along.
+  assert.equal(lastHeaders?.["Accept"], "application/json");
+});
+
+test("maxResponseBytes=0 disables the cap (no field sent to the transport)", async () => {
+  const mt = makeMockTransport(() => jsonResponse({ ok: 1 }));
+  const e = new RequestEngine({ transport: mt.transport, maxResponseBytes: 0 });
+  await e.getJson("/x");
+  assert.equal("maxResponseBytes" in mt.last(), false);
+});
+
+test("error detail is stripped of terminal control characters", async () => {
+  // A hostile endpoint escapes ESC/BEL/C1 controls in the JSON error `detail`;
+  // JSON.parse decodes them to real control bytes. run.ts prints the resulting
+  // error message raw to stderr, so they must be stripped at the source.
+  const evil = `boom${ESC}[31mred${BEL}${CSI}2J`;
+  const mt = makeMockTransport(() =>
+    rawResponse(JSON.stringify({ detail: evil }), "application/json", 500),
+  );
+  const e = new RequestEngine({ transport: mt.transport, maxRetries: 0 });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => {
+      assert.ok(err instanceof AusbildungApiError);
+      // Control bytes gone from both the structured detail and the printed message...
+      assert.ok(!hasControlChars(err.detail ?? ""));
+      assert.ok(!hasControlChars(err.message));
+      // ...while the printable characters survive.
+      assert.equal(err.detail, "boom[31mred2J");
+      return true;
+    },
+  );
+});
+
+test("the engine surfaces a transport-level network error", async () => {
+  const mt = makeMockTransport(() => {
+    throw new AusbildungNetworkError("connection reset");
+  });
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(() => e.getJson("/x"), AusbildungNetworkError);
+});
+
+test("a non-http(s) base URL is rejected at construction as a validation error, before any request", () => {
+  for (const baseUrl of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
+    const mt = makeMockTransport(() => jsonResponse({}));
+    assert.throws(
+      () => new RequestEngine({ baseUrl, transport: mt.transport }),
+      (e: unknown) => e instanceof AusbildungValidationError && !(e instanceof AusbildungNetworkError),
+    );
+    assert.equal(mt.calls.length, 0);
+  }
+});
+
+// ---- Retry-After ----
+
+function retryingEngine(retryAfter: string | undefined, maxRetries = 2) {
+  const delays: number[] = [];
+  const mt = makeMockTransport(() => ({
+    status: 429,
+    headers: {
+      "content-type": "application/json",
+      ...(retryAfter === undefined ? {} : { "retry-after": retryAfter }),
+    },
+    body: Buffer.from(JSON.stringify({ detail: "slow down" })),
+  }));
+  const engine = new RequestEngine({
+    transport: mt.transport,
+    maxRetries,
+    sleep: async (ms) => {
+      delays.push(ms);
+    },
+  });
+  return { engine, mt, delays };
+}
+
+test("a 429 with Retry-After in seconds waits that long before each retry", async () => {
+  const { engine, mt, delays } = retryingEngine("1");
+  await assert.rejects(
+    () => engine.getJson("/x"),
+    (e: unknown) => e instanceof AusbildungApiError && e.status === 429,
+  );
+  assert.equal(mt.calls.length, 3);
+  assert.deepEqual(delays, [1000, 1000]);
+});
+
+test("without a usable Retry-After the retries back off linearly", async () => {
+  for (const header of [undefined, "", "-1", "1.5", "soon", "1e3", "2026-09-26T10:00:00Z"]) {
+    const { engine, delays } = retryingEngine(header);
+    await assert.rejects(() => engine.getJson("/x"));
+    assert.deepEqual(delays, [200, 400], String(header));
+  }
+});
+
+test("a Retry-After above MAX_RETRY_AFTER_MS is not retried: the error surfaces at once", async () => {
+  for (const header of ["31", "99999999999999999999", "Fri, 31 Dec 9999 23:59:59 GMT"]) {
+    const { engine, mt, delays } = retryingEngine(header);
+    await assert.rejects(
+      () => engine.getJson("/x"),
+      (e: unknown) => e instanceof AusbildungApiError && e.status === 429,
+    );
+    assert.equal(mt.calls.length, 1, header);
+    assert.deepEqual(delays, [], header);
+  }
+});
+
+test("parseRetryAfter reads delay-seconds and IMF-fixdate HTTP-dates", () => {
+  const now = Date.parse("Sat, 26 Sep 2026 10:00:00 GMT");
+  assert.equal(parseRetryAfter("0", now), 0);
+  assert.equal(parseRetryAfter(" 30 ", now), 30_000);
+  assert.equal(parseRetryAfter(["2", "9"], now), 2000);
+  assert.equal(parseRetryAfter("Sat, 26 Sep 2026 10:00:05 GMT", now), 5000);
+  assert.equal(parseRetryAfter("Sat, 26 Sep 2026 09:00:00 GMT", now), 0); // past date: retry now
+  for (const bad of [undefined, "", "-1", "+5", "1.5", "1e3", "0x10", "Saturday, 26-Sep-26 10:00:05 GMT"]) {
+    assert.equal(parseRetryAfter(bad, now), undefined, String(bad));
+  }
+  assert.equal(MAX_RETRY_AFTER_MS, 30_000);
+});
+
+test("a . or .. path segment (percent-encoded forms included) is rejected without a request", async () => {
+  for (const seg of [".", "..", "%2e", "%2e%2e", ".%2e", "%2E.", "%2E%2E"]) {
+    const mt = makeMockTransport(() => jsonResponse({}));
+    const e = new RequestEngine({ transport: mt.transport });
+    await assert.rejects(
+      () => e.getJson(`/infosysbub/absuche/pc/v1/ausbildungsangebot/${seg}`),
+      (err: unknown) =>
+        err instanceof AusbildungValidationError &&
+        err.message ===
+          `Invalid path segment "${seg}" in /infosysbub/absuche/pc/v1/ausbildungsangebot/${seg}: "." and ".." cannot be used as an id.`,
+      seg,
+    );
+    assert.equal(mt.calls.length, 0, seg);
+  }
+  // Longer dot runs and dotted ids are ordinary segments.
+  const e = new RequestEngine({ baseUrl: "https://example.test" });
+  assert.equal(e.buildUrl("/x/..."), "https://example.test/x/...");
+  assert.equal(e.buildUrl("/x/1.0.0"), "https://example.test/x/1.0.0");
+});
+
+test("a base URL with a query or fragment is rejected at construction", () => {
+  for (const baseUrl of ["https://example.test/x?y=1", "https://example.test/x#f"]) {
+    assert.throws(
+      () => new RequestEngine({ baseUrl }),
+      (e: unknown) => e instanceof AusbildungValidationError && /query \(\?\) or fragment/.test((e as Error).message),
+      baseUrl,
+    );
+  }
+});
+
+test("error detail loses line breaks and bidi controls: one line on stderr", async () => {
+  const RLO = String.fromCharCode(0x202e);
+  const evil = `bad\nError: fake second line\r\n\tmore${RLO}txt.exe end`;
+  const mt = makeMockTransport(() =>
+    rawResponse(JSON.stringify({ detail: evil }), "application/json", 400),
+  );
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => {
+      assert.ok(err instanceof AusbildungApiError);
+      assert.equal(err.detail, "bad Error: fake second line moretxt.exe end");
+      assert.ok(!/[\n\r]/.test(err.message));
+      return true;
+    },
+  );
+});
+
+test("redactUrl hides userinfo and leaves other URLs unchanged", async () => {
+  const { redactUrl } = await import("../src/errors.js");
+  assert.equal(redactUrl("http://u:p@h.test/x?y=1"), "http://***@h.test/x?y=1");
+  assert.equal(redactUrl("http://u@h.test/"), "http://***@h.test/");
+  assert.equal(redactUrl("http://h.test/x"), "http://h.test/x");
+  assert.equal(redactUrl("not a url"), "not a url");
+  assert.throws(
+    () => new RequestEngine({ baseUrl: "ftp://u:secret@h.test/" }),
+    (e: unknown) => e instanceof AusbildungValidationError && !(e as Error).message.includes("secret"),
+  );
+});
+
+// ---- redirect edge cases ----
+
+async function apiErrorFor(responder: () => ReturnType<typeof redirectResponse>) {
+  const mt = makeMockTransport(responder);
+  const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport });
+  let caught: unknown;
+  await e.getJson("/x").catch((err: unknown) => {
+    caught = err;
+  });
+  assert.ok(caught instanceof AusbildungApiError, String(caught));
+  return { err: caught, calls: mt.calls.length };
+}
+
+test("a malformed redirect Location surfaces as an API error naming it, not a TypeError", async () => {
+  for (const loc of ["http://[::1", "http://127.0.0.1:99999/x"]) {
+    const { err, calls } = await apiErrorFor(() => redirectResponse(loc));
+    assert.equal(calls, 1, loc);
+    assert.equal(err.status, 302);
+    assert.equal(err.location, loc);
+    assert.match(err.message, new RegExp(`redirect to ${loc.replace(/[[\].]/g, "\\$&")} not followed$`));
+  }
+});
+
+test("a redirect loop ends naming the target instead of a bare HTTP 302", async () => {
+  const { err, calls } = await apiErrorFor(() => redirectResponse("/x"));
+  assert.equal(calls, 6); // initial + maxRedirects (5)
+  assert.equal(
+    err.message,
+    "HTTP 302 for GET https://example.test/x: redirect to https://example.test/x not followed",
+  );
+});
+
+test("a 3xx without Location says so", async () => {
+  const { err } = await apiErrorFor(() => ({ status: 302, headers: {}, body: Buffer.alloc(0) }));
+  assert.match(err.message, /: redirect not followed \(no Location header\)$/);
+  assert.equal(err.location, undefined);
+});
+
+test("300, 304 and 305 are not followed", async () => {
+  for (const status of [300, 304, 305]) {
+    const { err, calls } = await apiErrorFor(() => redirectResponse("/elsewhere", status));
+    assert.equal(calls, 1, String(status));
+    assert.equal(err.status, status);
+    assert.match(err.message, /redirect to https:\/\/example\.test\/elsewhere not followed/);
+  }
+});
+
+test("a not-followed Location is sanitised and its userinfo redacted", async () => {
+  const { err } = await apiErrorFor(() =>
+    redirectResponse(`https://u:pw@evil.test/a${ESC}[2J\nError: x`, 300),
+  );
+  assert.ok(!err.message.includes("pw"));
+  assert.ok(!hasControlChars(err.message) && !err.message.includes("\n"));
+  assert.match(err.message, /redirect to https:\/\/\*\*\*@evil\.test\/a/);
+});
+
+test("the engine accepts its numeric options at both ends of their range", () => {
+  for (const options of [
+    { timeoutMs: 0, maxRetries: 0, retryDelayMs: 0, maxRedirects: 0, maxResponseBytes: 0 },
+    { timeoutMs: MAX_TIMEOUT_MS, maxRetries: MAX_RETRIES, maxRedirects: MAX_REDIRECTS, maxResponseBytes: Number.MAX_SAFE_INTEGER },
+  ]) {
+    assert.doesNotThrow(() => new RequestEngine(options), JSON.stringify(options));
+  }
+  assert.throws(() => new RequestEngine({ maxRetries: MAX_RETRIES + 1 }), AusbildungValidationError);
+  assert.throws(() => new RequestEngine({ maxRedirects: MAX_REDIRECTS + 1 }), AusbildungValidationError);
+  assert.throws(() => new RequestEngine({ timeoutMs: MAX_TIMEOUT_MS + 1 }), AusbildungValidationError);
+});
+
+test("the base URL is checked on the raw value; only undefined selects the default", () => {
+  for (const baseUrl of ["", " https://h.test", "https://h.test/ ", "https://h.test/a\tb", "https://h.te\nst"]) {
+    const mt = makeMockTransport(() => jsonResponse({}));
+    assert.throws(
+      () => new RequestEngine({ baseUrl, transport: mt.transport }),
+      AusbildungValidationError,
+      JSON.stringify(baseUrl),
+    );
+    assert.equal(mt.calls.length, 0);
+  }
+  assert.equal(validateBaseUrl("https://h.test/p//"), "https://h.test/p");
+  assert.equal(new RequestEngine().buildUrl("/x"), "https://rest.arbeitsagentur.de/x");
+});
+
+test("a body is decoded by its declared charset; a BOM is dropped; an unknown charset is a parse error", async () => {
+  const text = "Müller Köln";
+  for (const [contentType, body] of [
+    ["application/json; charset=iso-8859-1", Buffer.from(JSON.stringify({ t: text }), "latin1")],
+    ["application/json; charset=utf-8", Buffer.from(JSON.stringify({ t: text }), "utf8")],
+    ["application/json", Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(JSON.stringify({ t: text }))])],
+  ] as const) {
+    const mt = makeMockTransport(() => rawResponse(body, contentType));
+    const e = new RequestEngine({ transport: mt.transport });
+    assert.deepEqual(await e.getJson("/x"), { t: text }, contentType);
+  }
+  const mt = makeMockTransport(() => rawResponse("{}", "application/json; charset=x-no-such-charset"));
+  await assert.rejects(new RequestEngine({ transport: mt.transport }).getJson("/x"), AusbildungParseError);
+});
+
+test("a server detail is cut at 500 characters in the message; the body keeps it whole", async () => {
+  const long = "x".repeat(5000);
+  const mt = makeMockTransport(() => jsonResponse({ detail: long }, 400));
+  await assert.rejects(new RequestEngine({ transport: mt.transport }).getJson("/x"), (e: unknown) => {
+    assert.ok(e instanceof AusbildungApiError);
+    assert.ok(e.message.length < 700, `${e.message.length}`);
+    assert.match(e.message, /x…$/);
+    assert.ok(e.body.includes(long));
+    return true;
+  });
+});
+
+test("cutText never cuts inside a surrogate pair; toWellFormed replaces half a character", () => {
+  assert.equal(cutText("ab\u{1f600}cd", 3), "ab");
+  assert.equal(cutText("ab\u{1f600}cd", 4), "ab\u{1f600}");
+  assert.equal(cutText("short", 10), "short");
+  assert.equal(toWellFormed("a\ud83d b\ude00 \u{1f600}"), "a\ufffd b\ufffd \u{1f600}");
+});
+
+test("a server detail cut at 500 characters keeps the message well-formed", async () => {
+  const detail = "a" + "\u{1f600}".repeat(400);
+  const mt = makeMockTransport(() => jsonResponse({ detail }, 500));
+  await assert.rejects(new RequestEngine({ transport: mt.transport }).getJson("/x"), (err: Error) => {
+    assert.equal(toWellFormed(err.message), err.message);
+    assert.match(err.message, /…$/);
+    return true;
+  });
+});
+
+test("own messages quote a server or user value at most 200 characters long (L3)", async () => {
+  const long = "x".repeat(5000);
+  const redirect = new RequestEngine({ maxRedirects: 0, transport: async () => ({ status: 302, headers: { location: `https://other.example/${long}` }, body: Buffer.alloc(0) }) });
+  await assert.rejects(redirect.getJson("/x"), (err: Error) => err.message.length < 400 && /redirect to https:\/\/other\.example\/x+… not followed/.test(err.message));
+  const charset = new RequestEngine({ transport: async () => ({ status: 200, headers: { "content-type": `application/json; charset=${long}` }, body: Buffer.from("{}") }) });
+  await assert.rejects(charset.getJson("/x"), (err: Error) => err.message.length < 400 && /Unsupported response charset "x+…"/.test(err.message));
+  assert.match(regionCodeProblem(long) ?? "", /^Unknown Bundesland code "x{200}…"\./);
+});
+
+test("credentials a server echoes are scrubbed from the error: Basic, user:password, password (L13)", async () => {
+  const basic = Buffer.from("alice:pa ss-pw", "latin1").toString("base64");
+  const body = JSON.stringify({ detail: `no: Basic ${basic} / alice:pa ss-pw / pa ss-pw` });
+  const engine = new RequestEngine({
+    baseUrl: "https://alice:pa%20ss-pw@mirror.example",
+    transport: async () => ({ status: 401, headers: { "content-type": "application/json" }, body: Buffer.from(body) }),
+  });
+  await assert.rejects(engine.getJson("/x"), (err: AusbildungApiError) => {
+    for (const form of [basic, "alice:pa ss-pw", "pa ss-pw"]) assert.ok(!err.message.includes(form), err.message);
+    assert.match(err.message, /no: Basic \*\*\* \/ \*\*\* \/ \*\*\*/);
+    return true;
+  });
+});

@@ -1,0 +1,417 @@
+// CLI ↔ library parity: the same input through run() and through the library, on
+// one recording mock transport, must give the same outcome — both reject before
+// any request, or both send the identical request.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { AusbildungssucheClient } from "@maschinenlesbar.org/ausbildungssuche-client/internal/client";
+import { AusbildungValidationError } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
+import type { AusbildungSearchParams } from "@maschinenlesbar.org/ausbildungssuche-client/internal/types";
+import type { Transport } from "@maschinenlesbar.org/ausbildungssuche-client/internal/http";
+import { obtainKey, type ObtainKeyOptions } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
+import { AusbildungNetworkError } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
+import { rawResponse } from "./helpers.js";
+import { parity } from "./helpers.js";
+
+type Parity = Awaited<ReturnType<typeof parity>>;
+
+/** Both sides reject the input as a usage/validation error and send nothing. */
+function assertBothReject({ cli, lib }: Parity, message?: RegExp): void {
+  assert.equal(cli.code, 2, `CLI exit (stderr: ${cli.err})`);
+  assert.equal(lib.ok, false, "the library must reject");
+  assert.ok(lib.error instanceof AusbildungValidationError, `library error: ${String(lib.error)}`);
+  assert.deepEqual(cli.requests, [], "the CLI must send no request");
+  assert.deepEqual(lib.requests, [], "the library must send no request");
+  if (message) {
+    assert.match(cli.err, message);
+    assert.match((lib.error as Error).message, message);
+  }
+}
+
+/** Both sides succeed with the identical request. */
+function assertSameRequest({ cli, lib }: Parity): void {
+  assert.equal(cli.code, 0, `CLI exit (stderr: ${cli.err})`);
+  assert.equal(lib.ok, true, `library error: ${String(lib.error)}`);
+  assert.equal(cli.requests.length, 1);
+  assert.deepEqual(lib.requests, cli.requests);
+}
+
+const KEY = "test-key";
+const client = (transport: Transport) => new AusbildungssucheClient({ transport, apiKey: KEY });
+const search = (argv: string[], params: AusbildungSearchParams) =>
+  parity(["--api-key", KEY, "search", ...argv], (t) => client(t).search(params));
+
+// The CLI sends parameters in its option order (sw, sty, orte, re, uk, ids, bart,
+// bg, bt, page, size); the library params below follow it so the URLs compare equal.
+
+// Finding #1 (PAT-9): a blank filter is an empty parameter the API ignores, so the
+// search would silently run unfiltered.
+for (const [name, value] of [
+  ["sw", ""],
+  ["sw", "  "],
+  ["ids", ""],
+  ["ids", " "],
+  ["bart", " "],
+  ["re", "\t"],
+  ["bt", ""],
+  ["uk", ""],
+  ["orte", ""],
+] as const) {
+  test(`parity: a blank ${name} ${JSON.stringify(value)} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await search([`--${name}`, value], { [name]: value }), /non-empty/);
+  });
+}
+
+test("parity: a non-blank filter is sent identically", async () => {
+  assertSameRequest(await search(["--ids", "9162", "--sw", "Koch"], { sw: "Koch", ids: "9162" }));
+});
+
+// Finding #6 (PAT-10): offer ids are numeric; anything else re-targets or garbles
+// the detail path and is sent with the API key.
+const details = (id: string) =>
+  parity(["--api-key", KEY, "details", "--", id], (t) => client(t).details(id));
+
+for (const id of ["abc", " 123 ", "12/34", "%31%32", "12%2F3", "1.5", "-1", "0x10", "?x", "#x", "a\tb", "AB%20CD"]) {
+  test(`parity: details ${JSON.stringify(id)} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await details(id), /numeric offer id/);
+  });
+}
+
+for (const id of ["", "  "]) {
+  test(`parity: details with a blank id ${JSON.stringify(id)} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await details(id), /non-empty/);
+  });
+}
+
+test("parity: a numeric offer id is sent identically", async () => {
+  assertSameRequest(await details("365241044"));
+});
+
+// Finding #4 (PAT-12): values outside the API's closed value sets, and a malformed
+// place, are rejected by both sides before any request (the API answers 400/500).
+const P = "Köln_6.957_50.938";
+for (const [name, argv, params, message] of [
+  ["sty 4", ["--sty", "4"], { sty: 4 }, /between 0 and 3/],
+  ["re BW", ["--re", "BW"], { re: "BW" }, /Unknown Bundesland code "BW"/],
+  ["re NRW,", ["--re", "NRW,"], { re: "NRW," }, /Unknown Bundesland code ""/],
+  ["uk 30", ["--orte", P, "--uk", "30"], { orte: P, uk: "30" }, /10, 25, 50, 100 \(km\) or Bundesweit/],
+  ["bt 113", ["--bt", "113"], { bt: "113" }, /start-date codes/],
+  ["bt '101, 102'", ["--bt", "101, 102"], { bt: "101, 102" }, /start-date codes/],
+  ["bt 2026-10-01", ["--bt", "2026-10-01"], { bt: "2026-10-01" }, /start-date codes/],
+  ["orte Köln", ["--orte", "Köln", "--uk", "25"], { orte: "Köln", uk: "25" }, /Name_lon_lat/],
+  ["orte Köln_6.9_95", ["--orte", "Köln_6.9_95", "--uk", "25"], { orte: "Köln_6.9_95", uk: "25" }, /Name_lon_lat/],
+  ["orte _6.9_50.9", ["--orte", "_6.9_50.9", "--uk", "25"], { orte: "_6.9_50.9", uk: "25" }, /Name_lon_lat/],
+] as const) {
+  test(`parity: search ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await search([...argv], params as AusbildungSearchParams), message);
+  });
+}
+
+test("parity: valid closed-set values are sent identically", async () => {
+  assertSameRequest(
+    await search(
+      ["--sty", "3", "--orte", P, "--re", "BAY,THÜ", "--uk", "Bundesweit", "--bt", "0,2,101,112"],
+      { sty: 3, orte: P, re: "BAY,THÜ", uk: "Bundesweit", bt: "0,2,101,112" },
+    ),
+  );
+});
+
+// The CLI cannot express these (its parser takes digits only); the library must
+// still reject them rather than send them.
+test("the library rejects a sty that is not an integer in 0..3", async () => {
+  for (const sty of [-1, 1.5, Number.NaN, 4]) {
+    const { lib } = await search([], { sty });
+    assert.ok(lib.error instanceof AusbildungValidationError, String(sty));
+    assert.deepEqual(lib.requests, []);
+  }
+});
+
+// Finding #3 (PAT-11): size 1..20, a non-negative integer page, and the
+// 10,000-result window ((page + 1) × size ≤ 10000).
+for (const [name, argv, params, message] of [
+  ["size 0", ["--size", "0"], { size: 0 }, /between 1 and 20/],
+  ["size 21", ["--size", "21"], { size: 21 }, /between 1 and 20/],
+  ["size 50", ["--size", "50"], { size: 50 }, /between 1 and 20/],
+  ["page 500", ["--page", "500"], { page: 500 }, /10000-result window.*last page is 499/],
+  ["page 1000 size 10", ["--page", "1000", "--size", "10"], { page: 1000, size: 10 }, /10000-result window.*last page is 999/],
+  ["page 10000 size 1", ["--page", "10000", "--size", "1"], { page: 10000, size: 1 }, /10000-result window/],
+] as const) {
+  test(`parity: search ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await search([...argv], params), message);
+  });
+}
+
+for (const [name, argv, params] of [
+  ["page 499", ["--page", "499"], { page: 499 }],
+  ["page 9999 size 1", ["--page", "9999", "--size", "1"], { page: 9999, size: 1 }],
+  ["size 20", ["--size", "20"], { size: 20 }],
+  ["page 0 size 1", ["--page", "0", "--size", "1"], { page: 0, size: 1 }],
+] as const) {
+  test(`parity: search ${name} is sent identically`, async () => {
+    assertSameRequest(await search([...argv], params));
+  });
+}
+
+// The CLI's parsers take digits only, so it cannot express these; the library must
+// still reject them rather than send them.
+test("the library rejects a page or size that is not a non-negative integer", async () => {
+  for (const params of [
+    { page: -1 }, { page: 1.5 }, { page: Number.NaN }, { page: Number.POSITIVE_INFINITY },
+    { size: 1.5 }, { size: -1 }, { size: Number.NaN },
+  ]) {
+    const { lib } = await search([], params);
+    assert.ok(lib.error instanceof AusbildungValidationError, JSON.stringify(params));
+    assert.deepEqual(lib.requests, []);
+  }
+});
+
+// Finding #2 (PAT-14): a km radius without a place is ignored by the API, and a
+// place without a radius does not narrow the search; either alone would return the
+// nationwide set.
+test("parity: uk 25 without orte is rejected by CLI and library alike", async () => {
+  assertBothReject(await search(["--uk", "25"], { uk: "25" }), /uk 25 needs (--)?orte/);
+});
+
+test("parity: orte without uk is rejected by CLI and library alike", async () => {
+  assertBothReject(await search(["--orte", P], { orte: P }), /orte needs (--)?uk/);
+});
+
+for (const [name, argv, params] of [
+  ["uk Bundesweit alone", ["--uk", "Bundesweit"], { uk: "Bundesweit" }],
+  ["orte with uk 25", ["--orte", P, "--uk", "25"], { orte: P, uk: "25" }],
+  ["orte with uk Bundesweit", ["--orte", P, "--uk", "Bundesweit"], { orte: P, uk: "Bundesweit" }],
+] as const) {
+  test(`parity: ${name} is sent identically`, async () => {
+    assertSameRequest(await search([...argv], params));
+  });
+}
+
+// Finding #5 (PAT-16): the library canonicalises re (trim, NFC, uppercase per code)
+// and uk (any-case bundesweit -> Bundesweit) as the CLI does; the API answers the
+// lowercase forms with HTTP 400.
+const NFD_THUE = "THU\u0308";
+for (const [name, argv, params, sent] of [
+  ["uk bundesweit", ["--uk", "bundesweit"], { uk: "bundesweit" }, "uk=Bundesweit"],
+  ["uk BUNDESWEIT", ["--uk", "BUNDESWEIT"], { uk: "BUNDESWEIT" }, "uk=Bundesweit"],
+  ["re nrw", ["--re", "nrw"], { re: "nrw" }, "re=NRW"],
+  ["re ' bay, nrw'", ["--re", " bay, nrw"], { re: " bay, nrw" }, "re=BAY%2CNRW"],
+  ["re THÜ in NFD", ["--re", NFD_THUE], { re: NFD_THUE }, "re=TH%C3%9C"],
+  ["re nrw,thü", ["--re", "nrw,thü"], { re: "nrw,thü" }, "re=NRW%2CTH%C3%9C"],
+] as const) {
+  test(`parity: search ${name} is normalised and sent identically`, async () => {
+    const result = await search([...argv], params);
+    assertSameRequest(result);
+    assert.ok(result.lib.requests[0]?.url.endsWith(`?${sent}`), String(result.lib.requests[0]?.url));
+  });
+}
+
+// Finding #7 (PAT-8): the engine's numeric options are range-checked by the
+// library, not only by the CLI's parsers.
+const withOptions = (argv: string[], options: Record<string, number>) =>
+  parity([...argv, "--api-key", KEY, "details", "1"], (t) =>
+    new AusbildungssucheClient({ transport: t, apiKey: KEY, ...options }).details("1"),
+  );
+
+for (const [name, argv, options, message] of [
+  ["--max-retries 11", ["--max-retries", "11"], { maxRetries: 11 }, /between 0 and 10/],
+  ["--max-retries 50", ["--max-retries", "50"], { maxRetries: 50 }, /between 0 and 10/],
+  ["--timeout 2147483648", ["--timeout", "2147483648"], { timeoutMs: 2_147_483_648 }, /between 0 and 2147483647/],
+  ["--timeout -1", ["--timeout", "-1"], { timeoutMs: -1 }, /non-negative integer|between 0 and 2147483647/],
+  ["--max-response-bytes -1", ["--max-response-bytes", "-1"], { maxResponseBytes: -1 }, /non-negative integer/],
+] as const) {
+  test(`parity: ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await withOptions([...argv], options), message);
+  });
+}
+
+test("parity: in-range engine options give the identical request", async () => {
+  assertSameRequest(
+    await withOptions(["--max-retries", "10", "--timeout", "0", "--max-response-bytes", "0"], {
+      maxRetries: 10,
+      timeoutMs: 0,
+      maxResponseBytes: 0,
+    }),
+  );
+});
+
+// Values the CLI's digit-only parsers cannot express; the library must still reject
+// them in the constructor instead of silently dropping a timeout or a size cap.
+test("the library rejects non-integer and out-of-range engine options", () => {
+  for (const [option, value] of [
+    ["timeoutMs", Number.NaN], ["timeoutMs", 1.5], ["timeoutMs", Number.POSITIVE_INFINITY],
+    ["maxRetries", Number.NaN], ["maxRetries", -1], ["maxRetries", Number.POSITIVE_INFINITY],
+    ["maxResponseBytes", Number.NaN], ["maxResponseBytes", 1.5],
+    ["retryDelayMs", -1], ["retryDelayMs", Number.NaN],
+    ["maxRedirects", -1], ["maxRedirects", Number.NaN], ["maxRedirects", 11],
+  ] as const) {
+    assert.throws(
+      () => new AusbildungssucheClient({ [option]: value }),
+      (err) => err instanceof AusbildungValidationError && err.message.startsWith(`Invalid ${option}: `),
+      `${option}=${value}`,
+    );
+  }
+});
+
+// Finding #8 (PAT-5): whether a value can go into an HTTP header is checked by the
+// library (client, engine and obtainKey), not only by the CLI's parsers.
+const CRLF = "k" + String.fromCharCode(13, 10) + "X-Evil: 1";
+const headerCases: Array<[string, string[], Record<string, unknown>, RegExp]> = [
+  ["--api-key with CR/LF", ["--api-key", CRLF], { apiKey: CRLF }, /control characters/],
+  ["--api-key above Latin-1", ["--api-key", "€key"], { apiKey: "€key" }, /outside Latin-1/],
+  ["--api-key with NUL", ["--api-key", "a\u0000b"], { apiKey: "a\u0000b" }, /control characters/],
+  ["blank --user-agent", ["--user-agent", ""], { userAgent: "" }, /non-empty/],
+  ["whitespace --user-agent", ["--user-agent", "   "], { userAgent: "   " }, /non-empty/],
+  ["--user-agent with CR/LF", ["--user-agent", CRLF], { userAgent: CRLF }, /control characters/],
+  ["--user-agent with DEL", ["--user-agent", "a\u007fb"], { userAgent: "a\u007fb" }, /control characters/],
+  ["--user-agent above Latin-1", ["--user-agent", "agent☃"], { userAgent: "agent☃" }, /outside Latin-1/],
+];
+for (const [name, argv, options, message] of headerCases) {
+  test(`parity: ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(
+      await parity([...argv, "details", "1"], (t) =>
+        new AusbildungssucheClient({ transport: t, ...options }).details("1"),
+      ),
+      message,
+    );
+  });
+}
+
+test("parity: a control character in the env API key is rejected by CLI and library alike", async () => {
+  assertBothReject(
+    await parity(["details", "1"], (t) => new AusbildungssucheClient({ transport: t, apiKey: CRLF }).details("1"), {
+      env: { AUSBILDUNGSSUCHE_API_KEY: CRLF },
+    }),
+    /control characters/,
+  );
+});
+
+test("parity: obtain-key with a CR/LF User-Agent is rejected by CLI and library alike", async () => {
+  assertBothReject(
+    await parity(["--user-agent", CRLF, "obtain-key"], (t) => obtainKey({ transport: t, userAgent: CRLF })),
+    /control characters/,
+  );
+});
+
+test("parity: tab and Latin-1 in the User-Agent are sent identically", async () => {
+  assertSameRequest(
+    await parity(["--user-agent", "a\tü", "--api-key", KEY, "details", "1"], (t) =>
+      new AusbildungssucheClient({ transport: t, userAgent: "a\tü", apiKey: KEY }).details("1"),
+    ),
+  );
+});
+
+test("the library rejects a bad defaultHeaders name or value in the constructor", () => {
+  const cases: Array<Record<string, string>> = [{ "X-Bad": CRLF }, { "X-Bad": "" }, { "Bad Name": "v" }, { "": "v" }];
+  for (const defaultHeaders of cases) {
+    assert.throws(
+      () => new AusbildungssucheClient({ defaultHeaders }),
+      (err) => err instanceof AusbildungValidationError,
+      JSON.stringify(defaultHeaders),
+    );
+  }
+});
+
+// Finding #9 (PAT-6): the key is trimmed by the library, so --api-key, the env var
+// and the apiKey option send the same X-API-Key; an inner control character is
+// still rejected by all three.
+const keyedDetails = (key: string, via: "flag" | "env") =>
+  parity(
+    via === "flag" ? ["--api-key", key, "details", "1"] : ["details", "1"],
+    (t) => new AusbildungssucheClient({ transport: t, apiKey: key }).details("1"),
+    via === "env" ? { env: { AUSBILDUNGSSUCHE_API_KEY: key } } : {},
+  );
+for (const key of ["  test-key  ", "\tk\t", "k\n", " k "]) {
+  for (const via of ["flag", "env"] as const) {
+    test(`parity: the API key ${JSON.stringify(key)} via ${via} is sent trimmed by CLI and library alike`, async () => {
+      const result = await keyedDetails(key, via);
+      assertSameRequest(result);
+      assert.equal(result.lib.requests[0]?.headers?.["X-API-Key"], key.trim());
+    });
+  }
+}
+
+for (const via of ["flag", "env"] as const) {
+  test(`parity: an inner LF in the API key via ${via} is rejected by CLI and library alike`, async () => {
+    assertBothReject(await keyedDetails(" a\nb ", via), /control characters/);
+  });
+}
+
+// Finding #10 (PAT-1, PAT-2): the base URL's shape is checked by the library on the
+// raw value (new URL() would silently trim it), and a bad one is a validation
+// error, not a network error.
+for (const [name, baseUrl, message] of [
+  ["leading space", " https://h.example", /surrounding whitespace/],
+  ["trailing space", "https://h.example ", /surrounding whitespace/],
+  ["trailing space after the slash", "https://h.example/ ", /surrounding whitespace/],
+  ["a tab inside", "https://h.example/p\tq", /whitespace or control characters/],
+  ["a newline in the host", "https://h.exa\nmple", /whitespace or control characters/],
+  ["a query", "https://h.example/?a=1", /query \(\?\) or fragment \(#\)/],
+  ["a fragment", "https://h.example/#f", /query \(\?\) or fragment \(#\)/],
+  ["an ftp scheme", "ftp://h.example", /Unsupported scheme "ftp:"/],
+  ["no URL at all", "notaurl", /absolute http\(s\) URL/],
+  ["blank", "", /non-empty/],
+] as const) {
+  test(`parity: a base URL with ${name} is rejected by CLI and library alike`, async () => {
+    assertBothReject(
+      await parity(["--base-url", baseUrl, "--api-key", KEY, "details", "1"], (t) =>
+        new AusbildungssucheClient({ transport: t, apiKey: KEY, baseUrl }).details("1"),
+      ),
+      message,
+    );
+  });
+}
+
+test("parity: a base URL with a path prefix and trailing slashes is sent identically", async () => {
+  const baseUrl = "http://127.0.0.1:1/mirror//";
+  assertSameRequest(
+    await parity(["--base-url", baseUrl, "--api-key", KEY, "details", "1"], (t) =>
+      new AusbildungssucheClient({ transport: t, apiKey: KEY, baseUrl }).details("1"),
+    ),
+  );
+});
+
+// Finding #11 (PAT-22): obtainKey() goes through the engine, so obtain-key honours
+// the same request policy (size cap, retries, timeout) as every other request, and
+// the CLI forwards every applicable global option.
+const KEY_DOC = 'curl -H "X-API-Key: infosysbub-absuche" https://rest.arbeitsagentur.de/';
+
+test("parity: obtain-key with a 10-byte response cap fails in CLI and library alike", async () => {
+  const { cli, lib } = await parity(
+    ["--max-response-bytes", "10", "obtain-key"],
+    (t) => obtainKey({ transport: t, maxResponseBytes: 10 } as ObtainKeyOptions),
+    {
+      // Emulates the default transport's cap.
+      responder: (req) => {
+        if (req.maxResponseBytes !== undefined && KEY_DOC.length > req.maxResponseBytes) {
+          throw new AusbildungNetworkError(`Response exceeded maxResponseBytes (${req.maxResponseBytes})`);
+        }
+        return rawResponse(KEY_DOC, "text/plain");
+      },
+    },
+  );
+  assert.equal(cli.code, 6, `CLI exit (stderr: ${cli.err})`);
+  assert.equal(cli.out, "");
+  assert.ok(lib.error instanceof AusbildungNetworkError, String(lib.error));
+  assert.equal(cli.requests.length, 1);
+  assert.deepEqual(lib.requests, cli.requests);
+});
+
+test("parity: obtain-key retries a 503 as --max-retries / maxRetries allow", async () => {
+  let n = 0;
+  const { cli, lib } = await parity(
+    ["--max-retries", "1", "obtain-key"],
+    (t) => obtainKey({ transport: t, maxRetries: 1 } as ObtainKeyOptions),
+    {
+      // Every first attempt gets a 503 (Retry-After 0), every retry the document.
+      responder: () =>
+        ++n % 2 === 1
+          ? { status: 503, headers: { "retry-after": "0" }, body: Buffer.from("busy") }
+          : rawResponse(KEY_DOC, "text/plain"),
+    },
+  );
+  assert.equal(cli.code, 0, `CLI exit (stderr: ${cli.err})`);
+  assert.equal(cli.out, "infosysbub-absuche");
+  assert.equal(lib.ok, true, String(lib.error));
+  assert.equal(cli.requests.length, 2);
+  assert.deepEqual(lib.requests, cli.requests);
+});
