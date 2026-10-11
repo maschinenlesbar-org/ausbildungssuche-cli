@@ -21,14 +21,14 @@ The package ships both a CLI (`ausbildungssuche`) and a typed API client
 
 ```bash
 npm install
-npm run build        # compiles TypeScript to dist/
+npm run build        # compiles every workspace (tsc -b) to its dist/
 ```
 
 Run the locally built CLI without a global install:
 
 ```bash
-node dist/src/cli/index.js --help
-# or, after `npm link`:
+node apps/cli/dist/src/cli/index.js --help    # or: npm start -- --help
+# or, after `npm link --workspace apps/cli`:
 ausbildungssuche --help
 ```
 
@@ -116,7 +116,7 @@ run them up front.
   give several ids, codes or places comma-separated in one string. In the CLI a
   repeated single-value filter or global option is a usage error (`once()`,
   `rejectRepeatedOptions` in `run.ts`), and `--ids`/`--re`/`--bt` repeats are joined
-  with `,`. `test/conformance-p10-strict-filters.test.ts` is the shared check.
+  with `,`. `apps/cli/test/conformance-p10-strict-filters.test.ts` is the shared check.
 - **Blank search filters.** `search()` rejects any string parameter (`sw`, `ids`,
   `orte`, `re`, `uk`, `bart`, `bt`) that is empty or only whitespace
   (`validateSearchParams`, `nonEmptyProblem`): the API treats an empty parameter as
@@ -187,11 +187,11 @@ the API then answers `401`/`403`. The client sends the key trimmed, whichever wa
 came; the CLI passes the flag or env value through unchanged. The env value is seeded onto the option after
 parse (not as a commander default), so it never appears in `--help` output.
 
-The credentials file is the CLI's, not the library's: `src/cli/credentials.ts`
+The credentials file is the CLI's, not the library's: `apps/cli/src/cli/credentials.ts`
 (`CredentialStore`, the same mechanism as openka-cli's `ka config`) and
-`ausbildungssuche config` (`src/cli/commands/config.ts`). It reaches the CLI through
+`ausbildungssuche config` (`apps/cli/src/cli/commands/config.ts`). It reaches the CLI through
 `CliDeps.credentials`, which only `defaultDeps` sets, so a test that does not ask for
-one never reads the user's file; `action()` (`src/cli/shared.ts`) reads it only when
+one never reads the user's file; `action()` (`apps/cli/src/cli/shared.ts`) reads it only when
 neither the flag nor the env var gave a key, and makes the value a secret of the run the
 moment it is read (`deps.addSecret`, set by `run()`), so the log replaces it like a flag
 or env key; `obtain-key` never reads it. The file
@@ -254,9 +254,47 @@ origin, hop by hop* below.
 
 ## Architecture
 
+The repository is an **npm workspace** with two folders: `apps/` holds the programs it
+publishes, `packages/` the libraries they are built from.
+
 ```
-src/
-  client/
+package.json         # private workspace manifest: no version, never packed
+apps/cli/            # @maschinenlesbar.org/ausbildungssuche-cli — the published package
+  package.json       # its version, bin, files, bundleDependencies
+  src/index.ts       # library entry: re-exports @maschinenlesbar.org/ausbildungssuche-client
+  src/cli/           # the CLI (below)
+  test/              # CLI tests and every conformance-*.test.ts
+packages/client/     # @maschinenlesbar.org/ausbildungssuche-client — private, bundled into the CLI
+  src/               # the API client (below)
+  test/              # tests that only touch the client, + the transport helpers
+tools/pack/          # prepack/postpack: bundle the client and commander into the tarball
+tools/bump.mjs       # version bump + commit + tag (npm run bump)
+tsconfig.docs.json   # TypeDoc only: the package entry, with the client read from its sources
+```
+
+- **The client is its own package** so a later MCP app can share it with the CLI. It is
+  never published on its own: `apps/cli`'s `prepack` copies it (and commander) into the
+  app's `node_modules`, and `bundleDependencies` ships it inside the tarball. The library
+  entry re-exports the client's `"."`, so `import { AusbildungssucheClient } from
+  "@maschinenlesbar.org/ausbildungssuche-cli"` is unchanged.
+- **The client's exports:** `"."` is the public library surface (`src/index.ts`);
+  `"./internal/*"` maps to any module (`…/ausbildungssuche-client/internal/engine`) for what
+  the CLI needs beyond that; `"./test/*"` reaches the client's test helpers from the CLI's
+  tests (not bundled). Only `"."` is part of the library.
+- **Dependencies point one way:** the app depends on the client, the client on nothing
+  in the workspace. `obtainKey()` (fetching the published key document) is client code;
+  the `obtain-key` and `config` commands and the credentials file are the CLI's.
+- **The version lives in `apps/cli/package.json`.** The root has none; a plain
+  `npm version` at the root is refused. Release with `npm run bump -- <patch|minor|major>`,
+  which bumps the app, commits (the bare version as the message) and tags `vX.Y.Z`.
+- **TypeScript:** `tsconfig.base.json` holds the compiler options; every workspace has a
+  `tsconfig.json` (`src/`) and a `tsconfig.test.json` (`test/`), and the root
+  `tsconfig.json`/`tsconfig.test.json` reference them, built with `tsc -b`.
+
+The client (`packages/client/src/`) and the CLI (`apps/cli/src/`):
+
+```
+packages/client/src/
     types.ts     # AusbildungSearchResult (HAL) + search params
     query.ts     # dependency-free query-string builder
     validate.ts  # input rules (Problem functions) + assertValid, shared by library and CLI
@@ -264,7 +302,9 @@ src/
     engine.ts    # URL building, retry/backoff, redirects, default headers (auth), decoding, errors
     errors.ts    # AusbildungError / AusbildungApiError / AusbildungNetworkError / AusbildungParseError
     client.ts    # AusbildungssucheClient — search + details over the engine (injects X-API-Key)
-  cli/
+    obtain-key.ts # obtainKey(): reads the public key from the document it is published in
+    index.ts     # the client's public surface (the library entry re-exports it)
+apps/cli/src/cli/
     io.ts        # injectable I/O seam (stdout/stderr, readSecret) + injectable env (for AUSBILDUNGSSUCHE_API_KEY) + credentials, the logger and the clock
     log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
     credentials.ts # CredentialStore — the credentials file behind `config`
@@ -285,27 +325,27 @@ src/
 
 ### Library / technical terms
 
-**API client.** [`AusbildungssucheClient`](src/client/client.ts) — the typed
+**API client.** [`AusbildungssucheClient`](packages/client/src/client.ts) — the typed
 wrapper over the API. Sends the supplied `X-API-Key` (none is bundled) and exposes
 `search()` and `details()`. Usable as a library independently of the CLI.
 
-**Request engine.** [`RequestEngine`](src/client/engine.ts) — builds URLs,
+**Request engine.** [`RequestEngine`](packages/client/src/engine.ts) — builds URLs,
 serialises queries, applies retry/backoff, follows redirects, decodes JSON and
 maps errors. Sits between the client and the transport. `DEFAULT_BASE_URL` is
 `https://rest.arbeitsagentur.de`.
 
 **Transport.** A single function `(HttpRequest) => Promise<HttpResponse>`
-([`http.ts`](src/client/http.ts)). The default (`nodeHttpTransport`) uses Node's
+([`http.ts`](packages/client/src/http.ts)). The default (`nodeHttpTransport`) uses Node's
 built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
 
 **`--base-url` scheme allowlist.** A non-http(s) or malformed base URL
 (`file:`, `ftp:`, `notaurl`), and one with surrounding whitespace, inner whitespace
 or control characters, a query or a fragment, is rejected by one rule,
-`baseUrlProblem` ([`validate.ts`](src/client/validate.ts)), checked on the raw value
+`baseUrlProblem` ([`validate.ts`](packages/client/src/validate.ts)), checked on the raw value
 (`new URL()` would silently trim it). The `RequestEngine` constructor applies it
 through `validateBaseUrl` and throws an `AusbildungValidationError`, so a library
 consumer's custom transport never receives a bad base URL; the CLI's `parseBaseUrl`
-([`shared.ts`](src/cli/shared.ts)) calls the same rule and makes it a usage error
+([`shared.ts`](apps/cli/src/cli/shared.ts)) calls the same rule and makes it a usage error
 (exit `2`) before any client is built. Only `undefined` selects `DEFAULT_BASE_URL`.
 The default transport additionally rejects any non-http(s) URL on every request with
 an `AusbildungNetworkError`, and the engine never hands a non-http(s) redirect target
@@ -317,7 +357,7 @@ from every message; a `%` in it must start a valid escape (write a literal `%` a
 else is a usage error (exit `2`) instead of a late network error.
 
 **Secrets in the CLI's output** (`redactionFor` and `withRedactedOutput` in
-[`run.ts`](src/cli/run.ts)). Commander echoes a rejected value in its usage error and
+[`run.ts`](apps/cli/src/cli/run.ts)). Commander echoes a rejected value in its usage error and
 names an unknown command or option as typed, so `run()` wraps `deps.io` and builds the
 log first. The log replaces the secrets in each record's *message*, before the record
 is cut and escaped, and writes it to the raw stderr: the frame (time, level, topic) is
@@ -337,7 +377,7 @@ typed without its flag is kept out by not echoing the value at all
 command name, `too many arguments` drops the values, `unknown option '--x=…'` drops
 what follows `=`, and a numeric option, like the `details` id, shows its rejected value
 only when it reads like a number (a stored key typed as the id is learnt only after
-parsing, too late for the redaction). `test/conformance-p1-cli-redaction.test.ts` is the shared check (ten
+parsing, too late for the redaction). `apps/cli/test/conformance-p1-cli-redaction.test.ts` is the shared check (ten
 passwords, seven URL shapes, every echo path, plus the key by flag, by environment
 and typed without its flag).
 
@@ -346,13 +386,13 @@ and typed without its flag).
 `iso-8859-1` answer keeps its umlauts and a byte order mark added by a proxy does not
 break `JSON.parse`. An unknown charset label is an `AusbildungParseError` naming it.
 
-**Closed pipes** (`handleOutputErrors` in [`io.ts`](src/cli/io.ts), installed by the
+**Closed pipes** (`handleOutputErrors` in [`io.ts`](apps/cli/src/cli/io.ts), installed by the
 bin shim before `run()`). An EPIPE on stdout (`| head` stopped reading; ENOTCONN when
 stdout is a socket, as with a Node parent's piped stdio on macOS) exits `0` quietly; an EPIPE on stderr is ignored, so a failed run keeps its exit code (a usage
 error piped through `2>&1 | head -c 5` still exits `2`). Any other stdout write error
 is an ERROR record of `ausbildungssuche.output` (`Could not write to stdout: …`, in the
 format argv asks for: `processLogger`) and exits `1`; any other stderr write error exits
-`1` silently. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built bin.
+`1` silently. `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` runs the built bin.
 
 **Secrets in the library.** The engine keeps the base URL and the default headers
 (the `X-API-Key`) in real `#private` fields, so `console.log(client)`,
@@ -362,7 +402,7 @@ value, the decoded `user:password`, the password alone from 4 characters:
 `echoedCredentialForms`) and the key from error bodies and details,
 transport error text and the `cause` chain (`scrub`, `scrubCause`), and `obtainKey()`
 names a source behind Basic auth as `***@` in its errors and in
-`ObtainedKey.sourceUrl`. `test/conformance-p2-library-redaction.test.ts` is the
+`ObtainedKey.sourceUrl`. `apps/cli/test/conformance-p2-library-redaction.test.ts` is the
 shared check.
 
 **Default headers / Accept negotiation.** The engine merges `defaultHeaders` into
@@ -392,7 +432,7 @@ the fact: a transport that ignores `redirect: "manual"` has already sent the
 request, `X-API-Key` included (fetch strips only `Authorization` across origins), so
 pass `req.redirect` on. `obtainKey()` names the document the key was really read
 from (`ObtainedKey.sourceUrl`, also in the CLI's provenance note) when the key
-source redirected. `test/conformance-p3-redirect-credentials.test.ts` is the shared
+source redirected. `apps/cli/test/conformance-p3-redirect-credentials.test.ts` is the shared
 check (two local origins, a fetch transport, a transport-reported final URL, the
 http→https hint).
 
@@ -413,7 +453,7 @@ linear backoff (`retryDelayMs * attempt`), or the response's `Retry-After`
 `parseRetryAfter`) when that is longer: a `Retry-After: 0` or a date in the past
 never makes a zero-delay burst. A `Retry-After` above `MAX_RETRY_AFTER_MS` (30 s) is
 not retried at all: the error surfaces at once and names the requested wait
-("retrying sooner won't help"). `test/conformance-p6-retry-policy.test.ts` is the
+("retrying sooner won't help"). `apps/cli/test/conformance-p6-retry-policy.test.ts` is the
 shared check. `AusbildungApiError`
 exposes `isRetryable` (true for `429`/`503`).
 Each retry is announced: the engine option `onRetry(event: RetryEvent)` (exported type:
@@ -421,7 +461,7 @@ Each retry is announced: the engine option `onRetry(event: RetryEvent)` (exporte
 redacted) `}`) is called once per retry right before the sleep, never when there is none, and
 a throw in it is swallowed. The CLI's `action()` sets it to log one `WARN` record of
 `ausbildungssuche.http`, `HTTP 503 from <host>: retry 1 of 3 in 2 s` (`retryMessage`; host only, whole
-seconds, ms under 1 s). Tests: `test/retry-hook.test.ts`, `test/retry-log.test.ts`.
+seconds, ms under 1 s). Tests: `packages/client/test/retry-hook.test.ts`, `apps/cli/test/retry-log.test.ts`.
 
 **maxResponseBytes.** A cap on the response body size in bytes (`0` = unlimited;
 default 100 MiB), guarding against unbounded responses.
@@ -439,7 +479,7 @@ body may be a Buffer, any `ArrayBuffer` view (a `Uint8Array` from fetch), an
 becomes an `AusbildungNetworkError` naming the request (CLI exit `6`). A connection
 reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`, undici's `UND_ERR_SOCKET`, anywhere in
 the `cause` chain; `isTransientNetworkError`) is retried like a `503`, for GET only.
-`test/conformance-p5-transport-contract.test.ts` is the shared check.
+`apps/cli/test/conformance-p5-transport-contract.test.ts` is the shared check.
 
 **Engine option ranges.** The `RequestEngine` constructor (and so
 `new AusbildungssucheClient(...)`) throws an `AusbildungValidationError` for a
@@ -455,17 +495,17 @@ size cap. The CLI's `--timeout`/`--max-retries` parsers use the same constants.
 **RawResponse.** The engine's raw-response shape (`data`/`contentType`/`status`)
 — exported for completeness; the offer endpoints return decoded JSON.
 
-**Query builder.** [`buildQueryString`](src/client/query.ts) — a dependency-free
+**Query builder.** [`buildQueryString`](packages/client/src/query.ts) — a dependency-free
 serialiser: omits `undefined`/`null`, repeats keys for arrays, renders booleans
 as `true`/`false`, dates as ISO-8601, and encodes spaces as `%20` (not `+`).
 
 **CliDeps / CliIO.** The dependency-injection seam for the CLI
-([`io.ts`](src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`) and
+([`io.ts`](apps/cli/src/cli/io.ts)): a client factory plus an I/O object (`out`/`err`) and
 an injectable `env` (for `AUSBILDUNGSSUCHE_API_KEY`), and an optional `credentials`
 store (set only by `defaultDeps`). Lets the whole CLI run in
 tests with a mocked client and captured output — no subprocess.
 
-**Input validation.** [`validate.ts`](src/client/validate.ts) — the library owns
+**Input validation.** [`validate.ts`](packages/client/src/validate.ts) — the library owns
 every rule about what a request may contain. A rule is a pure, exported
 `…Problem(value)` function that returns the reason a value is invalid (or
 `undefined`); `assertValid(name, value, problem)` turns a reason into an
@@ -475,7 +515,7 @@ rejects rather than throwing synchronously. The CLI's value-parsers call the sam
 functions, and `run.ts` maps an `AusbildungValidationError` to exit `2`
 (an `ERROR` record of `ausbildungssuche.cli`), so CLI and library accept and reject the same inputs.
 
-**Error types.** [`errors.ts`](src/client/errors.ts): `AusbildungApiError`
+**Error types.** [`errors.ts`](packages/client/src/errors.ts): `AusbildungApiError`
 (non-2xx, carries `status`/`detail`), `AusbildungNetworkError` (transport
 failure/timeout), `AusbildungParseError` (bad JSON), `AusbildungValidationError`
 (invalid argument, e.g. an empty id — no request made), all extending
@@ -484,8 +524,13 @@ failure/timeout), `AusbildungParseError` (bad JSON), `AusbildungValidationError`
 ## Testing
 
 ```bash
-npm test          # builds, then runs `node --test` over dist/test
+npm test          # builds, then runs `node --test` over each workspace's dist/test
+npm run coverage  # the same tests in one run, with a coverage report
+node --test apps/cli/dist/test/cli.test.js   # one file, after a build
 ```
+
+The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `client`,
+`retry-hook`), everything that drives the CLI is in `apps/cli/test/`.
 
 - **`query.test.ts`** — query-string serialisation.
 - **`http.test.ts`** — the default transport against a real loopback `http.createServer`.
@@ -493,9 +538,9 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`client.test.ts`** — the X-API-Key header, the `Accept: application/hal+json` override, search params and the details path — mocked transport.
 - **`cli.test.ts`** — command parsing, `--api-key` override, env-var precedence, 401/403/404/406 exit codes — mocked client.
 - **`config.test.ts`** — `config set/get/unset/list`, the credentials file (mode, path, links, bad JSON), key precedence flag > env > file — temporary directories, never the real home.
-- **`log.test.ts`** — the record helpers of `src/cli/log.ts` on their own
+- **`log.test.ts`** — the record helpers of `apps/cli/src/cli/log.ts` on their own
   (`escapeForRecord`, `formatLogRecord`); the CLI-level checks are P23's.
-- **`validate.test.ts`** — `assertValid`, the exit-2 mapping of `AusbildungValidationError`, and the CLI ↔ library parity tests. `parity()` in `test/helpers.ts` runs one input through `run()` and through the library on one recording mock transport; a parity test asserts both reject without a request, or both send the identical request.
+- **`validate.test.ts`** — `assertValid`, the exit-2 mapping of `AusbildungValidationError`, and the CLI ↔ library parity tests. `parity()` in `apps/cli/test/helpers.ts` runs one input through `run()` and through the library on one recording mock transport; a parity test asserts both reject without a request, or both send the identical request.
 - **`conformance-p*.test.ts`** — the checks shared across the `*-cli` repos (fix plan of
   2026-10-06; only the adapter block at the top is this repo's): P1 CLI redaction, P2
   library redaction, P3 credentials across redirects, P4/P19 configuration validation, P5
@@ -505,16 +550,20 @@ npm test          # builds, then runs `node --test` over dist/test
   has no environment variable), P21 the README's relative links (README.md ships to
   npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
   GitHub URL), P23 the log records on stderr and `--log-format`. Mock fixtures answer
-  in the API's real shapes (`okResponse` in `test/helpers.ts`), because the client rejects
+  in the API's real shapes (`okResponse` in `packages/client/test/helpers.ts`), because the client rejects
   any other 2xx body.
 
 ## Continuous integration
 
 GitHub Actions workflows under `.github/workflows/`:
 
-- **ci.yml** — type-check, build and test on Node 22/24 for every push and PR.
-- **release.yml** — on a `v*` tag: verify the tag matches `package.json`, test, `npm pack`, and create a GitHub Release with the tarball.
-- **publish.yml** — manual dispatch from the release tag (`gh workflow run publish.yml --ref vX.Y.Z`; the version is the tag's): publish to npm via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
+- **ci.yml** — type-check, build and test on Node 22/24 for every push and PR; then pack the
+  real tarball, check the pack left nothing behind, install it globally with the registry out
+  of reach and run the bin.
+- **release.yml** — on a `v*` tag (made by `npm run bump`): verify the tag matches
+  `apps/cli/package.json`, test, write the SBOMs (scoped to the `apps/cli` workspace), then
+  `npm pack --workspace apps/cli`, and create a GitHub Release with the tarball.
+- **publish.yml** — manual dispatch from the release tag (`gh workflow run publish.yml --ref vX.Y.Z`; the version is the tag's): `npm publish --workspace apps/cli` via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
 - **docs.yml** — build the project website (`site/`, English and German) with the TypeDoc API docs
   under `/api/`, and deploy both to GitHub Pages on each `v*` tag.
   TypeDoc runs from the isolated, lockfile-pinned `tools/docs/` toolchain because it
@@ -531,7 +580,9 @@ TypeDoc API reference under `/api/`. Its content comes from this repository: the
 and quick start, the command tree of the built CLI (`site/scripts/cli-reference.mjs`),
 `Usage.md`, `GLOSSARY.md` and its German version `GLOSSARY.de.md`, the skills, and the skill
 examples in `EXAMPLE.md` and `EXAMPLE.de.md`. The only repo-specific files are
-`site/_config.yml` and `site/_data/project.yml` (the German intro and the access requirements);
+`site/_config.yml` (which also says where the published manifest and the built program are:
+`manifest: apps/cli/package.json`, `program: apps/cli/dist/src/cli/program.js`) and
+`site/_data/project.yml` (the German intro and the access requirements);
 the rest of `site/` is identical in every maschinenlesbar.org CLI, so change it in all of them
 together. When the README intro changes, update the German intro in `site/_data/project.yml`.
 
@@ -549,7 +600,7 @@ contributions; see **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ## The log on stderr
 
-Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+Every diagnostic line on stderr is a log record (`apps/cli/src/cli/log.ts`): a timestamp, a level
 (`ERROR`, `WARN`, `INFO`) and a topic, `ausbildungssuche.<area>`. `--log-format text` (the
 default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
