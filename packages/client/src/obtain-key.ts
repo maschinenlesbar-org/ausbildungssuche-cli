@@ -146,7 +146,7 @@ export async function obtainKey(options: ObtainKeyOptions = {}): Promise<Obtaine
   // engine) may have led elsewhere, and the provenance note must not claim the
   // configured source for a key another host served.
   const readFrom = response.url === withoutUserinfo(rawSourceUrl) ? sourceUrl : redactUrl(response.url);
-  const text = decodeBody(response.data, response.contentType, readFrom);
+  const text = decodeBody(response.data, response.contentType, `GET ${readFrom}`);
   const found = [...text.matchAll(KEY_PATTERN)].map((m) => (m[1] ?? "").trim());
   if (found.length === 0) {
     throw new AusbildungParseError(

@@ -99,8 +99,8 @@ envelope (`page`, and `_embedded.termine` when there are hits); `details()` with
 JSON **array** of offer records (`AusbildungDetails`, one record for one id — read
 `[0]`).
 
-A 2xx answer without that shape is an `AusbildungParseError` (`Unexpected response
-from <path>: …`, CLI exit `1`), never data: `searchResultProblem` requires an object
+A 2xx answer without that shape is an `AusbildungParseError` (`GET <url>: unexpected
+response shape: …`, CLI exit `1`), never data: `searchResultProblem` requires an object
 with a `page` whose `totalElements` is a non-negative integer and, if present,
 `_embedded.termine` as an array of objects; `detailsProblem` a non-empty array of
 objects with an `id`. A proxy, captive portal or mirror answering `null`, `{}`, `[]`
@@ -111,13 +111,20 @@ A body with a number JSON.parse cannot carry exactly — one out of a double's r
 (`12345678901234567890`, `12345678901234567890.0`, `9007199254740993e0`,
 `9007199254740992.5`), a non-zero one too small for a double (`1e-400`, which became
 `0`), or a subnormal one (below 2.2250738585072014e-308) that does not print as written
-(`3e-324`, which became `5e-324`) — is an `AusbildungParseError` too (`Unexpected response from <path>: the number …
-cannot be represented exactly.`, `firstInexactNumber` in `getJson`), never a changed
+(`3e-324`, which became `5e-324`) — is an `AusbildungParseError` too (`GET <url>: the number … cannot be represented
+exactly.`, `firstInexactNumber` in `getJson`), never a changed
 value; below 2^53 a decimal fraction keeps a double's usual precision. Past 2^53 the check
 compares the number as printed (`String(value)`, the shortest decimal that reads back as the
 same double) with the number as written: `12345678901234567890` prints as
 `12345678901234567000` and is refused, while `1e23` or `1.7976931348623157E308` (a double a
 server printed in its own shortest form) print as the same number and pass.
+
+Every error about an answer names the request, `GET <url>: …`, with the URL as
+`describeUrl` gives it (absolute, so a `--base-url` mirror's host is named; userinfo
+redacted; cut at 500 characters), like a network error: the shape errors above, a body
+that is not JSON (`the answer is not valid JSON`, naming a Content-Type other than JSON:
+`(expected JSON, got Content-Type "text/html")`), an empty body (`empty response body`,
+never "no results"), an inexact number and an unknown charset.
 
 ### What the library rejects
 
@@ -413,7 +420,8 @@ and typed without its flag).
 **Charset.** `getJson()` and `obtainKey()` decode a body by the charset its
 `Content-Type` declares (UTF-8 when none; `decodeBody`, built on `TextDecoder`), so an
 `iso-8859-1` answer keeps its umlauts and a byte order mark added by a proxy does not
-break `JSON.parse`. An unknown charset label is an `AusbildungParseError` naming it.
+break `JSON.parse`. An unknown charset label is an `AusbildungParseError` naming it and
+the request (`GET <url>: unsupported response charset "…".`).
 
 **Rendering** (`renderJson` in [`shared.ts`](apps/cli/src/cli/shared.ts)). An answer
 nested too deeply to pretty-print is an ERROR record that suggests `--compact`, not a

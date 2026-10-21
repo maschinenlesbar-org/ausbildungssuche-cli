@@ -568,8 +568,24 @@ export class RequestEngine {
         `Invalid path segment "${dotSegment}" in ${normalizedPath}: "." and ".." cannot be used as an id.`,
       );
     }
+    return this.joinUrl(normalizedPath, query);
+  }
+
+  /** Base URL + path + query string, without buildUrl's validation. */
+  private joinUrl(path: string, query?: QueryParams): string {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const qs = query ? buildQueryString(query) : "";
     return `${this.#baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
+  }
+
+  /**
+   * The request URL as error messages show it: absolute (so a message names the host
+   * that gave a bad answer, which matters with a custom base URL), userinfo redacted
+   * and cut at 500 characters. It never throws: describing a URL for a message or a log
+   * line does not validate it (buildUrl does).
+   */
+  describeUrl(path: string, query?: QueryParams): string {
+    return cutForMessage(redactUrl(this.joinUrl(path, query)), MAX_DETAIL_LENGTH);
   }
 
   /** Perform a request with Accept negotiation and transient-error retries. */
@@ -844,24 +860,35 @@ export class RequestEngine {
   /**
    * Perform a GET expecting JSON and parse it into `T`. The `accept` header
    * defaults to `application/json` but can be overridden per endpoint (e.g. the
-   * search collection serves HAL+JSON and 406s on plain `application/json`).
+   * search collection serves HAL+JSON and 406s on plain `application/json`). An empty
+   * (or whitespace-only) body is an AusbildungParseError: every endpoint answers with a
+   * JSON document. Every error about the answer names the request (`GET <url>: …`,
+   * userinfo redacted).
    */
   async getJson<T>(path: string, query?: QueryParams, accept = "application/json"): Promise<T> {
     const res = await this.request("GET", path, { query, accept });
-    const text = decodeBody(res.data, res.contentType, path);
+    const request = `GET ${this.describeUrl(path, query)}`;
+    const text = decodeBody(res.data, res.contentType, request);
+    if (text.trim() === "") {
+      // A broken answer, not "no results": printed as nothing with exit 0, it would let a
+      // script carry on as if the API had found nothing.
+      throw new AusbildungParseError(`${request}: empty response body.`);
+    }
     let parsed: T;
     try {
       parsed = JSON.parse(text) as T;
     } catch (cause) {
-      throw new AusbildungParseError(`Failed to parse JSON response from ${path}`, { cause: this.scrubCause(cause) });
+      // An HTML maintenance or proxy page is the usual non-JSON answer: name its type,
+      // so it reads as an upstream problem rather than a client bug.
+      const type = res.contentType.split(";")[0]?.trim() ?? "";
+      const hint = type !== "" && !/json/i.test(type) ? ` (expected JSON, got Content-Type "${cleanDetail(type)}")` : "";
+      throw new AusbildungParseError(`${request}: the answer is not valid JSON${hint}.`, { cause: this.scrubCause(cause) });
     }
     // JSON.parse rounds and overflows numbers silently: refuse the answer rather than
     // hand on a changed value.
     const inexact = firstInexactNumber(text);
     if (inexact !== undefined) {
-      throw new AusbildungParseError(
-        `Unexpected response from ${path}: the number ${cutForMessage(inexact)} cannot be represented exactly.`,
-      );
+      throw new AusbildungParseError(`${request}: the number ${cutForMessage(inexact)} cannot be represented exactly.`);
     }
     return parsed;
   }
@@ -910,15 +937,15 @@ export class RequestEngine {
  * none). TextDecoder drops a leading byte order mark, which Buffer#toString keeps and
  * JSON.parse then rejects, so a BOM added by a proxy cannot turn a valid answer into
  * a parse error, and an `iso-8859-1` body keeps its umlauts. An unknown charset label
- * is an `AusbildungParseError` naming it and `where`.
+ * is an `AusbildungParseError` naming it and `request` (`GET <url>`).
  */
-export function decodeBody(body: Buffer, contentType: string, where: string): string {
+export function decodeBody(body: Buffer, contentType: string, request: string): string {
   const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
   let decoder: TextDecoder;
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new AusbildungParseError(`Unsupported response charset "${cutForMessage(sanitizeServerText(charset))}" from ${where}.`);
+    throw new AusbildungParseError(`${request}: unsupported response charset "${cutForMessage(sanitizeServerText(charset))}".`);
   }
   return decoder.decode(body);
 }

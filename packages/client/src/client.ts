@@ -32,10 +32,14 @@ import type {
 
 const SERVICE = "/infosysbub/absuche";
 
-/** `value` when `problem` accepts it, else an AusbildungParseError naming the endpoint. */
-function expectShape<T>(value: unknown, problem: Problem<unknown>, path: string): T {
+/**
+ * `value` when `problem` accepts it, else an AusbildungParseError naming the request:
+ * `GET <url>: unexpected response shape: …`, the URL as `describeUrl` gives it (userinfo
+ * redacted, cut).
+ */
+function expectShape<T>(value: unknown, problem: Problem<unknown>, url: string): T {
   const reason = problem(value);
-  if (reason !== undefined) throw new AusbildungParseError(`Unexpected response from ${path}: ${reason}.`);
+  if (reason !== undefined) throw new AusbildungParseError(`GET ${url}: unexpected response shape: ${reason}.`);
   return value as T;
 }
 
@@ -117,8 +121,9 @@ export class AusbildungssucheClient {
     const normalized = validateSearchParams(normalizeSearchParams(params), options);
     const path = `${SERVICE}/pc/v1/ausbildungsangebot`;
     // The search collection serves HAL+JSON and 406s on plain application/json.
-    const result = await this.engine.getJson(path, prune({ ...normalized }), "application/hal+json");
-    return expectShape<AusbildungSearchResult>(result, searchResultProblem, path);
+    const query = prune({ ...normalized });
+    const result = await this.engine.getJson(path, query, "application/hal+json");
+    return expectShape<AusbildungSearchResult>(result, searchResultProblem, this.engine.describeUrl(path, query));
   }
 
   /**
@@ -134,6 +139,6 @@ export class AusbildungssucheClient {
     // The detail endpoint serves application/json and 406s on HAL+JSON, so we
     // request JSON explicitly. A digits-only id needs no encoding.
     const result = await this.engine.getJson(path, undefined, "application/json");
-    return expectShape<AusbildungDetails>(result, detailsProblem, path);
+    return expectShape<AusbildungDetails>(result, detailsProblem, this.engine.describeUrl(path));
   }
 }

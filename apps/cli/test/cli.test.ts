@@ -449,7 +449,7 @@ test("a 200 that is not the search envelope or an offer array exits 1, never 0",
     const cli = makeCli(() => jsonResponse(body));
     assert.equal(await run(["--compact", "search", "--ids", "9162"], cli.deps), 1, JSON.stringify(body));
     assert.equal(cli.out.length, 0);
-    assert.match(cli.err.join("\n"), /Unexpected response from .*ausbildungsangebot: expected a search result/);
+    assert.match(cli.err.join("\n"), /GET https:\/\/rest\.arbeitsagentur\.de\/\S*ausbildungsangebot\S*: unexpected response shape: expected a search result/);
   }
   for (const body of [{}, [], null, [{}], [{ id: "" }], { error: "x" }]) {
     const cli = makeCli(() => jsonResponse(body));
