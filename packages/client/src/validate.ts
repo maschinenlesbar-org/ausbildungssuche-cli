@@ -296,12 +296,13 @@ export const startCodesProblem: Problem = (bt) =>
     : "Expected start-date codes 0, 1, 2 or 101..112, comma-separated.");
 
 /**
- * The places of an `orte` value: split at each comma that directly follows a
- * coordinate (`Köln_6.957_50.938,Berlin_13.405_52.52`), so a comma inside a place
- * name stays part of that name.
+ * The places of an `orte` value: split at each comma that follows a coordinate, with or
+ * without whitespace between (`Köln_6.957_50.938,Berlin_13.405_52.52`,
+ * `Köln_6.957_50.938 , Berlin_13.405_52.52`; the API splits both), so a comma inside a
+ * place name stays part of that name. The places are returned as written (untrimmed).
  */
 export function splitPlaces(orte: string): string[] {
-  return orte.split(/(?<=_-?\d+(?:\.\d+)?),/);
+  return orte.split(/(?<=_-?\d+(?:\.\d+)?\s*),/);
 }
 
 /**
@@ -331,7 +332,7 @@ export const placeProblem: Problem = (orte) => {
   if (blank !== undefined) return blank;
   const places = splitPlaces(orte);
   const ok = places.every((place) => {
-    const m = /^(.*\S.*)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)$/.exec(place);
+    const m = /^(.*\S.*)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)$/.exec(place.trim());
     const lon = m ? Number(m[2]) : NaN;
     const lat = m ? Number(m[3]) : NaN;
     return Math.abs(lon) <= 180 && Math.abs(lat) <= 90;

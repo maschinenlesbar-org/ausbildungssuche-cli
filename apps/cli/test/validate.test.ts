@@ -324,3 +324,23 @@ test("placeProblem checks every place of a comma-separated --orte", () => {
     assert.match(placeProblem(orte) ?? "", /for every one of the comma-separated places|Name_lon_lat/, orte);
   }
 });
+
+test("--orte with space before a comma is split there: every place is checked and sent trimmed (bug 01-1)", async () => {
+  // Read as one place named "Köln_999_999 " at Berlin's coordinates, the first place's
+  // out-of-range coordinates went out unchecked (the API splits at " , " itself).
+  for (const orte of ["Köln_999_999 , Berlin_13.405_52.52", "Köln_999_999\t,Berlin_13.405_52.52"]) {
+    assert.match(placeProblem(orte) ?? "", /for every one of the comma-separated places/, orte);
+    const o = await parity(["search", "--orte", orte, "--uk", "10"], (t) => new lib.AusbildungssucheClient({ transport: t }).search({ orte, uk: "10" }));
+    assert.equal(o.cli.code, 2, o.cli.err);
+    assert.deepEqual(o.cli.requests, []);
+    assert.equal(o.lib.ok, false);
+    assert.deepEqual(o.lib.requests, []);
+  }
+  const orte = "Köln_6.957_50.938 , Berlin_13.405_52.52";
+  assert.equal(placeProblem(orte), undefined);
+  assert.equal(normalizeSearchParams({ orte }).orte, "Köln_6.957_50.938,Berlin_13.405_52.52");
+  const o = await parity(["search", "--orte", orte, "--uk", "10"], (t) => new lib.AusbildungssucheClient({ transport: t }).search({ orte, uk: "10" }));
+  assert.equal(o.cli.code, 0, o.cli.err);
+  assert.equal(new URL(o.cli.requests[0]!.url).searchParams.get("orte"), "Köln_6.957_50.938,Berlin_13.405_52.52");
+  assert.deepEqual(o.lib.requests.map((r) => r.url), o.cli.requests.map((r) => r.url));
+});
