@@ -58,6 +58,17 @@ export function isBlank(value: string): boolean {
 }
 
 /**
+ * A free-text value as the API should get it: without surrounding whitespace (U+00A0
+ * and U+3000 included; a value pasted with a trailing space or newline) and in composed
+ * Unicode, NFC (a decomposed "Müller", u plus U+0308 as pasted from a macOS file name).
+ * Inner whitespace is kept. Applied to the search term `sw` and to each place name of
+ * `orte` (normalizePlaces); never to ids or codes.
+ */
+export function normalizeText(value: string): string {
+  return value.trim().normalize("NFC");
+}
+
+/**
  * A blank value ("" or whitespace) is invalid: the API treats an empty parameter
  * as no filter at all, so a blank filter would silently return the unfiltered set.
  */
@@ -294,6 +305,21 @@ export function splitPlaces(orte: string): string[] {
 }
 
 /**
+ * The place filter (`orte`) with each place's name in canonical form (normalizeText):
+ * `" Köln _6.957_50.938, Berlin_13.4_52.5"` → `Köln_6.957_50.938,Berlin_13.4_52.5`. A
+ * place without the `_lon_lat` ending is only trimmed and composed, for placeProblem
+ * to refuse. Idempotent.
+ */
+export function normalizePlaces(orte: string): string {
+  return splitPlaces(orte.trim())
+    .map((place) => {
+      const m = /^([\s\S]*?)(_-?\d+(?:\.\d+)?_-?\d+(?:\.\d+)?)$/.exec(place.trim());
+      return m ? `${normalizeText(m[1] ?? "")}${m[2] ?? ""}` : normalizeText(place);
+    })
+    .join(",");
+}
+
+/**
  * The place (`orte`): `Name_lon_lat` with the longitude in -180..180 first and the
  * latitude in -90..90 second — or several such places, comma-separated, which the
  * API searches together (live: Köln's 3 offers + Berlin's 17 = 20). Every place is
@@ -465,7 +491,8 @@ function firstProblem(values: readonly string[], problem: Problem): string | und
 }
 
 /**
- * Search parameters in the form the API accepts: `re` through normalizeRegions,
+ * Search parameters in the form the API accepts: `sw` through normalizeText, `orte`
+ * through normalizePlaces, `re` through normalizeRegions,
  * `uk` through normalizeRadius, `ids` through normalizeIds and `bart` trimmed
  * (string values, also inside an array); everything else unchanged. Returns a new object. search() applies it before
  * validateSearchParams, so `re: " nrw"` and `uk: "bundesweit"` are sent as
@@ -477,6 +504,8 @@ export function normalizeSearchParams(params: AusbildungSearchParams): Ausbildun
     throw new AusbildungValidationError("Invalid search parameters: Expected an object of search parameters.");
   }
   const out: AusbildungSearchParams = { ...params };
+  if (params.sw !== undefined) out.sw = mapStrings(params.sw, normalizeText);
+  if (params.orte !== undefined) out.orte = mapStrings(params.orte, normalizePlaces);
   if (params.re !== undefined) out.re = mapStrings(params.re, normalizeRegions);
   if (params.ids !== undefined) out.ids = mapStrings(params.ids, normalizeIds);
   if (params.bart !== undefined) out.bart = mapStrings(params.bart, (b) => b.trim());

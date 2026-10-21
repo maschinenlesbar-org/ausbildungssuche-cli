@@ -35,6 +35,8 @@ export {
   httpUrlProblem,
   idsProblem,
   normalizeIds,
+  normalizePlaces,
+  normalizeText,
   trainingTypeProblem,
   intRangeProblem,
   isBlank,

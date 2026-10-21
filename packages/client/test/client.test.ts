@@ -85,3 +85,19 @@ test("a 404 raises AusbildungApiError with status 404", async () => {
     (err) => err instanceof AusbildungApiError && err.status === 404,
   );
 });
+
+test("the search term and the place name go out trimmed and in composed Unicode; a blank one is refused (K6)", async () => {
+  const decomposed = "Müller"; // u + U+0308, as pasted from a macOS file name
+  const mt = makeMockTransport(okResponse);
+  const client = new AusbildungssucheClient({ transport: mt.transport });
+  await client.search({ sw: `  ${decomposed}\n` });
+  assert.equal(new URL(mt.last().url).searchParams.get("sw"), "Müller");
+  await client.search({ orte: ` ${decomposed} _6.957_50.938,\tBerlin _13.4_52.5`, uk: "25" });
+  assert.equal(new URL(mt.last().url).searchParams.get("orte"), "Müller_6.957_50.938,Berlin_13.4_52.5");
+  const sent = mt.calls.length;
+  for (const blank of ["", " ", " ", "\n\t", "　"]) {
+    await assert.rejects(client.search({ sw: blank }), AusbildungValidationError, JSON.stringify(blank));
+    await assert.rejects(client.search({ orte: `${blank}_6.957_50.938`, uk: "25" }), AusbildungValidationError, JSON.stringify(blank));
+  }
+  assert.equal(mt.calls.length, sent);
+});

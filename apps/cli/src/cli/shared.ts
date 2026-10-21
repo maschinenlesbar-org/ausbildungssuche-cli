@@ -20,6 +20,7 @@ import {
   idsProblem,
   normalizeIds,
   offerIdProblem,
+  normalizePlaces,
   placeProblem,
   trainingTypeProblem,
   radiusProblem,
@@ -180,8 +181,10 @@ export function parseRegions(value: string): string {
 /** commander value-parser for `--bt`: the library's startCodesProblem (0, 1, 2 or 101..112). */
 export const parseStartCodes = parserOf(startCodesProblem);
 
-/** commander value-parser for `--orte`: the library's placeProblem (`Name_lon_lat`). */
-export const parsePlace = parserOf(placeProblem);
+/** commander value-parser for `--orte`: the library's placeProblem (`Name_lon_lat`), checked and sent as normalizePlaces makes it. */
+export function parsePlace(value: string): string {
+  return parserOf(placeProblem)(normalizePlaces(value));
+}
 
 /**
  * commander value-parser for `--ids`: the library's idsProblem (numeric dkzIds,

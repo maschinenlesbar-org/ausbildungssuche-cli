@@ -587,3 +587,14 @@ test("--compact takes the gap path only for an answer holding a huge string, the
   assert.deepEqual(calls.map((args) => (args.length >= 3 ? args[2] : "none")), ["", "none", "", "", 2]);
   assert.deepEqual(out, ['"stub"', '"stub"', '"stub"', '"stub"', '"stub"']);
 });
+
+test("--sw and the --orte place names go out trimmed and composed, as the library sends them (K6)", async () => {
+  const cli = makeCli(okResponse);
+  assert.equal(await run(["search", "--sw", " Müller\n", "--orte", "Köln\n_6.957_50.938", "--uk", "25"], cli.deps), 0, cli.err.join("\n"));
+  const sent = new URL(cli.mt.last().url).searchParams;
+  assert.equal(sent.get("sw"), "Müller");
+  assert.equal(sent.get("orte"), "Köln_6.957_50.938");
+  const blank = makeCli(okResponse);
+  assert.equal(await run(["search", "--orte", "　_6.957_50.938", "--uk", "25"], blank.deps), 2);
+  assert.equal(blank.mt.calls.length, 0);
+});

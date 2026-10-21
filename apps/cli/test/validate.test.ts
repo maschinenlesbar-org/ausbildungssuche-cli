@@ -155,10 +155,10 @@ test("normalizeRegions trims, NFC-normalises and uppercases each code, and is id
   }
 });
 
-test("normalizeSearchParams canonicalises re and uk only, without mutating its input", () => {
-  const params = { re: " nrw", uk: "bundesweit", sw: " Koch " };
-  assert.deepEqual(normalizeSearchParams(params), { re: "NRW", uk: "Bundesweit", sw: " Koch " });
-  assert.deepEqual(params, { re: " nrw", uk: "bundesweit", sw: " Koch " });
+test("normalizeSearchParams canonicalises the text filters, re and uk, and leaves codes alone, without mutating its input", () => {
+  const params = { re: " nrw", uk: "bundesweit", sw: " Koch ", orte: " Ko\u0308ln _6.957_50.938", bt: " 2" };
+  assert.deepEqual(normalizeSearchParams(params), { re: "NRW", uk: "Bundesweit", sw: "Koch", orte: "Köln_6.957_50.938", bt: " 2" });
+  assert.deepEqual(params, { re: " nrw", uk: "bundesweit", sw: " Koch ", orte: " Ko\u0308ln _6.957_50.938", bt: " 2" });
   assert.deepEqual(normalizeSearchParams({ re: ["nrw", "bay"] as unknown as string }), { re: ["NRW", "BAY"] });
   assert.deepEqual(normalizeSearchParams({ uk: 25 as unknown as string }), { uk: 25 });
   assert.deepEqual(normalizeSearchParams({}), {});

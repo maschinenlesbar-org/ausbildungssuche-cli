@@ -39,7 +39,10 @@ export type AusbildungDetails = AusbildungOffer[];
 
 /** Parameters for the apprenticeship-offer search. */
 export interface AusbildungSearchParams {
-  /** "sw" — search keyword. Currently ignored by the API; filter by occupation with `ids`. */
+  /**
+   * "sw" — search keyword, sent trimmed and in NFC (`normalizeText`). Currently ignored by the
+   * API; filter by occupation with `ids`.
+   */
   sw?: string | undefined;
   /** Offer type, an integer 0..3 (`STY_MIN`..`STY_MAX`; the API rejects 4 with HTTP 400). */
   sty?: number | undefined;
@@ -52,7 +55,8 @@ export interface AusbildungSearchParams {
   /**
    * Location as `Name_lon_lat` (longitude first, -180..180; latitude -90..90), e.g.
    * `Köln_6.957_50.938` (checked by `placeProblem`); several places comma-separated are
-   * searched together, each checked. Only restricts the search
+   * searched together, each checked; each name is sent trimmed and in NFC (`normalizePlaces`).
+   * Only restricts the search
    * together with a radius `uk`, so it is rejected without one (`placeAndRadiusProblem`).
    */
   orte?: string | undefined;
