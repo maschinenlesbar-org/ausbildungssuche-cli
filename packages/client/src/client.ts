@@ -47,7 +47,7 @@ export interface AusbildungssucheClientOptions extends EngineOptions {
    * above U+00FF is rejected (AusbildungValidationError, apiKeyProblem). Obtain the
    * public key with obtainKey() (see obtain-key.ts).
    */
-  apiKey?: string;
+  apiKey?: string | undefined;
 }
 
 /** Drop undefined values so only the parameters the caller set are sent. */
@@ -66,7 +66,7 @@ export interface SearchOptions {
    * added after this client was written. Default `false`: an unknown key is rejected,
    * because the API ignores it and answers with the whole unfiltered set.
    */
-  allowUnknownFilters?: boolean;
+  allowUnknownFilters?: boolean | undefined;
 }
 
 export class AusbildungssucheClient {

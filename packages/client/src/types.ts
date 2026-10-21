@@ -40,49 +40,49 @@ export type AusbildungDetails = AusbildungOffer[];
 /** Parameters for the apprenticeship-offer search. */
 export interface AusbildungSearchParams {
   /** "sw" — search keyword. Currently ignored by the API; filter by occupation with `ids`. */
-  sw?: string;
+  sw?: string | undefined;
   /** Offer type, an integer 0..3 (`STY_MIN`..`STY_MAX`; the API rejects 4 with HTTP 400). */
-  sty?: number;
+  sty?: number | undefined;
   /**
    * Occupation id(s): the numeric `dkzId` from `angebot.systematiken[]`, comma-separated for
    * several (`idsProblem`; each item is trimmed, `normalizeIds`). A non-numeric id or an empty
    * item (a trailing comma) is rejected: the API answers it with HTTP 400.
    */
-  ids?: string;
+  ids?: string | undefined;
   /**
    * Location as `Name_lon_lat` (longitude first, -180..180; latitude -90..90), e.g.
    * `Köln_6.957_50.938` (checked by `placeProblem`); several places comma-separated are
    * searched together, each checked. Only restricts the search
    * together with a radius `uk`, so it is rejected without one (`placeAndRadiusProblem`).
    */
-  orte?: string;
+  orte?: string | undefined;
   /**
    * Bundesland code from `REGION_CODES` (`BAW`, `BAY`, … `THÜ`), comma-separated for several.
    * Each code is trimmed, NFC-normalised and uppercased before it is sent (`normalizeRegions`).
    */
-  re?: string;
+  re?: string | undefined;
   /**
    * Radius from `RADII`: "Bundesweit" (in any case, `normalizeRadius`) or 10, 25, 50, 100 (km);
    * other values get HTTP 400. A km
    * radius is ignored by the API without a place `orte`, so it is rejected without one.
    */
-  uk?: string;
+  uk?: string | undefined;
   /**
    * Training type: one numeric `bildungsart.id`, e.g. `102` Berufsausbildung
    * (`trainingTypeProblem`). A non-numeric value gets HTTP 400; an unknown number an empty result.
    */
-  bart?: string;
+  bart?: string | undefined;
   /** Education-voucher filter. */
-  bg?: boolean;
+  bg?: boolean | undefined;
   /**
    * Start-date code(s), not a date: `2` = earlier dates, `101`..`112` = January..December
    * of the following year (upstream OpenAPI); `0` and `1` are accepted and filter too (each
    * kept about half of one live search's offers), with an undocumented meaning. Comma-separated
    * for several (`START_CODES`).
    */
-  bt?: string;
+  bt?: string | undefined;
   /** 0-based page; `(page + 1) × size` must be at most `MAX_RESULT_WINDOW` (10000). */
-  page?: number;
+  page?: number | undefined;
   /** Page size, 1..`MAX_PAGE_SIZE` (20): the server clamps anything above 20 to 20. */
-  size?: number;
+  size?: number | undefined;
 }

@@ -78,7 +78,7 @@ export interface ObtainKeyOptions
     | "sleep"
   > {
   /** Override the source document (tests, mirrors); an absolute http(s) URL. */
-  sourceUrl?: string;
+  sourceUrl?: string | undefined;
 }
 
 export interface ObtainedKey {

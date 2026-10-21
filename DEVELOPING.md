@@ -68,6 +68,12 @@ new AusbildungssucheClient({
 });
 ```
 
+Every optional field of the option types (`AusbildungssucheClientOptions`, `EngineOptions`,
+`AusbildungSearchParams`, `SearchOptions`, `ObtainKeyOptions`) is declared `?: T | undefined`,
+and an option given as `undefined` means its default, as an omitted one does. So
+`{ apiKey: process.env.AUSBILDUNGSSUCHE_API_KEY }` compiles in a consumer that sets
+`exactOptionalPropertyTypes` (`packages/client/test/types.test.ts` compiles one).
+
 A custom transport passes `redirect` and `signal` on and reports the URL that
 answered, so the engine can follow redirects and keep the key on its origin
 (see "Transports must not follow redirects" below):
@@ -541,7 +547,7 @@ node --test apps/cli/dist/test/cli.test.js   # one file, after a build
 ```
 
 The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `client`,
-`retry-hook`), everything that drives the CLI is in `apps/cli/test/`.
+`retry-hook`, `types`), everything that drives the CLI is in `apps/cli/test/`.
 
 - **`query.test.ts`** — query-string serialisation.
 - **`http.test.ts`** — the default transport against a real loopback `http.createServer`.

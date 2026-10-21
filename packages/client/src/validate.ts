@@ -513,7 +513,7 @@ function mapStrings(value: string, fn: (s: string) => string): string {
  */
 export function validateSearchParams(
   params: AusbildungSearchParams,
-  options: { allowUnknownFilters?: boolean } = {},
+  options: { allowUnknownFilters?: boolean | undefined } = {},
 ): AusbildungSearchParams {
   if (!isPlainObject(params)) {
     throw new AusbildungValidationError("Invalid search parameters: Expected an object of search parameters.");
