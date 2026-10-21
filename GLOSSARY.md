@@ -98,7 +98,8 @@ raw JSON objects rather than narrowing them to a partial type.
 `details <id>`. Offer ids are numeric (digits only, at least `1`, at most 18
 digits; leading zeros are fine): the CLI rejects anything else (exit `2`) and the
 library rejects it with a validation error, both before any request — the API
-answers `0` or a 23-digit id with a bare HTTP 400.
+answers `0` or a 23-digit id with a bare HTTP 400. Like every id and code it is sent
+trimmed; an invisible character in it (a zero-width space) is refused and shown escaped.
 
 **Location (`orte`).** The place used to scope a search, written as
 `Name_lon_lat` with the **longitude first**, e.g. `Köln_6.957_50.938`. With the

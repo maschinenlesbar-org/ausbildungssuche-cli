@@ -52,9 +52,106 @@ export function isPlainObject(value: unknown): boolean {
   return proto === Object.prototype || proto === null;
 }
 
-/** True for a string that is empty or only whitespace. */
+/** Characters that never make a value non-blank: whitespace, controls, format characters, combining marks. */
+const INVISIBLE = /[\s\p{Cc}\p{Cf}\p{M}]/gu;
+
+/** A lone surrogate: half of a character, which URLSearchParams would send as U+FFFD. */
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+
+/**
+ * True when nothing in `value` would match anything: it is empty or holds only whitespace,
+ * control and format characters (a zero-width space, a soft hyphen) and combining marks. Such a
+ * value reads as "no filter" upstream, or matches nothing, so it is refused as blank.
+ */
 export function isBlank(value: string): boolean {
-  return value.trim() === "";
+  return value.replace(INVISIBLE, "") === "";
+}
+
+/** `U+200B` for the first character of `text` that `pattern` matches. */
+function codePointOf(text: string, pattern: RegExp): string {
+  const ch = pattern.exec(text)?.[0] ?? "";
+  return `U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
+}
+
+/** A control character inside a text filter: C0 and C1, but not TAB, LF or CR (whitespace in a pasted phrase). */
+const TEXT_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
+
+/** A format character inside a text filter, but not ZWNJ/ZWJ (U+200C/U+200D), which some scripts and emoji need. */
+const TEXT_FORMAT = /(?![\u200c\u200d])\p{Cf}/u;
+
+/**
+ * Why `value` cannot be sent as a text filter (the search term `sw`, an `orte` place name),
+ * or undefined when it can. Refused, before any request, as the API would match nothing or
+ * everything:
+ * - a value that is blank (`isBlank`: empty, or only whitespace, invisible characters and
+ *   combining marks): an empty filter reads as "no filter" upstream;
+ * - a lone surrogate (half of a character, sent as U+FFFD);
+ * - a control character (but TAB, LF and CR) or a format character (a zero-width space, a soft
+ *   hyphen, a bidi control; ZWNJ and ZWJ are allowed): pasted along, it makes the search find
+ *   nothing.
+ * The reason quotes the value with every invisible character escaped (`quoteValue`).
+ */
+export function textProblem(value: string): string | undefined {
+  if (typeof value !== "string") return "Expected a string.";
+  if (isBlank(value)) return "Expected a non-empty value.";
+  if (LONE_SURROGATE.test(value)) return `${quoteValue(value)} contains half of a character (a lone surrogate).`;
+  if (TEXT_CONTROL.test(value)) return `${quoteValue(value)} contains a control character (${codePointOf(value, TEXT_CONTROL)}).`;
+  if (TEXT_FORMAT.test(value)) return `${quoteValue(value)} contains an invisible character (${codePointOf(value, TEXT_FORMAT)}).`;
+  return undefined;
+}
+
+/** A control or format character in a token (after trimming): every Cc and every Cf. */
+const TOKEN_INVISIBLE = /[\p{Cc}\p{Cf}]/u;
+
+/**
+ * Why `value` cannot be sent as a token, or undefined when it can. A token is an id, a code or
+ * an enum value (the offer id, an occupation id, `bart`, `uk`, a `re` or `bt` code): a value the
+ * API compares exactly. The rules apply to the value with surrounding whitespace trimmed, as it
+ * is sent (normalizeToken): not blank (and not only invisible characters or combining marks),
+ * no lone surrogate, and no control or format character at all (a zero-width space, ZWJ, a soft
+ * hyphen, a bidi control), since an invisible character in an id or a code only ever makes it
+ * match nothing. The reason quotes the value visibly. Each token's own rule (digits, a listed
+ * code) is checked after this one.
+ */
+export function tokenProblem(value: string): string | undefined {
+  if (typeof value !== "string") return "Expected a string.";
+  if (isBlank(value)) return "Expected a non-empty value.";
+  const token = value.trim();
+  if (LONE_SURROGATE.test(token)) return `${quoteValue(value)} contains half of a character (a lone surrogate).`;
+  if (TOKEN_INVISIBLE.test(token)) {
+    return `${quoteValue(value)} contains an invisible or control character (${codePointOf(token, TOKEN_INVISIBLE)}).`;
+  }
+  return undefined;
+}
+
+/** A token as it is sent: trimmed and in composed Unicode (NFC). Check it with {@link tokenProblem} first. */
+export function normalizeToken(value: string): string {
+  return value.trim().normalize("NFC");
+}
+
+/**
+ * The items of a comma-separated list value (`ids`, `re`, `bt`), as written: each item is
+ * checked (`listProblem`) and canonicalised on its own, so `"9162, 9106"` sends `9106`, and
+ * `"9162,,9106"`, `"9162,"` and `","` are refused rather than sent with an empty item (which
+ * the API answers with HTTP 400, or reads as "no filter").
+ */
+export function splitList(value: string): string[] {
+  return value.split(",");
+}
+
+/**
+ * Why `items` cannot be sent as a list, or undefined when it can: not an array of strings, no
+ * item at all, or an item that `itemProblem` refuses (by default {@link tokenProblem}: a blank
+ * item is refused, never dropped). The reason names the item (`item 2 of 3: …`).
+ */
+export function listProblem(items: readonly string[], itemProblem: Problem = tokenProblem): string | undefined {
+  if (!Array.isArray(items)) return "Expected a list of strings.";
+  if (items.length === 0) return "Expected at least one value.";
+  for (let i = 0; i < items.length; i++) {
+    const problem = itemProblem(items[i] as string);
+    if (problem !== undefined) return items.length === 1 ? problem : `item ${i + 1} of ${items.length}: ${problem}`;
+  }
+  return undefined;
 }
 
 /**
@@ -69,8 +166,9 @@ export function normalizeText(value: string): string {
 }
 
 /**
- * A blank value ("" or whitespace) is invalid: the API treats an empty parameter
- * as no filter at all, so a blank filter would silently return the unfiltered set.
+ * A blank value ("", whitespace, or only invisible characters and combining marks:
+ * isBlank) is invalid: the API treats an empty parameter as no filter at all, so a
+ * blank filter would silently return the unfiltered set.
  */
 export const nonEmptyProblem: Problem = (value) =>
   isBlank(value) ? "Expected a non-empty value." : undefined;
@@ -184,43 +282,48 @@ function isIdNumber(value: string): boolean {
 }
 
 /**
- * An offer id (`details`) is numeric, digits only, and at least 1 (`00401584387`
- * names offer 401584387). Anything else cannot name an offer: put into the path, it
- * could re-target the request (`..`, `12/34`, `?x`) or be sent padded (`%20123%20`)
- * with the API key attached, and `0` or a 23-digit id gets a bare HTTP 400.
+ * An offer id (`details`) is a token (tokenProblem; sent trimmed) of digits only, at
+ * least 1 (`00401584387` names offer 401584387). Anything else cannot name an offer: put
+ * into the path, it could re-target the request (`..`, `12/34`, `?x`) with the API key
+ * attached, and `0` or a 23-digit id gets a bare HTTP 400.
  */
 export const offerIdProblem: Problem = (id) => {
   const numeric = "Expected a numeric offer id (digits only, at least 1, at most 18 digits).";
   // A JS caller may pass a non-string; reject it as invalid rather than throw a TypeError.
   if (typeof id !== "string") return numeric;
-  return nonEmptyProblem(id) ?? (isIdNumber(id) ? undefined : numeric);
+  // Sent trimmed (normalizeToken), like every token.
+  return tokenProblem(id) ?? (isIdNumber(id.trim()) ? undefined : numeric);
 };
 
 /**
- * The occupation ids (`ids`): one or more `dkzId`s, comma-separated, each a whole
- * number of digits (at least 1). The API answers a non-numeric id, and an empty item
- * from a trailing comma (`9162,` — the classic output of a script that joins ids),
+ * The occupation ids (`ids`): one or more `dkzId`s, comma-separated, each a token
+ * (tokenProblem) of digits (at least 1). The API answers a non-numeric id, and an empty
+ * item from a trailing comma (`9162,` — the classic output of a script that joins ids),
  * with a bare HTTP 400. Space around an item is fine (normalizeIds trims it).
  */
 export const idsProblem: Problem = (ids) => {
   const blank = nonEmptyProblem(ids);
   if (blank !== undefined) return blank;
-  const items = ids.split(",").map((item) => item.trim());
-  if (items.some((item) => item === "")) {
+  const items = splitList(ids);
+  if (items.some(isBlank)) {
     return "Expected occupation ids (dkzId) separated by single commas, without an empty item (a trailing comma).";
   }
-  const bad = items.find((item) => !isIdNumber(item));
-  return bad === undefined
-    ? undefined
-    : `Expected numeric occupation ids (dkzId, digits only), e.g. 9162 or 9162,9106; "${/^[\w.-]{1,20}$/.test(bad) ? bad : "(not shown)"}" is not one.`;
+  return listProblem(items, occupationIdProblem);
 };
 
-/** The occupation ids (`ids`) as sent: each comma-separated item trimmed. Idempotent. */
+/** One occupation id of `ids`: a token of digits. A value that is no plain word is not repeated. */
+const occupationIdProblem: Problem = (item) => {
+  const token = tokenProblem(item);
+  if (token !== undefined) return token;
+  const id = item.trim();
+  return isIdNumber(id)
+    ? undefined
+    : `Expected numeric occupation ids (dkzId, digits only), e.g. 9162 or 9162,9106; "${/^[\w.-]{1,20}$/.test(id) ? id : "(not shown)"}" is not one.`;
+};
+
+/** The occupation ids (`ids`) as sent: each comma-separated item trimmed and in NFC (normalizeToken). Idempotent. */
 export function normalizeIds(ids: string): string {
-  return ids
-    .split(",")
-    .map((item) => item.trim())
-    .join(",");
+  return splitList(ids).map(normalizeToken).join(",");
 }
 
 /**
@@ -229,7 +332,7 @@ export function normalizeIds(ids: string): string {
  * `10x`) with a bare HTTP 400; an unknown number gives an empty result.
  */
 export const trainingTypeProblem: Problem = (bart) =>
-  nonEmptyProblem(bart) ??
+  tokenProblem(bart) ??
   (isIdNumber(bart.trim()) ? undefined : "Expected a numeric training type (bildungsart.id), e.g. 102 Berufsausbildung.");
 
 /** Smallest and largest offer type (`sty`); the API answers `4` with HTTP 400. */
@@ -242,18 +345,19 @@ export const styProblem: Problem<number> = intRangeProblem(STY_MIN, STY_MAX);
 /** The radii (`uk`) the API accepts; anything else gets HTTP 400. */
 export const RADII = ["10", "25", "50", "100", "Bundesweit"] as const;
 
-/** The radius (`uk`): one of RADII, exactly as listed. */
+/** The radius (`uk`): a token (tokenProblem) that is one of RADII once normalised (normalizeRadius). */
 export const radiusProblem: Problem = (uk) =>
-  nonEmptyProblem(uk) ??
-  ((RADII as readonly string[]).includes(uk) ? undefined : "Expected 10, 25, 50, 100 (km) or Bundesweit.");
+  tokenProblem(uk) ??
+  ((RADII as readonly string[]).includes(normalizeRadius(uk)) ? undefined : "Expected 10, 25, 50, 100 (km) or Bundesweit.");
 
 /**
- * The radius (`uk`) in the form the API accepts: `bundesweit` in any case becomes
- * `Bundesweit` (the API answers the lowercase form with HTTP 400). Any other value
- * is returned unchanged for radiusProblem to judge. Idempotent.
+ * The radius (`uk`) in the form the API accepts: trimmed and in NFC (normalizeToken), and
+ * `bundesweit` in any case becomes `Bundesweit` (the API answers the lowercase form with
+ * HTTP 400). Any other value is returned so for radiusProblem to judge. Idempotent.
  */
 export function normalizeRadius(uk: string): string {
-  return uk.toLowerCase() === "bundesweit" ? "Bundesweit" : uk;
+  const token = normalizeToken(uk);
+  return token.toLowerCase() === "bundesweit" ? "Bundesweit" : token;
 }
 
 /** The 3-letter Bundesland codes (`re`) the API accepts, in the uppercase it requires. */
@@ -279,21 +383,38 @@ export function normalizeRegionCode(code: string): string {
 
 /** The region filter (`re`), each comma-separated code normalised (normalizeRegionCode). Idempotent. */
 export function normalizeRegions(re: string): string {
-  return re.split(",").map(normalizeRegionCode).join(",");
+  return splitList(re).map(normalizeRegionCode).join(",");
 }
 
-/** The region filter (`re`): one or more comma-separated REGION_CODES. */
-export const regionsProblem: Problem = (re) => nonEmptyProblem(re) ?? firstProblem(re.split(","), regionCodeProblem);
+/**
+ * The region filter (`re`): one or more comma-separated codes, each a token (tokenProblem)
+ * that is one of REGION_CODES once normalised (normalizeRegionCode: `" nrw"` is `NRW`). The
+ * message names a code as written.
+ */
+export const regionsProblem: Problem = (re) =>
+  nonEmptyProblem(re) ??
+  listProblem(splitList(re), (code) =>
+    tokenProblem(code) ?? (regionCodeProblem(normalizeRegionCode(code)) === undefined ? undefined : regionCodeProblem(code.trim())),
+  );
 
 /** The start-date codes (`bt`) the API accepts: 0, 1, 2 and 101..112. */
 export const START_CODES = ["0", "1", "2", ...Array.from({ length: 12 }, (_, i) => String(101 + i))] as const;
 
-/** The start-date filter (`bt`): one or more comma-separated START_CODES. */
+/**
+ * The start-date filter (`bt`): one or more comma-separated codes, each a token
+ * (tokenProblem; sent trimmed) that is one of START_CODES.
+ */
 export const startCodesProblem: Problem = (bt) =>
   nonEmptyProblem(bt) ??
-  (bt.split(",").every((code) => (START_CODES as readonly string[]).includes(code))
-    ? undefined
-    : "Expected start-date codes 0, 1, 2 or 101..112, comma-separated.");
+  listProblem(splitList(bt), (code) =>
+    tokenProblem(code) ??
+    ((START_CODES as readonly string[]).includes(code.trim()) ? undefined : "Expected start-date codes 0, 1, 2 or 101..112, comma-separated."),
+  );
+
+/** The start-date filter (`bt`) as sent: each code trimmed and in NFC (normalizeToken). Idempotent. */
+export function normalizeStartCodes(bt: string): string {
+  return splitList(bt).map(normalizeToken).join(",");
+}
 
 /**
  * The places of an `orte` value: split at each comma that follows a coordinate, with or
@@ -336,6 +457,13 @@ export const placeProblem: Problem = (orte) => {
   // read as `,B`, and the API answers HTTP 400.
   if (places.some((place) => place.trim().startsWith(","))) {
     return 'Expected places separated by single commas, without an empty item (",," or a comma at the start).';
+  }
+  // Each name is a text filter (textProblem): an invisible or control character is refused
+  // and shown escaped.
+  for (const place of places) {
+    const m = /^([\s\S]*?)_-?\d+(?:\.\d+)?_-?\d+(?:\.\d+)?$/.exec(place.trim());
+    const name = m === null || m[1] === "" ? undefined : textProblem(m[1] ?? "");
+    if (name !== undefined) return places.length > 1 ? `the name of a place: ${name}` : name;
   }
   const ok = places.every((place) => {
     const m = /^(.*\S.*)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)$/.exec(place.trim());
@@ -489,18 +617,11 @@ export function placeAndRadiusProblem(
   return undefined;
 }
 
-function firstProblem(values: readonly string[], problem: Problem): string | undefined {
-  for (const value of values) {
-    const reason = problem(value);
-    if (reason !== undefined) return reason;
-  }
-  return undefined;
-}
-
 /**
  * Search parameters in the form the API accepts: `sw` through normalizeText, `orte`
- * through normalizePlaces, `re` through normalizeRegions,
- * `uk` through normalizeRadius, `ids` through normalizeIds and `bart` trimmed
+ * through normalizePlaces, `re` through normalizeRegions, `uk` through normalizeRadius,
+ * `ids` through normalizeIds, `bt` through normalizeStartCodes and `bart` through
+ * normalizeToken
  * (string values, also inside an array); everything else unchanged. Returns a new object. search() applies it before
  * validateSearchParams, so `re: " nrw"` and `uk: "bundesweit"` are sent as
  * `NRW` and `Bundesweit`, as the CLI sends them.
@@ -515,7 +636,8 @@ export function normalizeSearchParams(params: AusbildungSearchParams): Ausbildun
   if (params.orte !== undefined) out.orte = mapStrings(params.orte, normalizePlaces);
   if (params.re !== undefined) out.re = mapStrings(params.re, normalizeRegions);
   if (params.ids !== undefined) out.ids = mapStrings(params.ids, normalizeIds);
-  if (params.bart !== undefined) out.bart = mapStrings(params.bart, (b) => b.trim());
+  if (params.bart !== undefined) out.bart = mapStrings(params.bart, normalizeToken);
+  if (params.bt !== undefined) out.bt = mapStrings(params.bt, normalizeStartCodes);
   if (params.uk !== undefined) out.uk = mapStrings(params.uk, normalizeRadius);
   return out;
 }
@@ -578,6 +700,7 @@ export function validateSearchParams(
   }
   if (params.sty !== undefined) assertValid("sty", params.sty, styProblem);
   const textRules: Array<[keyof AusbildungSearchParams, Problem]> = [
+    ["sw", textProblem],
     ["ids", idsProblem],
     ["bart", trainingTypeProblem],
     ["orte", placeProblem],

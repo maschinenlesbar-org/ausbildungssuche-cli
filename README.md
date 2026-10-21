@@ -152,7 +152,10 @@ the flag; repeating any other filter, or a global option (`--api-key`, `--base-u
 `--timeout`, …), is a usage error (exit `2`) rather than silently keeping only the
 last value. When a search with `--ids` or `--bart` finds nothing, a note on stderr
 says so: the API answers an id or training type it doesn't know with an empty
-result, not an error.
+result, not an error. Every value goes out trimmed and in composed Unicode; a value that
+is blank, holds only invisible characters, or has a zero-width space, a soft hyphen, a
+control character or half a character in it is a usage error (exit `2`) that shows the
+character escaped (`"NR\u200bW"`), and so is an empty item in a list (`9162,,9106`).
 
 The flag names mirror the API's German abbreviations — the
 **[Glossary](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/GLOSSARY.md)** decodes every one.

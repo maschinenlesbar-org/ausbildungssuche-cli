@@ -7,13 +7,13 @@ import {
   parseBoundedInt,
   parseIds,
   parseIntArg,
-  parseNonEmpty,
   parseOfferId,
   parsePlace,
   parseRadius,
   parseRegions,
   parseSizeArg,
   parseStartCodes,
+  parseText,
   parseTrainingType,
   renderJson,
 } from "../shared.js";
@@ -27,7 +27,7 @@ export function registerAusbildungCommands(program: Command, deps: CliDeps): voi
     .description("Search apprenticeship/training offers")
     // Single-valued options reject a repeat (once); list-valued ones, whose API
     // parameter takes comma-separated values, accumulate repeats (commaList).
-    .option("--sw <text>", "search keyword (sw); currently ignored by the API, use --ids to filter by occupation", once(parseNonEmpty))
+    .option("--sw <text>", "search keyword (sw); currently ignored by the API, use --ids to filter by occupation", once(parseText))
     .option("--sty <n>", `offer type ${STY_MIN}..${STY_MAX} (sty)`, once(parseBoundedInt(STY_MIN, STY_MAX)))
     .option("--orte <loc>", 'location as "Name_lon_lat", longitude first, e.g. "Köln_6.957_50.938", or several comma-separated (orte); needs --uk', once(parsePlace))
     .option("--re <code>", "Bundesland code (re), e.g. BAY, NRW, THÜ; comma-separated or repeated for several", commaList(parseRegions))

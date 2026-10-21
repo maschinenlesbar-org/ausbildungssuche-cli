@@ -99,7 +99,9 @@ rohe JSON-Objekte, statt sie auf einen Teiltyp einzuschränken.
 `details <id>`. Angebots-IDs sind numerisch (nur Ziffern, mindestens `1`, höchstens 18
 Ziffern; führende Nullen sind erlaubt): Alles andere lehnt die CLI ab (Exit `2`) und die
 Bibliothek mit einem Validierungsfehler, beide bevor eine Anfrage gesendet wird – die API
-beantwortet `0` oder eine 23-stellige ID mit einem bloßen HTTP 400.
+beantwortet `0` oder eine 23-stellige ID mit einem bloßen HTTP 400. Wie jede ID und jeder
+Code wird sie ohne umgebende Leerzeichen gesendet; ein unsichtbares Zeichen darin (ein
+Leerzeichen der Breite null) wird abgelehnt und maskiert angezeigt.
 
 **Ort (`orte`).** Der Ort, auf den eine Suche eingegrenzt wird, geschrieben als
 `Name_lon_lat` mit dem **Längengrad zuerst**, z. B. `Köln_6.957_50.938`. Steht der

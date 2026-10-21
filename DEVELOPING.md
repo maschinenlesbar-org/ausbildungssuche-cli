@@ -149,10 +149,22 @@ run them up front.
   `rejectRepeatedOptions` in `run.ts`), and `--ids`/`--re`/`--bt` repeats are joined
   with `,`. `apps/cli/test/conformance-p10-strict-filters.test.ts` is the shared check.
 - **Blank search filters.** `search()` rejects any string parameter (`sw`, `ids`,
-  `orte`, `re`, `uk`, `bart`, `bt`) that is empty or only whitespace
-  (`validateSearchParams`, `nonEmptyProblem`): the API treats an empty parameter as
+  `orte`, `re`, `uk`, `bart`, `bt`) that is blank (`validateSearchParams`,
+  `nonEmptyProblem`, `isBlank`): empty, or only whitespace, control and format characters
+  and combining marks (a lone zero-width space). The API treats an empty parameter as
   no filter and would answer with the unfiltered set. Leave a filter out
   (`undefined`) to not filter by it.
+- **One rule per kind of value** (D8 of the 2026-10-21 fix plan). Free text (`sw`, an
+  `orte` place name) goes through `textProblem`: also refused are a lone surrogate, a
+  control character other than TAB/LF/CR and a format character other than ZWNJ/ZWJ (a
+  zero-width space, a soft hyphen, a bidi control), which only make a search match
+  nothing. A token (the offer id, an occupation id, `bart`, `uk`, a `re` or `bt` code)
+  goes through `tokenProblem` (no control or format character at all, no lone surrogate)
+  and is sent as `normalizeToken` makes it (trimmed, NFC), then its own rule (digits, a
+  listed code) applies. A list (`ids`, `re`, `bt`) is `splitList` and `listProblem`:
+  each item checked on its own, an empty item refused, never dropped, and named
+  (`item 2 of 3: …`). Every refusal quotes the value visibly (`quoteValue`). All of these
+  are exported. P24 runs one corpus through every text, token and list input.
 - **Values outside the API's closed value sets.** `sty` must be an integer
   `STY_MIN`..`STY_MAX` (0..3), `re` one or more comma-separated `REGION_CODES`
   (uppercase, as listed), `uk` one of `RADII`, `bt` one or more comma-separated
@@ -175,8 +187,9 @@ run them up front.
   NFC-normalised and uppercased (`normalizeRegions`, `" bay, nrw"` → `BAY,NRW`),
   and `bundesweit` in any case becomes `Bundesweit` (`normalizeRadius`). The API
   answers the lowercase forms with HTTP 400; the CLI's `--re`/`--uk`/`--orte` parsers
-  call the same functions, so both send the same request. Ids and codes are never
-  text-normalised.
+  call the same functions, so both send the same request. Ids and codes are tokens:
+  trimmed and composed (`normalizeToken`, `normalizeIds`, `normalizeStartCodes`), nothing
+  else.
 - **Engine options out of range** (constructor): see *Engine option ranges* below.
 - **A malformed base URL** (constructor): see *`--base-url` scheme allowlist* below.
 - **Header values that cannot be sent** (constructor, and `obtainKey()`). `apiKey`,
@@ -216,9 +229,10 @@ run them up front.
   (`normalizeIds`); `bart` one numeric `bildungsart.id` (`trainingTypeProblem`).
 - **Non-numeric offer ids.** `details()` accepts an id of digits only, at least `1`
   and at most 18 significant digits (`offerIdProblem`; the API answers `0` and a
-  23-digit id with HTTP 400); a blank, padded, signed, decimal, percent-encoded or
-  separator-bearing id (`" 123 "`, `"12/34"`, `"%31%32"`, `".."`) is rejected
-  rather than put into the path with the API key attached.
+  23-digit id with HTTP 400), sent trimmed (`" 123 "` asks for `123`); a blank, signed,
+  decimal, percent-encoded, separator-bearing or invisible-character id (`"12/34"`,
+  `"%31%32"`, `".."`, `"1\u200b"`) is rejected rather than put into the path with the API
+  key attached.
 
 ## Authentication internals
 
@@ -635,7 +649,9 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   has no environment variable), P21 the README's relative links (README.md ships to
   npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
   GitHub URL), P23 the log records on stderr and `--log-format`, P24 one corpus of tricky
-  inputs through every text filter (`--sw`, the `--orte` name) and the `details` id, P25 a
+  inputs through every text filter (`--sw`, the `--orte` name), every token (the `details`
+  id, `--uk`, `--bart`) and every list (`--ids`, `--re`, `--bt`; the corpus's tokens mapped
+  to real codes), refusals shown escaped, P25 a
   number a double can't carry, an empty answer and an answer error naming the request, P27
   big and odd answers (8 M numbers with `--compact` and 20 MB of DEL characters under a
   small heap, a text past V8's longest string once escaped, invalid text replaced with

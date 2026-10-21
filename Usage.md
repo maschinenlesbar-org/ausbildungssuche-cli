@@ -133,8 +133,8 @@ Pipe to `jq` to inspect or reshape the detail object — the title lives at
 ausbildungssuche details 153387597 | jq '.[0] | {titel: .angebot.titel, anbieter: .angebot.bildungsanbieter.name}'
 ```
 
-The id must be non-empty; an empty id is rejected client-side as a validation
-error before any request is made.
+The id must be non-empty digits (sent trimmed); an empty id, or one with an invisible
+character in it, is rejected client-side as a validation error before any request is made.
 
 ### 6. Filter to education-voucher–eligible offers
 

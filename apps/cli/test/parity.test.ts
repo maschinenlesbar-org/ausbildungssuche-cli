@@ -71,11 +71,21 @@ test("parity: a non-blank filter is sent identically", async () => {
 const details = (id: string) =>
   parity(["--api-key", KEY, "details", "--", id], (t) => client(t).details(id));
 
-for (const id of ["abc", " 123 ", "12/34", "%31%32", "12%2F3", "1.5", "-1", "0x10", "?x", "#x", "a\tb", "AB%20CD"]) {
+for (const id of ["abc", "12/34", "%31%32", "12%2F3", "1.5", "-1", "0x10", "?x", "#x", "AB%20CD"]) {
   test(`parity: details ${JSON.stringify(id)} is rejected by CLI and library alike`, async () => {
     assertBothReject(await details(id), /numeric offer id/);
   });
 }
+
+test("parity: details with a control character is rejected, the character shown escaped", async () => {
+  assertBothReject(await details("a\tb"), /"a\\tb" contains an invisible or control character \(U\+0009\)/);
+});
+
+test("parity: a padded offer id is sent trimmed, like every token (D8)", async () => {
+  const o = await details(" 123 ");
+  assertSameRequest(o);
+  assert.match(o.cli.requests[0]?.url ?? "", /\/ausbildungsangebot\/123$/);
+});
 
 for (const id of ["", "  "]) {
   test(`parity: details with a blank id ${JSON.stringify(id)} is rejected by CLI and library alike`, async () => {
@@ -93,10 +103,9 @@ const P = "Köln_6.957_50.938";
 for (const [name, argv, params, message] of [
   ["sty 4", ["--sty", "4"], { sty: 4 }, /between 0 and 3/],
   ["re BW", ["--re", "BW"], { re: "BW" }, /Unknown Bundesland code "BW"/],
-  ["re NRW,", ["--re", "NRW,"], { re: "NRW," }, /Unknown Bundesland code ""/],
+  ["re NRW,", ["--re", "NRW,"], { re: "NRW," }, /item 2 of 2: Expected a non-empty value/],
   ["uk 30", ["--orte", P, "--uk", "30"], { orte: P, uk: "30" }, /10, 25, 50, 100 \(km\) or Bundesweit/],
   ["bt 113", ["--bt", "113"], { bt: "113" }, /start-date codes/],
-  ["bt '101, 102'", ["--bt", "101, 102"], { bt: "101, 102" }, /start-date codes/],
   ["bt 2026-10-01", ["--bt", "2026-10-01"], { bt: "2026-10-01" }, /start-date codes/],
   ["orte Köln", ["--orte", "Köln", "--uk", "25"], { orte: "Köln", uk: "25" }, /Name_lon_lat/],
   ["orte Köln_6.9_95", ["--orte", "Köln_6.9_95", "--uk", "25"], { orte: "Köln_6.9_95", uk: "25" }, /Name_lon_lat/],

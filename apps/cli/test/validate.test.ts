@@ -107,9 +107,12 @@ test("validateSearchParams names the blank parameter and leaves undefined alone"
 test("offerIdProblem accepts digits only", () => {
   for (const id of ["1", "365241044", "007"]) assert.equal(offerIdProblem(id), undefined, id);
   for (const id of ["", "  "]) assert.equal(offerIdProblem(id), "Expected a non-empty value.");
-  for (const id of ["abc", " 1", "1 ", "1.5", "-1", "1/2", "%31", "١٢"]) {
+  for (const id of ["abc", "1.5", "-1", "1/2", "%31", "١٢"]) {
     assert.equal(offerIdProblem(id), "Expected a numeric offer id (digits only, at least 1, at most 18 digits).", id);
   }
+  // A token is sent trimmed (D8): a padded id is fine, an invisible character is not.
+  for (const id of [" 1", "1 "]) assert.equal(offerIdProblem(id), undefined, id);
+  assert.equal(offerIdProblem("1\u200b"), '"1\\u200b" contains an invisible or control character (U+200B).');
 });
 
 test("styProblem accepts integers 0..3 only", () => {
@@ -122,25 +125,31 @@ test("styProblem accepts integers 0..3 only", () => {
 test("radiusProblem accepts the listed radii exactly", () => {
   for (const uk of ["10", "25", "50", "100", "Bundesweit"]) assert.equal(radiusProblem(uk), undefined, uk);
   assert.equal(radiusProblem(" "), "Expected a non-empty value.");
-  for (const uk of ["30", "150", " 25", "bundesweit", "25km"]) {
-    assert.equal(radiusProblem(uk), "Expected 10, 25, 50, 100 (km) or Bundesweit.", uk);
+  for (const uk of ["30", "150", "25km", "2\u200b5"]) {
+    assert.notEqual(radiusProblem(uk), undefined, uk);
   }
+  for (const uk of ["30", "150", "25km"]) assert.equal(radiusProblem(uk), "Expected 10, 25, 50, 100 (km) or Bundesweit.", uk);
+  // A token is checked as it is sent (D8): trimmed, `bundesweit` in any case.
+  for (const uk of [" 25", "bundesweit", " Bundesweit "]) assert.equal(radiusProblem(uk), undefined, uk);
 });
 
 test("regionsProblem accepts comma-separated uppercase Bundesland codes", () => {
   for (const re of ["BAY", "NRW,THÜ", "BAW,BAY,BER"]) assert.equal(regionsProblem(re), undefined, re);
   assert.equal(regionsProblem(""), "Expected a non-empty value.");
   assert.match(regionsProblem("BW") ?? "", /^Unknown Bundesland code "BW"\. Expected one or more of BAW, /);
-  assert.match(regionsProblem("NRW,") ?? "", /^Unknown Bundesland code ""/);
-  assert.match(regionsProblem("nrw") ?? "", /^Unknown Bundesland code "nrw"/);
+  assert.equal(regionsProblem("NRW,"), "item 2 of 2: Expected a non-empty value.");
+  assert.match(regionsProblem("NRW,B\u200bAY") ?? "", /^item 2 of 2: "B\\u200bAY" contains an invisible/);
+  // Checked as sent (normalizeRegionCode): a lower-case or padded code is fine.
+  assert.equal(regionsProblem(" nrw"), undefined);
 });
 
 test("normalizeRadius maps bundesweit in any case to Bundesweit and is idempotent", () => {
   for (const uk of ["bundesweit", "BUNDESWEIT", "BundesWeit", "Bundesweit"]) {
     assert.equal(normalizeRadius(uk), "Bundesweit", uk);
   }
-  // Anything else is left as it is, for radiusProblem to judge.
-  for (const uk of ["25", " 25", "30", ""]) assert.equal(normalizeRadius(uk), uk, uk);
+  // Anything else is only trimmed and composed (normalizeToken), for radiusProblem to judge.
+  for (const uk of ["25", "30", ""]) assert.equal(normalizeRadius(uk), uk, uk);
+  assert.equal(normalizeRadius(" 25 "), "25");
   for (const uk of ["bundesweit", "25"]) assert.equal(normalizeRadius(normalizeRadius(uk)), normalizeRadius(uk));
 });
 
@@ -158,7 +167,8 @@ test("normalizeRegions trims, NFC-normalises and uppercases each code, and is id
 
 test("normalizeSearchParams canonicalises the text filters, re and uk, and leaves codes alone, without mutating its input", () => {
   const params = { re: " nrw", uk: "bundesweit", sw: " Koch ", orte: " Ko\u0308ln _6.957_50.938", bt: " 2" };
-  assert.deepEqual(normalizeSearchParams(params), { re: "NRW", uk: "Bundesweit", sw: "Koch", orte: "Köln_6.957_50.938", bt: " 2" });
+  // Codes are tokens: trimmed and composed (normalizeToken), nothing else (D8).
+  assert.deepEqual(normalizeSearchParams(params), { re: "NRW", uk: "Bundesweit", sw: "Koch", orte: "Köln_6.957_50.938", bt: "2" });
   assert.deepEqual(params, { re: " nrw", uk: "bundesweit", sw: " Koch ", orte: " Ko\u0308ln _6.957_50.938", bt: " 2" });
   assert.deepEqual(normalizeSearchParams({ re: ["nrw", "bay"] as unknown as string }), { re: ["NRW", "BAY"] });
   assert.deepEqual(normalizeSearchParams({ uk: 25 as unknown as string }), { uk: 25 });
@@ -167,9 +177,13 @@ test("normalizeSearchParams canonicalises the text filters, re and uk, and leave
 
 test("startCodesProblem accepts 0, 1, 2 and 101..112, comma-separated", () => {
   for (const bt of ["0", "2", "101", "112", "0,2,112"]) assert.equal(startCodesProblem(bt), undefined, bt);
-  for (const bt of ["3", "100", "113", "02", "101, 102", "2026-10-01", "1,"]) {
+  for (const bt of ["3", "100", "113", "02", "2026-10-01"]) {
     assert.equal(startCodesProblem(bt), "Expected start-date codes 0, 1, 2 or 101..112, comma-separated.", bt);
   }
+  // A list: each code is checked trimmed, an empty item is refused and named (D8).
+  assert.equal(startCodesProblem("101, 102"), undefined);
+  assert.equal(startCodesProblem("1,"), "item 2 of 2: Expected a non-empty value.");
+  assert.equal(startCodesProblem("101,113"), "item 2 of 2: Expected start-date codes 0, 1, 2 or 101..112, comma-separated.");
 });
 
 test("placeProblem wants Name_lon_lat with the coordinates in range", () => {

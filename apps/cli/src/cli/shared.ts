@@ -14,10 +14,10 @@ import {
   baseUrlProblem,
   headerValueProblem,
   intRangeProblem,
-  nonEmptyProblem,
   normalizeRadius,
-  normalizeRegionCode,
   normalizeRegions,
+  normalizeStartCodes,
+  normalizeToken,
   idsProblem,
   normalizeIds,
   offerIdProblem,
@@ -25,9 +25,10 @@ import {
   placeProblem,
   trainingTypeProblem,
   radiusProblem,
-  regionCodeProblem,
+  regionsProblem,
   sizeProblem,
   startCodesProblem,
+  textProblem,
   type Problem,
 } from "@maschinenlesbar.org/ausbildungssuche-client/internal/validate";
 
@@ -53,12 +54,13 @@ export function parseIntArg(value: string): number {
 }
 
 /**
- * commander value-parser: a value that is not blank (the library's
- * nonEmptyProblem). A blank filter would otherwise be sent empty and the command
- * would silently run unfiltered.
+ * commander value-parser for a text filter (`--sw`): the library's textProblem (not blank,
+ * no invisible, control or half character), as a usage error before any request. A blank
+ * filter would otherwise be sent empty and the command would silently run unfiltered. The
+ * library trims and normalises the value it sends (`normalizeText`), so it goes on as typed.
  */
-export function parseNonEmpty(value: string): string {
-  return parserOf(nonEmptyProblem)(value);
+export function parseText(value: string): string {
+  return parserOf(textProblem)(value);
 }
 
 /**
@@ -160,7 +162,7 @@ function parserOf(problem: Problem): (value: string) => string {
  * its radiusProblem.
  */
 export function parseRadius(value: string): string {
-  return parserOf(radiusProblem)(normalizeRadius(value));
+  return normalizeRadius(parserOf(radiusProblem)(value));
 }
 
 /**
@@ -170,17 +172,13 @@ export function parseRadius(value: string): string {
  * regionCodeProblem. The message names the code as the user typed it.
  */
 export function parseRegions(value: string): string {
-  parseNonEmpty(value);
-  for (const item of value.split(",")) {
-    if (regionCodeProblem(normalizeRegionCode(item)) !== undefined) {
-      throw new InvalidArgumentError(regionCodeProblem(item) ?? "");
-    }
-  }
-  return normalizeRegions(value);
+  return normalizeRegions(parserOf(regionsProblem)(value));
 }
 
-/** commander value-parser for `--bt`: the library's startCodesProblem (0, 1, 2 or 101..112). */
-export const parseStartCodes = parserOf(startCodesProblem);
+/** commander value-parser for `--bt`: the library's startCodesProblem (0, 1, 2 or 101..112), sent as normalizeStartCodes makes it (items trimmed). */
+export function parseStartCodes(value: string): string {
+  return normalizeStartCodes(parserOf(startCodesProblem)(value));
+}
 
 /** commander value-parser for `--orte`: the library's placeProblem (`Name_lon_lat`), checked and sent as normalizePlaces makes it. */
 export function parsePlace(value: string): string {
@@ -197,7 +195,7 @@ export function parseIds(value: string): string {
 
 /** commander value-parser for `--bart`: the library's trainingTypeProblem (one numeric id), trimmed. */
 export function parseTrainingType(value: string): string {
-  return parserOf(trainingTypeProblem)(value).trim();
+  return normalizeToken(parserOf(trainingTypeProblem)(value));
 }
 
 /** commander value-parser for an offer id: the library's offerIdProblem (digits only). */

@@ -56,7 +56,7 @@ test("details builds the per-id path from a numeric id", async () => {
 // synchronous throw) before any request: a separator, a query or fragment, a
 // percent-encoded form, or a crafted traversal id (AUS-003, `x%20/../../../v2/secret`
 // used to escape the intended path to /v2/secret with the X-API-Key attached).
-for (const id of ["AB/12 3", "AB%20CD", "x%20/../../../v2/secret", "a%20b?apiKey=1", "abc%20#frag", "..", " 1 "]) {
+for (const id of ["AB/12 3", "AB%20CD", "x%20/../../../v2/secret", "a%20b?apiKey=1", "abc%20#frag", ".."]) {
   test(`details rejects the non-numeric id ${JSON.stringify(id)} before any request`, async () => {
     const mt = makeMockTransport(okResponse);
     await assert.rejects(

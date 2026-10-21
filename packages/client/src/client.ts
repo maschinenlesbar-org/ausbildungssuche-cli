@@ -17,6 +17,7 @@ import {
   detailsProblem,
   headerValueProblem,
   normalizeSearchParams,
+  normalizeToken,
   offerIdProblem,
   searchResultProblem,
   validateSearchParams,
@@ -135,7 +136,8 @@ export class AusbildungssucheClient {
    */
   async details(id: string): Promise<AusbildungDetails> {
     assertValid("id", id, offerIdProblem);
-    const path = `${SERVICE}/pc/v1/ausbildungsangebot/${id}`;
+    // Sent trimmed, like every token (normalizeToken).
+    const path = `${SERVICE}/pc/v1/ausbildungsangebot/${normalizeToken(id)}`;
     // The detail endpoint serves application/json and 406s on HAL+JSON, so we
     // request JSON explicitly. A digits-only id needs no encoding.
     const result = await this.engine.getJson(path, undefined, "application/json");
