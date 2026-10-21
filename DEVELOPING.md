@@ -581,7 +581,10 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   warning for a plain-`http:` base URL (its env-variable case is skipped: the base URL
   has no environment variable), P21 the README's relative links (README.md ships to
   npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
-  GitHub URL), P23 the log records on stderr and `--log-format`. Mock fixtures answer
+  GitHub URL), P23 the log records on stderr and `--log-format`, P24 one corpus of tricky
+  inputs through every text filter (`--sw`, the `--orte` name) and the `details` id, P25 a
+  number a double can't carry and an empty answer (P26, `-o` integrity, does not apply:
+  this CLI has no `-o`). Mock fixtures answer
   in the API's real shapes (`okResponse` in `packages/client/test/helpers.ts`), because the client rejects
   any other 2xx body.
 
