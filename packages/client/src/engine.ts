@@ -684,7 +684,7 @@ export class RequestEngine {
       // The size cap holds whatever the transport did: the default one aborts early, a
       // custom one may have read everything.
       if (this.maxResponseBytes > 0 && body.byteLength > this.maxResponseBytes) {
-        throw new AusbildungNetworkError(sizeLimitMessage(this.maxResponseBytes));
+        throw new AusbildungNetworkError(`${method} ${redactUrl(url)} failed: ${sizeLimitMessage(this.maxResponseBytes)}`);
       }
       const response = { status, headers: responseHeaders, body };
 
@@ -814,12 +814,18 @@ export class RequestEngine {
    */
   private toNetworkError(method: string, url: string, cause: unknown): AusbildungError {
     if (cause instanceof AusbildungNetworkError) {
-      // The built-in transport's own errors carry no URL; scrub anyway, in case a
+      // The built-in transport's own errors (a timeout, the size cap, a refused
+      // connection, a DNS failure) and the engine's deadline carry no URL: name the
+      // request, as for a reset, with the original as the cause. Scrub anyway, in case a
       // custom transport built one from a server's text.
       const message = this.scrub(cause.message);
-      const inner = this.scrubCause(cause.cause);
-      if (message === cause.message && inner === cause.cause) return cause;
-      return new AusbildungNetworkError(message, inner === undefined ? undefined : { cause: inner });
+      const prefix = `${method} ${redactUrl(url)} failed: `;
+      if (message.startsWith(prefix)) {
+        const inner = this.scrubCause(cause.cause);
+        if (message === cause.message && inner === cause.cause) return cause;
+        return new AusbildungNetworkError(message, inner === undefined ? undefined : { cause: inner });
+      }
+      return new AusbildungNetworkError(`${prefix}${message}`, { cause: this.scrubCause(cause) });
     }
     if (cause instanceof AusbildungError) return cause;
     const reason =

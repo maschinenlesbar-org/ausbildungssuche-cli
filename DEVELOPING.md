@@ -493,7 +493,10 @@ either way), the body it gets back is checked against `maxResponseBytes`
 are read case-insensitively from a plain record, a `Headers` object or a `Map`, the
 body may be a Buffer, any `ArrayBuffer` view (a `Uint8Array` from fetch), an
 `ArrayBuffer` or a string, and anything a transport throws or returns malformed
-becomes an `AusbildungNetworkError` naming the request (CLI exit `6`). A connection
+becomes an `AusbildungNetworkError` naming the request (CLI exit `6`). Every network
+error reads `<METHOD> <url> failed: <reason>` (userinfo never in it): a reset, a timeout
+(the transport's or the engine's deadline), the size cap, a refused connection and a
+DNS failure alike, with the transport's original error as the `cause`. A connection
 reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`, undici's `UND_ERR_SOCKET`, anywhere in
 the `cause` chain; `isTransientNetworkError`) is retried like a `503`, for GET only.
 `apps/cli/test/conformance-p5-transport-contract.test.ts` is the shared check.
