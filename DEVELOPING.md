@@ -464,7 +464,12 @@ stdout is a socket, as with a Node parent's piped stdio on macOS) exits `0` quie
 error piped through `2>&1 | head -c 5` still exits `2`). Any other stdout write error
 is an ERROR record of `ausbildungssuche.output` (`Could not write to stdout: …`, in the
 format argv asks for: `processLogger`) and exits `1`; any other stderr write error exits
-`1` silently. `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` runs the built bin.
+`1` silently. When stdout is a regular file (`> out.json`), `defaultIO.out` writes it with
+`stdoutWriter`: every byte through `writeSync` in a loop (Node's stream ignored a short
+count, so a file-size limit or a full disk cut the output with exit `0`), and a failure
+(EFBIG, ENOSPC) is emitted as stdout's `error`, so it becomes that ERROR record and exit
+`1`. A pipe or a terminal goes through the stream as before.
+`apps/cli/test/conformance-p26-output-integrity.test.ts` runs the bin under `ulimit -f`. `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` runs the built bin.
 
 **Secrets in the library.** The engine keeps the base URL and the default headers
 (the `X-API-Key`) in real `#private` fields, so `console.log(client)`,
@@ -629,7 +634,8 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   number a double can't carry, an empty answer and an answer error naming the request, P27
   big and odd answers (8 M numbers with `--compact` and 20 MB of DEL characters under a
   small heap, a text past V8's longest string once escaped, invalid text replaced with
-  U+FFFD and a WARN). P26 (`-o` integrity) applies only in part: this CLI has no `-o`. Mock fixtures answer
+  U+FFFD and a WARN), P26 only its stdout case (stdout redirected to a file and cut short
+is exit 1 with an ERROR record; this CLI has no `-o`). Mock fixtures answer
   in the API's real shapes (`okResponse` in `packages/client/test/helpers.ts`), because the client rejects
   any other 2xx body.
 

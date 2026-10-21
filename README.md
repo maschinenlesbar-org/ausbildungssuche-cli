@@ -242,7 +242,10 @@ do the same thing.
 | `1` | any other error (also a `200` answer that is not the documented search envelope or offer array) |
 
 A reader that stops early (`… | head`) ends the run quietly with exit `0`; a failed run
-keeps its own code even when its stderr's reader has gone (`2>&1 | head -c 5`).
+keeps its own code even when its stderr's reader has gone (`2>&1 | head -c 5`). Output
+redirected to a file (`> out.json`) that can't be written in full (a full disk, a file-size
+limit) is an `ERROR` record of `ausbildungssuche.output` and exit `1`, never a cut file with
+exit `0`.
 
 ## Troubleshooting
 
