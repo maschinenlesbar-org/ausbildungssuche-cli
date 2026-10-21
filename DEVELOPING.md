@@ -204,7 +204,12 @@ run them up front.
   (`AusbildungApiError.body` keeps it whole); any other value an own message quotes
   from a server answer or the user's input (a redirect target, a charset, a Bundesland
   code) at `MAX_QUOTED_LENGTH` (200, `cutForMessage`), so `err.message` stays bounded
-  for a library caller.
+  for a library caller. A refusal that quotes the value does so visibly (`quoteValue`,
+  exported): as JSON quotes it, plus DEL, C1, every format character (a zero-width space,
+  a soft hyphen, a bidi control), U+2028/2029 and a lone surrogate as `\uXXXX`, cut at
+  200 characters with the "…" after the closing quote (`"NR\u200bW"`); the CLI escapes
+  commander's own echo of a rejected value the same way (`escapeTerminalText` in `run.ts`),
+  and the redaction knows the escaped forms of a key.
 - **Ids and training types the API answers with HTTP 400.** `ids` must be numeric
   `dkzId`s, comma-separated, without an empty item (`idsProblem`; `9162,` from a
   script that joins ids is the usual slip), each item trimmed before sending

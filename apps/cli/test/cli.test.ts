@@ -546,7 +546,7 @@ test("a rejected --re value is quoted at most 200 characters long (L3)", async (
   assert.equal(await run(["search", "--re", "X".repeat(1000)], cli.deps), 2);
   const record = cli.err.find((line) => line.includes("Unknown Bundesland code")) ?? "";
   const own = record.slice(record.indexOf("Unknown Bundesland code"));
-  assert.match(own, /^Unknown Bundesland code "X{200}…"\. /);
+  assert.match(own, /^Unknown Bundesland code "X{200}"…\. /);
   assert.ok(own.length < 400, `${own.length}`);
 });
 

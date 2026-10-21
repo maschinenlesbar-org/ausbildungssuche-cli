@@ -22,6 +22,7 @@ import {
   placeAndRadiusProblem,
   placeProblem,
   radiusProblem,
+  regionCodeProblem,
   regionsProblem,
   resultWindowProblem,
   sizeProblem,
@@ -30,7 +31,7 @@ import {
   validateSearchParams,
   type Problem,
 } from "@maschinenlesbar.org/ausbildungssuche-client/internal/validate";
-import { AusbildungError, AusbildungValidationError } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
+import { AusbildungError, AusbildungValidationError, quoteValue } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
 import * as lib from "../src/index.js";
 import { run } from "../src/cli/run.js";
 import type { AusbildungssucheClient } from "@maschinenlesbar.org/ausbildungssuche-client/internal/client";
@@ -358,4 +359,27 @@ test("--orte with an empty item (two commas, a leading comma) is refused before 
     assert.deepEqual(o.lib.requests, []);
   }
   assert.equal(placeProblem("Frankfurt, Main_8.68_50.11"), undefined);
+});
+
+test("a refusal quotes the value visibly: invisible, format and control characters escaped, cut at 200 (D10)", async () => {
+  assert.equal(quoteValue("a\u200bb"), '"a\\u200bb"');
+  assert.equal(quoteValue("\u202eabc\u00ad\u007f\u0085\u2028"), '"\\u202eabc\\u00ad\\u007f\\u0085\\u2028"');
+  assert.equal(quoteValue("x\ud800"), '"x\\ud800"');
+  assert.equal(quoteValue("a\u001bb\n"), '"a\\u001bb\\n"');
+  assert.equal(quoteValue("X".repeat(500)), `"${"X".repeat(200)}"…`);
+  assert.equal(regionCodeProblem("NR\u200bW")?.startsWith('Unknown Bundesland code "NR\\u200bW". '), true);
+  // On the CLI too: neither the reason nor commander's echo of the value shows the character raw.
+  const o = await parity(["search", "--re", "NR\u200bW"], (t) => new lib.AusbildungssucheClient({ transport: t }).search({ re: "NR\u200bW" }));
+  assert.equal(o.cli.code, 2);
+  assert.ok(o.cli.err.includes("\\u200b"), o.cli.err);
+  assert.ok(!o.cli.err.includes("\u200b"), o.cli.err);
+  assert.ok(String((o.lib.error as Error).message).includes("\\u200b"));
+});
+
+test("a key echoed escaped (commander's echo, a quoted refusal) is still redacted (D10)", async () => {
+  const key = "secret­key1";
+  const o = await parity(["search", "--uk", key], () => undefined, { env: { AUSBILDUNGSSUCHE_API_KEY: key } });
+  assert.equal(o.cli.code, 2);
+  assert.ok(o.cli.err.includes("***"), o.cli.err);
+  assert.ok(!o.cli.err.includes("secret"), o.cli.err);
 });

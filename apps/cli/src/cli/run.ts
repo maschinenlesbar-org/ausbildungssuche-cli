@@ -14,6 +14,7 @@ import {
   AusbildungValidationError,
   credentialsIn,
   echoedCredentialForms,
+  quoteValue,
   redactCredentials,
   redactSecrets,
 } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
@@ -73,6 +74,36 @@ export function withoutStrayValues(message: string): string {
 }
 
 /**
+ * Escape the characters a terminal acts on, or a reader can't see, in one commander error
+ * message: CR and LF become `\r` and `\n` (as a log record writes them, `escapeForRecord`),
+ * the other C0 controls (tab excepted), DEL, C1 and Unicode format characters (bidi
+ * overrides, zero-width characters, the soft hyphen) `\uXXXX`. Commander repeats a rejected
+ * value raw ("option '--sw <text>' argument '<value>' is invalid"): the record escapes the
+ * controls too, but a zero-width space would stay invisible. The library escapes the values
+ * it echoes itself (`quoteValue`).
+ */
+export function escapeTerminalText(text: string): string {
+  return text.replace(/[\u0000-\u0008\u000a-\u001f\u007f-\u009f]|\p{Cf}/gu, (ch) =>
+    ch === "\n"
+      ? "\\n"
+      : ch === "\r"
+        ? "\\r"
+        : Array.from({ length: ch.length }, (_, i) => `\\u${ch.charCodeAt(i).toString(16).padStart(4, "0")}`).join(""),
+  );
+}
+
+/**
+ * escapeTerminalText for one commander error message, except for the `\n(Did you mean …?)`
+ * line commander appends after an unknown command or option. That hint is built from this
+ * CLI's own command and option names, and it can only end the message.
+ */
+function escapeCommanderError(message: string): string {
+  const hint = /\n\(Did you mean [^\n]*\?\)\n?$/.exec(message);
+  if (hint === null) return escapeTerminalText(message.replace(/\n$/, "")) + (message.endsWith("\n") ? "\n" : "");
+  return escapeTerminalText(message.slice(0, hint.index)) + hint[0];
+}
+
+/**
  * Apply exitOverride + output redirection to every command in the tree.
  * commander does not propagate these to subcommands, so a parse error on a
  * subcommand would otherwise call process.exit() and bypass our error handling.
@@ -84,7 +115,7 @@ function configureTree(command: Command, deps: CliDeps, state: { errorLogged: bo
   command.configureOutput({
     writeOut: (str) => deps.io.out(str.replace(/\n$/, "")),
     writeErr: (str) => writeCommanderErr(command, deps, state, str),
-    outputError: (str, write) => write(withoutStrayValues(str)),
+    outputError: (str, write) => write(escapeCommanderError(withoutStrayValues(str))),
   });
   for (const child of command.commands) configureTree(child, deps, state);
 }
@@ -226,6 +257,8 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
     for (const secret of credentialsIn(source)) {
       userinfo.add(secret);
       userinfo.add(JSON.stringify(secret).slice(1, -1));
+      // Commander's echo of the value is escaped (escapeTerminalText) before it is redacted.
+      userinfo.add(escapeTerminalText(secret));
       // What a server echoes back: the Basic value and the decoded user:password on
       // stdout and stderr, the password alone (it may well occur in the data) on stderr.
       const [basic, pair, password] = echoedCredentialForms(secret);
@@ -240,6 +273,9 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
     for (const form of [value, value.trim()]) {
       keys.add(form);
       keys.add(JSON.stringify(form).slice(1, -1));
+      // As commander's echo (escapeTerminalText) and a refusal (quoteValue) show it.
+      keys.add(escapeTerminalText(form));
+      keys.add(quoteValue(form, Number.MAX_SAFE_INTEGER).slice(1, -1));
     }
   };
   addKey(envKey);

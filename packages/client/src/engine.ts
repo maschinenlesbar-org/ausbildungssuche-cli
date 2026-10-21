@@ -35,6 +35,9 @@ import {
   echoedCredentialForms,
 } from "./errors.js";
 
+// quoteValue lives with the other message helpers (validate.ts quotes refused values with it).
+export { quoteValue } from "./errors.js";
+
 export const DEFAULT_BASE_URL = "https://rest.arbeitsagentur.de";
 
 /** Most retries `maxRetries` may ask for (each may wait up to MAX_RETRY_AFTER_MS). */

@@ -478,7 +478,7 @@ test("own messages quote a server or user value at most 200 characters long (L3)
   await assert.rejects(redirect.getJson("/x"), (err: Error) => err.message.length < 400 && /redirect to https:\/\/other\.example\/x+… not followed/.test(err.message));
   const charset = new RequestEngine({ transport: async () => ({ status: 200, headers: { "content-type": `application/json; charset=${long}` }, body: Buffer.from("{}") }) });
   await assert.rejects(charset.getJson("/x"), (err: Error) => err.message.length < 400 && /unsupported response charset "x+…"/.test(err.message));
-  assert.match(regionCodeProblem(long) ?? "", /^Unknown Bundesland code "x{200}…"\./);
+  assert.match(regionCodeProblem(long) ?? "", /^Unknown Bundesland code "x{200}"…\./);
 });
 
 test("credentials a server echoes are scrubbed from the error: Basic, user:password, password (L13)", async () => {

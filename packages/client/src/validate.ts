@@ -5,7 +5,7 @@
 // before any request; the CLI's commander value-parsers call the same function and
 // turn the reason into a usage error, so the rule exists exactly once.
 
-import { AusbildungValidationError, cutForMessage } from "./errors.js";
+import { AusbildungValidationError, quoteValue } from "./errors.js";
 import type { AusbildungSearchParams } from "./types.js";
 
 /** Why `value` is invalid, or `undefined` if it is valid. */
@@ -266,7 +266,7 @@ export const REGION_CODES = [
 export const regionCodeProblem: Problem = (code) =>
   (REGION_CODES as readonly string[]).includes(code)
     ? undefined
-    : `Unknown Bundesland code "${cutForMessage(code)}". Expected one or more of ${REGION_CODES.join(", ")}, comma-separated.`;
+    : `Unknown Bundesland code ${quoteValue(code)}. Expected one or more of ${REGION_CODES.join(", ")}, comma-separated.`;
 
 /**
  * One Bundesland code in the form the API accepts: trimmed, NFC-normalised (an NFD

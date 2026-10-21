@@ -80,6 +80,7 @@ export {
   AusbildungValidationError,
   credentialsDroppedHint,
   credentialsIn,
+  quoteValue,
   redactCredentials,
   redactSecrets,
   redactUrl,
