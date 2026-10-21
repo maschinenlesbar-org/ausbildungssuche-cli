@@ -325,12 +325,18 @@ export function normalizePlaces(orte: string): string {
  * latitude in -90..90 second — or several such places, comma-separated, which the
  * API searches together (live: Köln's 3 offers + Berlin's 17 = 20). Every place is
  * checked: the API answers a bare place name with HTTP 400 and out-of-range
- * coordinates with HTTP 500, also when only one of several places has them.
+ * coordinates with HTTP 500, also when only one of several places has them, and an
+ * empty item (`A,,B`) with HTTP 400.
  */
 export const placeProblem: Problem = (orte) => {
   const blank = nonEmptyProblem(orte);
   if (blank !== undefined) return blank;
   const places = splitPlaces(orte);
+  // A place that starts with a comma is an empty item (`A,,B`, `,A`): its name would be
+  // read as `,B`, and the API answers HTTP 400.
+  if (places.some((place) => place.trim().startsWith(","))) {
+    return 'Expected places separated by single commas, without an empty item (",," or a comma at the start).';
+  }
   const ok = places.every((place) => {
     const m = /^(.*\S.*)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)$/.exec(place.trim());
     const lon = m ? Number(m[2]) : NaN;

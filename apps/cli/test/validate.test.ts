@@ -344,3 +344,18 @@ test("--orte with space before a comma is split there: every place is checked an
   assert.equal(new URL(o.cli.requests[0]!.url).searchParams.get("orte"), "Köln_6.957_50.938,Berlin_13.405_52.52");
   assert.deepEqual(o.lib.requests.map((r) => r.url), o.cli.requests.map((r) => r.url));
 });
+
+test("--orte with an empty item (two commas, a leading comma) is refused before any request (bug 01-2)", async () => {
+  // Live the API answered "Köln_…,,Berlin_…" with HTTP 400: the second place was read as
+  // one named ",Berlin".
+  for (const orte of ["Köln_6.957_50.938,,Berlin_13.405_52.52", ",Köln_6.957_50.938", "Köln_6.957_50.938, ,Berlin_13.405_52.52"]) {
+    assert.match(placeProblem(orte) ?? "", /empty item/, orte);
+    const o = await parity(["search", "--orte", orte, "--uk", "10"], (t) => new lib.AusbildungssucheClient({ transport: t }).search({ orte, uk: "10" }));
+    assert.equal(o.cli.code, 2, o.cli.err);
+    assert.match(o.cli.err, /empty item/);
+    assert.deepEqual(o.cli.requests, []);
+    assert.equal(o.lib.ok, false);
+    assert.deepEqual(o.lib.requests, []);
+  }
+  assert.equal(placeProblem("Frankfurt, Main_8.68_50.11"), undefined);
+});

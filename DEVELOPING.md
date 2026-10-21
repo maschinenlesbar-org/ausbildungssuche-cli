@@ -148,7 +148,8 @@ run them up front.
   `startCodesProblem`, `placeProblem`). The API answers these with a bare HTTP
   400/500. Several places are split at each comma after a coordinate, with or without
   whitespace around it (`splitPlaces`: `Köln_6.957_50.938 , Berlin_13.405_52.52` is two
-  places, both checked and sent trimmed), so a comma inside a place name stays in it.
+  places, both checked and sent trimmed), so a comma inside a place name stays in it; an
+  empty item (`A,,B`, a leading comma) is refused, as the API answers it with HTTP 400.
 - **`orte` or a km `uk` alone.** A kilometre radius without a place is ignored by
   the API, and a place without a radius does not narrow the search; either alone
   would return the nationwide set, so `search()` rejects it
