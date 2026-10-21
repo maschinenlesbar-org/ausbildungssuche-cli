@@ -187,7 +187,7 @@ with `--log-format jsonl` as one JSON object per line. The areas: `cli` (usage e
 commander's messages, unexpected errors), `api` (the API's answers: an error status and
 the hints after it, and a malformed answer — bad JSON, the wrong shape), `http` (the
 connection, the cleartext warning, and one WARN per retry before it waits), `config`, `obtain-key` and `output` (a failed write
-to stdout). A record is always one line; control characters in it are escaped.
+to stdout, an answer too deeply nested or too large to print). A record is always one line; control characters in it are escaped.
 
 **Replaced text.** Bytes of an answer that are not valid in its charset, and half characters
 (lone surrogates), are replaced with U+FFFD and reported in one `WARN` record of

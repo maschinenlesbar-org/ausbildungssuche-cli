@@ -414,27 +414,46 @@ test("userinfo in --base-url is redacted from error messages but still sent", as
   assert.equal(cli.mt.last().headers?.["Authorization"], `Basic ${Buffer.from("user:s3cret").toString("base64")}`);
 });
 
-test("a too deeply nested response is a clean error, not a stack overflow", async () => {
+test("an answer nested too deeply is a clean error; it suggests --compact only where --compact prints it (D7)", async () => {
+  // A hostile or broken answer: JSON.parse reads it, the pretty printer's recursion can't. Whether
+  // the compact printer can depends on the Node version (iterative from Node 26) and the stack:
+  // probed here, never assumed. Nested inside a valid offer, so the shape check passes.
   const depth = 200_000;
-  // Nested inside a valid offer, so the shape check passes and printing is what fails.
   const body = '[{"id":1,"x":' + "[".repeat(depth) + "]".repeat(depth) + "}]";
-  const responder = (): HttpResponse => ({
-    status: 200,
-    headers: { "content-type": "application/json" },
-    body: Buffer.from(body),
-  });
+  let compactPrints = true;
+  try {
+    JSON.stringify(JSON.parse(body));
+  } catch {
+    compactPrints = false;
+  }
+  const responder = (): HttpResponse => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(body) });
   const pretty = makeCli(responder);
   assert.equal(await run(["details", "1"], pretty.deps), 1);
+  assert.deepEqual(pretty.out, []);
   assert.equal(
     untimed(pretty.err.join("\n")),
-    "ERROR [ausbildungssuche.cli] The response is nested too deeply to pretty-print; try --compact.",
+    `ERROR [ausbildungssuche.output] The answer is nested too deeply to pretty-print${compactPrints ? "; try --compact" : ""}.`,
   );
-  // Compact may cope, or fail with its own message — never "Unexpected error".
   const compact = makeCli(responder);
-  const code = await run(["--compact", "details", "1"], compact.deps);
-  if (code !== 0) {
-    assert.equal(untimed(compact.err.join("\n")), "ERROR [ausbildungssuche.cli] The response is nested too deeply to print.");
-  }
+  assert.equal(await run(["--compact", "details", "1"], compact.deps), compactPrints ? 0 : 1);
+  if (!compactPrints) assert.equal(untimed(compact.err.join("\n")), "ERROR [ausbildungssuche.output] The answer is nested too deeply to print.");
+});
+
+test("an answer too large to print is called too large, not too deep; the hint only where --compact prints (D7)", (t) => {
+  const { deps } = makeCli(okResponse);
+  const real = JSON.stringify;
+  // V8's own error for a text past its longest string, stood in for: a real one needs 512 MB.
+  const tooLarge = (gap: unknown): boolean => gap === 2 || gap === "big";
+  t.mock.method(JSON, "stringify", (value: unknown, replacer: never, gap: unknown) => {
+    if (tooLarge(gap) || (gap === undefined && (value as { all?: boolean }).all === true)) throw new RangeError("Invalid string length");
+    return real(value, replacer, gap as number);
+  });
+  assert.throws(() => renderJson(deps, {}, { id: "a1" }), (err: Error) =>
+    /^The answer is too large \(more than \d+ characters of JSON\) to pretty-print; try --compact\.$/.test(err.message));
+  assert.throws(() => renderJson(deps, {}, { all: true }), (err: Error) =>
+    /^The answer is too large \(more than \d+ characters of JSON\) to pretty-print\.$/.test(err.message));
+  assert.throws(() => renderJson(deps, { compact: true }, { all: true }), (err: Error) =>
+    /^The answer is too large \(more than \d+ characters of JSON\) to print\.$/.test(err.message));
 });
 
 test("--help says what --timeout 0 means", async () => {

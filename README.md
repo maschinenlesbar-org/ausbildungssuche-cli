@@ -189,7 +189,7 @@ Each line on stderr is a **log record**: a timestamp (UTC), a level (`ERROR`, `W
 `INFO`) and a topic, the program and the area it comes from (`ausbildungssuche.cli` for usage
 errors, `ausbildungssuche.api` for the API's answers (a malformed one included) and the hints after them, `ausbildungssuche.http` for
 the connection, `ausbildungssuche.config`, `ausbildungssuche.obtain-key`, `ausbildungssuche.output`
-for a failed write to stdout). An error about an answer names the request
+for a failed write to stdout and an answer too deeply nested or too large to print). An error about an answer names the request
 (`GET <url>: the answer is not valid JSON`). Text in an answer is never changed silently:
 bytes that are not valid in its charset and half characters (lone surrogates) are replaced
 with U+FFFD, so the output stays readable for `jq`, and a `WARN` record of

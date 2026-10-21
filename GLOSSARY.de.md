@@ -191,7 +191,8 @@ als Text (im Stil von log4j) oder mit `--log-format jsonl` als ein JSON-Objekt p
 Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `api` (die
 Antworten der API: ein Fehlerstatus und die Hinweise danach sowie eine fehlerhafte Antwort —
 ungültiges JSON, die falsche Form), `http` (die Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten), `config`,
-`obtain-key` und `output` (ein Schreibfehler auf stdout). Ein Eintrag ist immer eine Zeile;
+`obtain-key` und `output` (ein Schreibfehler auf stdout, eine Antwort, die zu tief
+verschachtelt oder zu groß zum Ausgeben ist). Ein Eintrag ist immer eine Zeile;
 Steuerzeichen darin werden maskiert.
 
 **Ersetzter Text.** Bytes einer Antwort, die in ihrem Zeichensatz ungültig sind, und halbe

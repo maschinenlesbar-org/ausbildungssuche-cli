@@ -18,7 +18,7 @@ import {
   redactSecrets,
 } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
 import { API_KEY_ENV_VAR } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
-import { API_KEY_CREDENTIAL } from "./shared.js";
+import { API_KEY_CREDENTIAL, OutputError } from "./shared.js";
 
 /**
  * Process exit codes. Distinct codes let scripts tell apart a usage error, an
@@ -319,10 +319,12 @@ export function processLogger(argv: readonly string[], env: Record<string, strin
 /**
  * The log area of an `AusbildungError` that is neither an API error, a network error nor
  * a usage error: a malformed answer (`api`: bad JSON, the wrong shape, an unknown
- * charset — the API's answer as much as an error status is), else `cli`.
+ * charset — the API's answer as much as an error status is), an answer that can't be
+ * printed (`output`: nested too deeply, too large), else `cli`.
  */
 function areaOf(err: AusbildungError): string {
   if (err instanceof AusbildungParseError) return "api";
+  if (err instanceof OutputError) return "output";
   return "cli";
 }
 

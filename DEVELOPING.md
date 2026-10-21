@@ -439,11 +439,17 @@ surrogate) and replaced with U+FFFD.`), and the CLI's `action()` logs it as a `W
 record of `ausbildungssuche.api`. A throw in the hook is swallowed. `obtainKey()` decodes
 the same way; a key that would hold a U+FFFD is refused by `looksLikeApiKey`.
 
-**Rendering** (`renderJson` in [`shared.ts`](apps/cli/src/cli/shared.ts)). An answer
-nested too deeply to pretty-print is an ERROR record that suggests `--compact`, not a
-stack overflow. `--compact` takes V8's fast path (`JSON.stringify(value)`) unless the
-answer holds a string or key of 64 Mi characters or more (`holdsHugeString`, an
-iterative walk), which goes through the gap path (an empty gap, the same text): on
+**Rendering** (`renderJson` in [`shared.ts`](apps/cli/src/cli/shared.ts)). An answer that
+can't be printed is an `OutputError`, an ERROR record of `ausbildungssuche.output` (exit
+`1`) that names the cause, never a stack overflow or "Unexpected error": "The answer is
+nested too deeply to pretty-print" (or "to print" with `--compact`), or "The answer is too
+large (more than 536870888 characters of JSON) to pretty-print", V8's longest string.
+"; try --compact" is added only when the compact form of that very answer prints: it is
+probed, not assumed, because that depends on the Node version and the stack.
+`--compact` takes V8's fast path (`JSON.stringify(value)`) unless the
+answer holds a string or key of 64 Mi characters or more (`holdsHugeString`: iterative,
+linear, an array walked by index and an object by `for…in`, nothing allocated per
+value), which goes through the gap path (an empty gap, the same text): on
 Node 26 the fast path aborts the process on a ~250 MB string from JSON.parse, but it
 is also the only path that prints very deep nesting there.
 
@@ -687,7 +693,8 @@ code point and ends in `… (N more characters)`. The areas are `cli` (usage err
 `api` (the API's answers: an error status, the hints after it and the "no offers
 matched" note, as `INFO`, a malformed answer, an `AusbildungParseError`: bad JSON,
 the wrong shape, an unknown charset, and text replaced with U+FFFD, as `WARN`), `http` (network errors and the size-cap hint, the cleartext warning), `config`,
-`obtain-key` and `output` (a failed write to stdout). Code logs through `logOf(deps)` and never writes diagnostics with
+`obtain-key` and `output` (a failed write to stdout, an answer too deeply nested or too
+large to print). Code logs through `logOf(deps)` and never writes diagnostics with
 `io.err` directly. `run()` builds the logger from argv before commander parses it
 (`logFormatFromArgv`: the first `--log-format`, the value of one of the program's own value
 options skipped, used only for the records of a parse error; a `preAction` hook then sets the
