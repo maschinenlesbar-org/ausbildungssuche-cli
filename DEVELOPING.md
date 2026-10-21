@@ -65,6 +65,7 @@ new AusbildungssucheClient({
   maxResponseBytes: 50 << 20,
   userAgent: "my-app/1.0",
   transport: customTransport,
+  onWarning: (message) => console.warn(message), // text replaced with U+FFFD (below)
 });
 ```
 
@@ -423,6 +424,17 @@ and typed without its flag).
 break `JSON.parse`. An unknown charset label is an `AusbildungParseError` naming it and
 the request (`GET <url>: unsupported response charset "…".`).
 
+**Text is never changed silently.** Bytes that are not valid in the declared (or default
+UTF-8) charset (`decodeBody` decodes with a `fatal` TextDecoder first, then lossily and
+counts what it replaced) and lone surrogates written as JSON escapes (`"\ud800"`,
+`wellFormedEscapes`, one linear pass) become U+FFFD, so the result is well-formed text
+that `jq` reads. One bad character never sinks a whole answer: it is not an error, but the
+engine option `onWarning(message)` is told the count and the request
+(`GET <url>: 2 characters of the answer were not valid text (invalid bytes or a lone
+surrogate) and replaced with U+FFFD.`), and the CLI's `action()` logs it as a `WARN`
+record of `ausbildungssuche.api`. A throw in the hook is swallowed. `obtainKey()` decodes
+the same way; a key that would hold a U+FFFD is refused by `looksLikeApiKey`.
+
 **Rendering** (`renderJson` in [`shared.ts`](apps/cli/src/cli/shared.ts)). An answer
 nested too deeply to pretty-print is an ERROR record that suggests `--compact`, not a
 stack overflow. `--compact` takes V8's fast path (`JSON.stringify(value)`) unless the
@@ -669,8 +681,8 @@ character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellF
 and a message longer than `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a
 code point and ends in `… (N more characters)`. The areas are `cli` (usage errors, commander's messages, unexpected errors),
 `api` (the API's answers: an error status, the hints after it and the "no offers
-matched" note, as `INFO`, and a malformed answer, an `AusbildungParseError`: bad JSON,
-the wrong shape, an unknown charset), `http` (network errors and the size-cap hint, the cleartext warning), `config`,
+matched" note, as `INFO`, a malformed answer, an `AusbildungParseError`: bad JSON,
+the wrong shape, an unknown charset, and text replaced with U+FFFD, as `WARN`), `http` (network errors and the size-cap hint, the cleartext warning), `config`,
 `obtain-key` and `output` (a failed write to stdout). Code logs through `logOf(deps)` and never writes diagnostics with
 `io.err` directly. `run()` builds the logger from argv before commander parses it
 (`logFormatFromArgv`: the first `--log-format`, the value of one of the program's own value
