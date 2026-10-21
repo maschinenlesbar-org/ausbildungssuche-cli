@@ -118,7 +118,11 @@ value; below 2^53 a decimal fraction keeps a double's usual precision. Past 2^53
 compares the number as printed (`String(value)`, the shortest decimal that reads back as the
 same double) with the number as written: `12345678901234567890` prints as
 `12345678901234567000` and is refused, while `1e23` or `1.7976931348623157E308` (a double a
-server printed in its own shortest form) print as the same number and pass.
+server printed in its own shortest form) print as the same number and pass. The scan
+(`scanNumbers`, linear, skipping strings, no reviver) can also deliver declared big
+integers: the engine option `bigIntegerKeys` (a set of member names) makes the value of
+each such member its exact literal, as a JSON string, whatever its size. This API's answers
+need none, so the client declares none; every undeclared number keeps the rule above.
 
 Every error about an answer names the request, `GET <url>: …`, with the URL as
 `describeUrl` gives it (absolute, so a `--base-url` mirror's host is named; userinfo
