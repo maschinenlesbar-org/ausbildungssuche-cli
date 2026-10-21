@@ -3,7 +3,7 @@ name: ausbildung-offer-brief
 description: >
   Fetch one apprenticeship/training offer by id and turn its deeply nested,
   HTML-laden record into a clean human briefing using the ausbildungssuche-cli.
-  Trigger when the user has an offer id and asks "what's offer 365241044?", "tell
+  Trigger when the user has an offer id and asks "what's offer 153387597?", "tell
   me about this Ausbildung", "summarise this training offer", "how much does it
   cost / is it Bildungsgutschein-funded?", "who's the provider and how do I apply?",
   or pastes an id from a search result. Decodes dates, HTML fields, funding and
@@ -73,7 +73,7 @@ the CLI rejects it client-side (exit `2`) before any request.
 ## Step 2 — Fetch the record
 
 ```bash
-ausbildungssuche --compact details 365241044
+ausbildungssuche --compact details 153387597
 ```
 
 > **The detail endpoint returns a JSON *array*, not the search envelope.** It's

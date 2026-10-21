@@ -123,14 +123,14 @@ After a search, take an offer id (a numeric id, as returned under
 returns plain JSON (a JSON array of matching records, not the HAL envelope).
 
 ```bash
-ausbildungssuche details 365241044
+ausbildungssuche details 153387597
 ```
 
 Pipe to `jq` to inspect or reshape the detail object — the title lives at
 `angebot.titel` and the provider at `angebot.bildungsanbieter.name`:
 
 ```bash
-ausbildungssuche details 365241044 | jq '.[0] | {titel: .angebot.titel, anbieter: .angebot.bildungsanbieter.name}'
+ausbildungssuche details 153387597 | jq '.[0] | {titel: .angebot.titel, anbieter: .angebot.bildungsanbieter.name}'
 ```
 
 The id must be non-empty; an empty id is rejected client-side as a validation

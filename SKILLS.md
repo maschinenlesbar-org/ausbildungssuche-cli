@@ -8,7 +8,7 @@ powered by the **[ausbildungssuche](README.md)** CLI over the open
 
 Each skill teaches Claude how to drive the `ausbildungssuche` CLI to answer a specific,
 real-world question — "what apprenticeships can I do near Köln?", "what is offer
-365241044?", "where is the most Pflege training?" — and to report the answer with
+153387597?", "where is the most Pflege training?" — and to report the answer with
 evidence rather than guesswork. They encode the parts that are easy to get wrong (the
 ignored keyword and the occupation ids that do filter, the backwards `Name_lon_lat`
 location string, the discrete radius set, the 3-letter region codes, the 20-row pages and
@@ -19,7 +19,7 @@ the 10000-result cap) so Claude doesn't have to rediscover them each time.
 | Skill | What it does | Ask it… |
 |---|---|---|
 | **ausbildung-finder** | Searches offers near a place, dedupes the catalogue's near-duplicates, ranks by distance / start / funding, and enriches with town, date and Bildungsgutschein status. | "Ausbildung als Mechatroniker near Köln", "Umschulung within 50 km, Bildungsgutschein only" |
-| **ausbildung-offer-brief** | Fetches one offer by id and turns its nested, HTML-laden record into a readable one-page briefing — provider, dates, cost/funding, entry requirements, how to apply. | "what's offer 365241044?", "summarise this training offer" |
+| **ausbildung-offer-brief** | Fetches one offer by id and turns its nested, HTML-laden record into a readable one-page briefing — provider, dates, cost/funding, entry requirements, how to apply. | "what's offer 153387597?", "summarise this training offer" |
 | **ausbildung-market-scan** | Sweeps `page.totalElements` for an occupation across regions / types / funding to profile the size and distribution of a training market, working around the 10000 cap. | "where is the most Pflege training?", "what share is Bildungsgutschein-funded?" |
 
 ## Requirements
@@ -83,7 +83,7 @@ request. Just ask in natural language:
 
 > What apprenticeships for Mechatroniker are there within 50 km of Köln, funded ones first?
 
-> Give me a briefing on offer 365241044.
+> Give me a briefing on offer 153387597.
 
 > Which Bundesland has the most Pflege training, and how much of it is Bildungsgutschein-funded?
 

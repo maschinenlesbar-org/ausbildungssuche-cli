@@ -119,7 +119,7 @@ currently ignores it.
 Take an offer's id from those results and fetch its full record:
 
 ```bash
-ausbildungssuche details 365241044
+ausbildungssuche details 153387597
 ```
 
 ## Commands
@@ -211,7 +211,7 @@ ausbildungssuche --log-format jsonl details 1 2>log.jsonl   # {"ts":"…","level
 ausbildungssuche search --ids 9162 | jq '.page'
 
 # Reshape a detail record (title + provider)
-ausbildungssuche details 365241044 \
+ausbildungssuche details 153387597 \
   | jq '.[0] | {titel: .angebot.titel, anbieter: .angebot.bildungsanbieter.name}'
 ```
 
