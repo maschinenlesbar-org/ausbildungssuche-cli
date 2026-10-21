@@ -403,6 +403,14 @@ and typed without its flag).
 `iso-8859-1` answer keeps its umlauts and a byte order mark added by a proxy does not
 break `JSON.parse`. An unknown charset label is an `AusbildungParseError` naming it.
 
+**Rendering** (`renderJson` in [`shared.ts`](apps/cli/src/cli/shared.ts)). An answer
+nested too deeply to pretty-print is an ERROR record that suggests `--compact`, not a
+stack overflow. `--compact` takes V8's fast path (`JSON.stringify(value)`) unless the
+answer holds a string or key of 64 Mi characters or more (`holdsHugeString`, an
+iterative walk), which goes through the gap path (an empty gap, the same text): on
+Node 26 the fast path aborts the process on a ~250 MB string from JSON.parse, but it
+is also the only path that prints very deep nesting there.
+
 **Closed pipes** (`handleOutputErrors` in [`io.ts`](apps/cli/src/cli/io.ts), installed by the
 bin shim before `run()`). An EPIPE on stdout (`| head` stopped reading; ENOTCONN when
 stdout is a socket, as with a Node parent's piped stdio on macOS) exits `0` quietly; an EPIPE on stderr is ignored, so a failed run keeps its exit code (a usage
