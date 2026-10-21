@@ -451,7 +451,12 @@ answer holds a string or key of 64 Mi characters or more (`holdsHugeString`: ite
 linear, an array walked by index and an object by `for…in`, nothing allocated per
 value), which goes through the gap path (an empty gap, the same text): on
 Node 26 the fast path aborts the process on a ~250 MB string from JSON.parse, but it
-is also the only path that prints very deep nesting there.
+is also the only path that prints very deep nesting there. The printed JSON then has DEL,
+the C1 controls and the bidi controls escaped (`escapeControlChars`; `JSON.stringify`
+leaves them raw): it counts them first, refuses a text that escaped would pass V8's
+longest string ("The answer is too large to print (N characters once its control
+characters are escaped)."), and builds the rest in 64 Ki chunks joined once, so 20 MB of
+DEL characters print within a small heap.
 
 **Closed pipes** (`handleOutputErrors` in [`io.ts`](apps/cli/src/cli/io.ts), installed by the
 bin shim before `run()`). An EPIPE on stdout (`| head` stopped reading; ENOTCONN when
@@ -621,8 +626,10 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   npmjs.com, so a link to a document the `files` allowlist leaves out must be an absolute
   GitHub URL), P23 the log records on stderr and `--log-format`, P24 one corpus of tricky
   inputs through every text filter (`--sw`, the `--orte` name) and the `details` id, P25 a
-  number a double can't carry and an empty answer (P26, `-o` integrity, does not apply:
-  this CLI has no `-o`). Mock fixtures answer
+  number a double can't carry, an empty answer and an answer error naming the request, P27
+  big and odd answers (8 M numbers with `--compact` and 20 MB of DEL characters under a
+  small heap, a text past V8's longest string once escaped, invalid text replaced with
+  U+FFFD and a WARN). P26 (`-o` integrity) applies only in part: this CLI has no `-o`. Mock fixtures answer
   in the API's real shapes (`okResponse` in `packages/client/test/helpers.ts`), because the client rejects
   any other 2xx body.
 
