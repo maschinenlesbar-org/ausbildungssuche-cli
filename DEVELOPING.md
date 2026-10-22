@@ -130,6 +130,11 @@ redacted; cut at 500 characters), like a network error: the shape errors above, 
 that is not JSON (`the answer is not valid JSON`, naming a Content-Type other than JSON:
 `(expected JSON, got Content-Type "text/html")`), an empty body (`empty response body`,
 never "no results"), an inexact number and an unknown charset.
+A body too large to become one string (512 MB and more, possible only with
+`maxResponseBytes: 0` or `--max-response-bytes 0`) is an `AusbildungParseError`, `GET <url>: the
+answer is too large to read as text (N bytes; the longest string is 536870888 characters).`
+(ERROR record of `ausbildungssuche.api`, exit 1), not a plain `Error` ("Unexpected error" in the
+CLI); an error status with such a body keeps its `AusbildungApiError`, without the body.
 
 ### What the library rejects
 
