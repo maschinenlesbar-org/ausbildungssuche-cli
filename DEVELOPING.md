@@ -432,7 +432,8 @@ argument (`credentialsIn`, which finds it whether the value parses or not, then
 `redactCredentials`) becomes `***@` on stdout and stderr. Only a URL with a scheme
 counts (a bare `a:b@c` is a search text, a User-Agent or a file name as often
 as a credential), except as the `--base-url` value; it is found anywhere in an argument
-(`urlsWithin`), not only at its start, since a text filter is sent trimmed: a padded
+(`urlsWithin`, linear: each `://` found with indexOf, at most 64 URLs per argument), not only
+at its start, since a text filter is sent trimmed: a padded
 `" https://user:pw@host"`, one after a dash or inside a phrase reached the request URL; and
 its percent-encoded form with the `@` (`bob%3Apw%40`), as the request URL of an error record
 carries it, is replaced too. The `--api-key` value and
