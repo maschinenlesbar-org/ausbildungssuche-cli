@@ -631,3 +631,51 @@ test("terminal controls are escaped in chunks: the same text as one pass, across
   assert.equal(out[0], expected);
   assert.deepEqual(JSON.parse(out[0]!), { text });
 });
+
+// T15 of the 2026-10-21 fix round (jobsuche-cli 28be809, ladesaeulenregister-cli 001c48d): a URL
+// with a password anywhere in an argument — padded, after a dash, inside a phrase, an id, an
+// option value, commander's echo — must never reach stderr, neither raw in a refusal or note
+// nor percent-encoded in the request URL of an error record.
+test("a password in a URL inside any argument is redacted on stderr, raw or percent-encoded (T15)", async () => {
+  const url = "https://bob:s3cretpw@host.example/x";
+  const argvs = [
+    ["search", "--sw", url],
+    ["search", "--sw", ` ${url}`],
+    ["search", "--sw", `\t${url}`],
+    ["search", "--sw", ` -${url}`],
+    ["search", "--sw", `Koch ${url}`],
+    [`search`, `--sw= ${url}`],
+    ["search", "--sw", `Koch\u0007${url}`],
+    ["search", "--orte", `Köln ${url}`, "--uk", "25"],
+    ["search", "--orte", `Köln_6.9_50.9,${url}`, "--uk", "25"],
+    ["search", "--re", ` ${url}`],
+    ["search", "--uk", ` ${url}`],
+    ["search", "--ids", ` ${url}`],
+    ["search", "--bt", ` ${url}`],
+    ["search", "--bart", ` ${url}`],
+    ["search", "--sty", ` ${url}`],
+    ["search", "--page", ` ${url}`],
+    ["details", ` ${url}`],
+    ["details", `id ${url}`],
+    [` ${url}`],
+    [url],
+    ["search", "--sw", url, "--bogus"],
+    ["search", "--sw", url, "extra"],
+  ];
+  const answers: Array<() => HttpResponse> = [
+    () => jsonResponse({ message: `bad value ${url}` }, 404),
+    () => jsonResponse({}, 500),
+    () => ({ status: 503, headers: {}, body: Buffer.from("busy") }),
+    () => {
+      throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+    },
+  ];
+  for (const argv of argvs) {
+    for (const answer of answers) {
+      const cli = makeCli(answer);
+      await run(["--max-retries", "0", ...argv], cli.deps);
+      const err = cli.err.join("\n");
+      assert.doesNotMatch(err, /s3cretpw|bob%3As3|s3cretpw%40/, `${JSON.stringify(argv)}: ${err}`);
+    }
+  }
+});

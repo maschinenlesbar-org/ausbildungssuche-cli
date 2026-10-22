@@ -424,9 +424,13 @@ is cut and escaped, and writes it to the raw stderr: the frame (time, level, top
 never touched, and a secret with DEL, C1 or bidi characters is matched in its raw form.
 The userinfo of every URL
 argument (`credentialsIn`, which finds it whether the value parses or not, then
-`redactCredentials`) becomes `***@` on stdout and stderr. Only a value that starts with
-a scheme counts (a bare `a:b@c` is a search text, a User-Agent or a file name as often
-as a credential), except as the `--base-url` value; the `--api-key` value and
+`redactCredentials`) becomes `***@` on stdout and stderr. Only a URL with a scheme
+counts (a bare `a:b@c` is a search text, a User-Agent or a file name as often
+as a credential), except as the `--base-url` value; it is found anywhere in an argument
+(`urlsWithin`), not only at its start, since a text filter is sent trimmed: a padded
+`" https://user:pw@host"`, one after a dash or inside a phrase reached the request URL; and
+its percent-encoded form with the `@` (`bob%3Apw%40`), as the request URL of an error record
+carries it, is replaced too. The `--api-key` value and
 the `AUSBILDUNGSSUCHE_API_KEY` value become `***` on stderr (`redactSecrets`). Not on
 stdout, where `obtain-key` prints the key. The forms a server echoes a userinfo back in
 are replaced too: the `Basic` value and the decoded `user:password` on stdout and

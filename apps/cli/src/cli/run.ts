@@ -230,9 +230,11 @@ export interface Redaction {
  * an unknown command or option as typed, so whatever path a secret takes to the
  * terminal it is replaced:
  *
- * - the userinfo of every URL argument, `--opt=value` value and of the key variable
- *   (as `credentialsIn` finds it, parseable or not: only a value with a scheme, or the
- *   `--base-url` value) becomes `***@`, on stdout and stderr;
+ * - the userinfo of every URL in an argument (wherever it starts in it, `urlsWithin`),
+ *   `--opt=value` value and of the key variable (as `credentialsIn` finds it, parseable
+ *   or not: only a URL with a scheme, or the `--base-url` value) becomes `***@`, on stdout
+ *   and stderr, and so does its percent-encoded form with the `@`, as a request URL in an
+ *   error record carries it;
  * - the value of `--api-key` (both forms) and the `AUSBILDUNGSSUCHE_API_KEY` value,
  *   as given and trimmed, plus their JSON-escaped forms, become `***` on stderr. Not
  *   on stdout: `obtain-key` prints the key there, and it may well be the one already
@@ -253,9 +255,11 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
   const passwords = new Set<string>();
   // A base URL typed without its scheme is read as if it had one.
   const baseUrls = flagValues(argv, BASE_URL_FLAGS).map((value) => (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(value) ? value : `http://${value}`));
-  for (const source of [...values, envKey, ...baseUrls]) {
+  for (const source of [...values.flatMap(urlsWithin), envKey, ...baseUrls]) {
     for (const secret of credentialsIn(source)) {
       userinfo.add(secret);
+      // As a request URL in an error record carries it: percent-encoded, with its "@".
+      echoed.add(encodeURIComponent(`${secret}@`));
       userinfo.add(JSON.stringify(secret).slice(1, -1));
       // Commander's echo of the value is escaped (escapeTerminalText) before it is redacted.
       userinfo.add(escapeTerminalText(secret));
@@ -295,6 +299,21 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
       keyList = sortedKeys();
     },
   };
+}
+
+/** Where a scheme (`https://`) starts inside a value: anywhere, not only at its start. */
+const SCHEME_START = /[A-Za-z][A-Za-z0-9+.-]*:\/\//g;
+
+/**
+ * `value` and the rest of it from each place a URL starts inside it, for `credentialsIn`
+ * (which reads a URL at the start of its input only). A text filter is sent trimmed, so a
+ * padded `" https://user:pw@host"`, one after a dash or inside a phrase reaches the request
+ * URL and the messages that quote the value.
+ */
+function urlsWithin(value: string): string[] {
+  const found = [value];
+  for (const match of value.matchAll(SCHEME_START)) if (match.index > 0) found.push(value.slice(match.index));
+  return found;
 }
 
 /**
