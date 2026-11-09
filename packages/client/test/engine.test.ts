@@ -937,3 +937,36 @@ test("a value quoted from an answer is scrubbed before it is cut, so no part of 
   }
   assert.equal(new RequestEngine().quoteServerValue('a"b'), '"a\\"b"');
 });
+
+test("a credential in a redirect's Location is scrubbed, in its path and its query, followed or not (D2)", async () => {
+  const pw = "pä\"s's-W0rd";
+  const base = `https://alice:${encodeURIComponent(pw)}@mirror.example`;
+  const basic = Buffer.from(`alice:${pw}`, "latin1").toString("base64");
+  const secrets = [pw, `alice:${pw}`, basic].flatMap((s) => [s, JSON.stringify(s).slice(1, -1)]);
+  const decoded = (text: string): string =>
+    text.replace(/(?:%[0-9a-fA-F]{2})+/g, (run) => {
+      try {
+        return decodeURIComponent(run);
+      } catch {
+        return run;
+      }
+    });
+  const locations = [
+    `https://elsewhere.example/login?user=alice&pw=${encodeURIComponent(pw)}`,
+    `https://elsewhere.example/login?pw=${pw}`,
+    `https://elsewhere.example/${encodeURIComponent(`alice:${pw}`)}/x`,
+    `https://elsewhere.example/auth?basic=${basic}`,
+    `/relative/${pw}`,
+  ];
+  // Refused (maxRedirects 0: the Location is named) and followed until the limit (the URL that
+  // answered is named too).
+  for (const maxRedirects of [0, 2]) {
+    for (const location of locations) {
+      const e = new RequestEngine({ baseUrl: base, maxRetries: 0, maxRedirects, transport: async () => redirectResponse(location) });
+      const err = await e.getJson("/x").catch((caught: unknown) => caught);
+      assert.ok(err instanceof AusbildungApiError && /^HTTP 302 /.test(err.message), String(err));
+      const seen = decoded([err.message, err.url, err.location ?? ""].join("\n"));
+      for (const secret of secrets) assert.ok(!seen.includes(secret), `${maxRedirects} ${location}: ${seen}`);
+    }
+  }
+});

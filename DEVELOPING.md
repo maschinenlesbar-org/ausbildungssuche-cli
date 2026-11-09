@@ -537,7 +537,10 @@ same host included), and `RawResponse.credentialsDropped` /
 `AusbildungApiError.credentialsDropped` say so. A `401`/`403` after such a hop names
 the redirect instead of blaming the key ("use an https base URL" for http→https,
 `credentialsDroppedHint`), and the CLI exits `1` there without its key hint. A
-`Location`'s own userinfo is never used.
+`Location`'s own userinfo is never used. Where a message (or the retry hook) names a
+redirect's target or a URL a redirect led to, the `Location` is scrubbed of the base URL's
+credentials as sent, before it is resolved (resolving would percent-encode what is left of
+them in a new spelling); the request itself goes where the `Location` says.
 
 **Transports must not follow redirects.** `HttpRequest.redirect` is always
 `"manual"`: a custom transport returns the 3xx as it came

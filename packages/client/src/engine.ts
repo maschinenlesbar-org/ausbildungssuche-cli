@@ -758,6 +758,10 @@ export class RequestEngine {
     const credentialOrigin = originOf(start.url);
     let dropped: CredentialsDropped | undefined;
     let url = start.url;
+    // The URL as messages and the retry hook name it: the same, except that each redirect's
+    // Location is scrubbed of the credentials as sent, before it is resolved (resolving
+    // percent-encodes what is left of them in a new spelling, `'` as `%27` in a query).
+    let shown = start.url;
 
     // Only an idempotent request is sent again: send() is reachable with any method
     // through request(), and a POST re-sent after a reset or a 503 may be applied
@@ -785,10 +789,10 @@ export class RequestEngine {
         // not retried — a slow upstream should not be asked again at once.
         if (idempotent && hasTransientCode(cause) && attempt < this.maxRetries) {
           attempt += 1;
-          await this.backOff(attempt, this.retryDelayMs * attempt, url);
+          await this.backOff(attempt, this.retryDelayMs * attempt, shown);
           continue;
         }
-        throw this.toNetworkError(method, url, cause);
+        throw this.toNetworkError(method, shown, cause);
       }
 
       // An injected transport may resolve with anything; a malformed HttpResponse would
@@ -796,7 +800,7 @@ export class RequestEngine {
       const invalid = responseProblem(raw);
       if (invalid !== undefined) {
         throw new AusbildungNetworkError(
-          `${method} ${redactUrl(url)} failed: the transport returned an invalid response (${invalid}).`,
+          `${method} ${redactUrl(shown)} failed: the transport returned an invalid response (${invalid}).`,
         );
       }
       // A transport that followed a redirect itself (fetch's default) took the request
@@ -805,7 +809,7 @@ export class RequestEngine {
       const reported = (raw as { url?: unknown }).url;
       if (typeof reported === "string" && reported !== "" && originOf(reported) !== originOf(url)) {
         throw new AusbildungNetworkError(
-          `${method} ${redactUrl(url)} failed: the transport followed a redirect to ` +
+          `${method} ${redactUrl(shown)} failed: the transport followed a redirect to ` +
             `${originOf(reported) ?? "an unparseable URL"}, another origin. A transport must not ` +
             `follow redirects (HttpRequest.redirect is "manual"); the engine follows them and ` +
             `decides where credentials may go.`,
@@ -817,7 +821,7 @@ export class RequestEngine {
       // The size cap holds whatever the transport did: the default one aborts early, a
       // custom one may have read everything.
       if (this.maxResponseBytes > 0 && body.byteLength > this.maxResponseBytes) {
-        throw new AusbildungNetworkError(`${method} ${redactUrl(url)} failed: ${sizeLimitMessage(this.maxResponseBytes)}`);
+        throw new AusbildungNetworkError(`${method} ${redactUrl(shown)} failed: ${sizeLimitMessage(this.maxResponseBytes)}`);
       }
       const response = { status, headers: responseHeaders, body };
 
@@ -833,7 +837,7 @@ export class RequestEngine {
         if (retryAfter === undefined || retryAfter <= MAX_RETRY_AFTER_MS) {
           attempt += 1;
           const backoff = this.retryDelayMs * attempt;
-          await this.backOff(attempt, retryAfter === undefined ? backoff : Math.max(retryAfter, backoff), url, status);
+          await this.backOff(attempt, retryAfter === undefined ? backoff : Math.max(retryAfter, backoff), shown, status);
           continue;
         }
         retryAfterTooLong = retryAfter;
@@ -861,6 +865,7 @@ export class RequestEngine {
           dropped = { from: originOf(url) ?? "", to: next.origin };
         }
         url = next.href;
+        shown = shownHop(location ?? "", shown, (text) => this.scrub(text)) ?? next.href;
         redirects += 1;
         continue;
       }
@@ -870,7 +875,7 @@ export class RequestEngine {
 
       const contentType = String(headerValue(response.headers["content-type"]) ?? "");
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, response.body, location, dropped, retryAfterTooLong);
+        throw this.toApiError(method, shown, status, response.body, location, dropped, retryAfterTooLong);
       }
 
       return {
@@ -1092,7 +1097,7 @@ export class RequestEngine {
     if (detail !== undefined) detail = cleanDetail(this.scrub(detail));
     // Name the target of a redirect that was not followed.
     const location =
-      status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;
+      status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader, (t) => this.scrub(t)) : undefined;
     return new AusbildungApiError({
       status,
       url,
@@ -1232,14 +1237,30 @@ function resolveLocation(location: string | undefined, base: string): URL | unde
 }
 
 /**
- * The absolute, printable form of a `Location` header: resolved against the request
- * URL, userinfo redacted, control characters stripped (it is server text bound for
- * stderr). An unparseable value is shown sanitised as it came.
+ * The absolute, printable form of a `Location` header: the base URL's credentials scrubbed
+ * (`scrub`) as sent, before resolving percent-encodes what is left of them in a new spelling
+ * (`'` as `%27` in a query); resolved against the request URL (as messages show it), userinfo
+ * redacted, control characters stripped (it is server text bound for stderr). An unparseable
+ * value is shown sanitised as it came.
  */
-function redirectTarget(requestUrl: string, location: string): string | undefined {
-  const resolved = resolveLocation(location, requestUrl);
-  const clean = sanitizeServerText(resolved ? redactUrl(resolved.href) : location).trim();
+function redirectTarget(requestUrl: string, location: string, scrub: (text: string) => string): string | undefined {
+  const sent = scrub(location);
+  const resolved = resolveLocation(sent, requestUrl);
+  const clean = sanitizeServerText(resolved ? redactUrl(resolved.href) : sent).trim();
   return clean === "" ? undefined : clean;
+}
+
+/**
+ * The URL a followed redirect leads to, as messages show it: its Location scrubbed as sent
+ * (`scrub`), then resolved against the previous hop as shown, without userinfo; undefined when
+ * the scrubbed Location no longer resolves.
+ */
+function shownHop(location: string, shownBefore: string, scrub: (text: string) => string): string | undefined {
+  const target = resolveLocation(scrub(location), shownBefore);
+  if (target === undefined) return undefined;
+  target.username = "";
+  target.password = "";
+  return target.href;
 }
 
 /** A JSON number token, matched at a given position (sticky). */
