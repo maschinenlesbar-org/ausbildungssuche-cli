@@ -749,3 +749,25 @@ test("--base-url with a backslash or a repaired scheme is a usage error that nev
     assert.ok(!all.includes(pw), all);
   }
 });
+
+test("a --base-url typed without its scheme never names its user name or password as a scheme", async () => {
+  // `T0kenS3cret:@h` parses as a URL whose scheme is the token, lower-cased: the refusal named it
+  // (`Unsupported scheme "t0kens3cret:"`), which no exact-string redaction matches.
+  for (const [baseUrl, secret] of [
+    ["T0kenS3cret:@h.example", "t0kens3cret"],
+    ["alice:s3cret-pw@h.example", "s3cret-pw"],
+    ["Alice:s3cret-pw@h.example/x", "s3cret-pw"],
+  ] as const) {
+    const cli = makeCli(okResponse);
+    assert.equal(await run(["--base-url", baseUrl, "details", "12345"], cli.deps), 2, baseUrl);
+    assert.equal(cli.mt.calls.length, 0, baseUrl);
+    const text = [...cli.out, ...cli.err].join("\n");
+    assert.ok(!text.toLowerCase().includes(secret), text);
+    assert.match(text, /Expected an absolute http\(s\) URL\./, baseUrl);
+    assert.throws(
+      () => new AusbildungssucheClient({ baseUrl }),
+      (err: unknown) => err instanceof Error && !err.message.toLowerCase().includes(secret) && /Expected an absolute http\(s\) URL\./.test(err.message),
+      baseUrl,
+    );
+  }
+});

@@ -411,7 +411,9 @@ built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
 (`file:`, `ftp:`, `notaurl`), and one with surrounding whitespace, inner whitespace
 or control characters, a query or a fragment, a backslash (WHATWG ends an http(s) host at it,
 a text-based reading does not), or a scheme not followed by exactly `//` and the host
-(`http:host`, `http:/host`, `http:///host`, which WHATWG repairs silently), is rejected by one rule,
+(`http:host`, `http:/host`, `http:///host`, which WHATWG repairs silently), is rejected by one rule
+(a scheme is named in the reason only when the value spells `<scheme>://`: `user:pw@host`
+parses with the user name, a token perhaps, as its scheme),
 `baseUrlProblem` ([`validate.ts`](packages/client/src/validate.ts)), checked on the raw value
 (`new URL()` would silently trim it). The `RequestEngine` constructor applies it
 through `validateBaseUrl` and throws an `AusbildungValidationError`, so a library
