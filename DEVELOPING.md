@@ -693,7 +693,13 @@ The client's tests are in `packages/client/test/` (`query`, `http`, `engine`, `c
   big and odd answers (8 M numbers with `--compact` and 20 MB of DEL characters under a
   small heap, a text past V8's longest string once escaped, invalid text replaced with
   U+FFFD and a WARN), P26 only its stdout case (stdout redirected to a file and cut short
-is exit 1 with an ERROR record; this CLI has no `-o`). Mock fixtures answer
+is exit 1 with an ERROR record; this CLI has no `-o`), P28 hostile error answers (number
+  scan and server-text cleaning linear and memory-bounded, the bin under a small heap;
+  credentials scrubbed from decoded error text, from a key a shape error quotes and from a
+  redirect's Location, followed or not), P29 base-URL credentials (a token userinfo scrubbed,
+  a backslash or a repaired scheme refused, requests to the parsed host, linear stdout
+  redaction, glued URLs), P30 output links (all skipped: no `-o`; stand-ins in its adapter),
+  P31 the release pipeline (release.yml and `tools/sbom/` read as text). Mock fixtures answer
   in the API's real shapes (`okResponse` in `packages/client/test/helpers.ts`), because the client rejects
   any other 2xx body.
 
