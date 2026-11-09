@@ -719,3 +719,16 @@ test("with a credential in the run, stdout hides the userinfo of every URL in th
   assert.ok(big.out.join("\n").includes(long));
   assert.ok(ms < 1500, `${Math.round(ms)} ms`);
 });
+
+test("a token userinfo in --base-url (no password) is redacted from what the CLI prints, on stderr and stdout (E)", async () => {
+  const token = "T0kenS3cret";
+  const base = `https://${token}@mirror.example`;
+  const basic = Buffer.from(`${token}:`, "latin1").toString("base64");
+  const failed = makeCli(() => jsonResponse({ message: `bad token ${token}` }, 401));
+  assert.notEqual(await run(["--base-url", base, "--max-retries", "0", "details", "12345"], failed.deps), 0);
+  assert.ok(!failed.err.join("\n").includes(token), failed.err.join("\n"));
+  const echoed = makeCli(() => jsonResponse([{ id: 12345, x: `Basic ${basic} for ${token}:x` }]));
+  assert.equal(await run(["--base-url", base, "--compact", "details", "12345"], echoed.deps), 0, echoed.err.join("\n"));
+  const out = echoed.out.join("\n");
+  assert.ok(!out.includes(basic) && !out.includes(`${token}:`), out);
+});

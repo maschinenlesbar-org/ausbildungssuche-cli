@@ -447,7 +447,8 @@ the `AUSBILDUNGSSUCHE_API_KEY` value become `***` on stderr (`redactSecrets`). N
 stdout, where `obtain-key` prints the key. The forms a server echoes a userinfo back in
 are replaced too: the `Basic` value and the decoded `user:password` on stdout and
 stderr, the password alone (4 characters or more) on stderr only, since it may well
-occur in the data. A private key has no fixed shape, so a key
+occur in the data. A userinfo without a password (`https://TOKEN@host`) is a token: the
+token is the secret, and its `Basic` value is that of `TOKEN:`. A private key has no fixed shape, so a key
 typed without its flag is kept out by not echoing the value at all
 (`withoutStrayValues`): `unknown command` shows the value only when it reads like a
 command name, `too many arguments` drops the values, `unknown option '--x=…'` drops
@@ -510,7 +511,8 @@ count, so a file-size limit or a full disk cut the output with exit `0`), and a 
 (the `X-API-Key`) in real `#private` fields, so `console.log(client)`,
 `util.inspect` and `JSON.stringify` never show them. It scrubs the base URL's
 userinfo (raw and percent-decoded), the forms a server echoes it back in (the `Basic`
-value, the decoded `user:password`, the password alone from 4 characters:
+value, the decoded `user:password`, the password — or, without one, the user name, a
+token — alone from 4 characters:
 `echoedCredentialForms`, each also percent-encoded as in a URL) and the key from error bodies
 and details, transport error text and the `cause` chain (`scrub`, `scrubCause`). A detail is
 scrubbed again once decoded, before it is cut: a JSON escape (`\"`, `\u00e4`) hid an echo from

@@ -24,6 +24,7 @@ import {
   AusbildungNetworkError,
   AusbildungValidationError,
   cutText,
+  echoedCredentialForms,
   redactUrlUserinfo,
   TextBuilder,
   toWellFormed,
@@ -967,6 +968,37 @@ test("a credential in a redirect's Location is scrubbed, in its path and its que
       assert.ok(err instanceof AusbildungApiError && /^HTTP 302 /.test(err.message), String(err));
       const seen = decoded([err.message, err.url, err.location ?? ""].join("\n"));
       for (const secret of secrets) assert.ok(!seen.includes(secret), `${maxRedirects} ${location}: ${seen}`);
+    }
+  }
+});
+
+test("echoedCredentialForms treats a userinfo without a password as a token (Basic `TOKEN:`) (E)", async () => {
+  // Latin-1, as this engine sends the Basic value.
+  const basic = (pair: string): string => Buffer.from(pair, "latin1").toString("base64");
+  assert.deepEqual(echoedCredentialForms("alice:s3cret"), [basic("alice:s3cret"), "alice:s3cret", "s3cret"]);
+  assert.deepEqual(echoedCredentialForms("T0ken"), [basic("T0ken:"), "T0ken:", "T0ken"]);
+  assert.deepEqual(echoedCredentialForms("T0ken:"), [basic("T0ken:"), "T0ken:", "T0ken"]);
+  assert.deepEqual(echoedCredentialForms("T%C3%B6k"), [basic("Tök:"), "Tök:"]); // short: not alone
+  assert.deepEqual(echoedCredentialForms(":pw12"), [basic(":pw12"), ":pw12", "pw12"]);
+  assert.deepEqual(echoedCredentialForms(""), []);
+  assert.deepEqual(echoedCredentialForms(":"), []);
+  // And the engine sends that Basic value and scrubs every form from an error.
+  const token = "T0kenS3cret";
+  for (const base of [`https://${token}@mirror.example`, `https://${token}:@mirror.example`]) {
+    let sent: string | undefined;
+    const e = new RequestEngine({
+      baseUrl: base,
+      maxRetries: 0,
+      transport: async (req) => {
+        sent = req.headers?.["Authorization"];
+        return rawResponse(JSON.stringify({ message: `bad token ${token}, ${sent}, user ${token}: unknown` }), "application/json", 401);
+      },
+    });
+    const err = await e.getJson("/x").catch((caught: unknown) => caught);
+    assert.equal(sent, `Basic ${basic(`${token}:`)}`);
+    assert.ok(err instanceof AusbildungApiError, String(err));
+    for (const text of [err.message, err.detail ?? "", err.body]) {
+      assert.ok(!text.includes(token) && !text.includes(basic(`${token}:`)), text);
     }
   }
 });
