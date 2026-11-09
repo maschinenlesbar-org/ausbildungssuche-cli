@@ -217,7 +217,10 @@ run them up front.
   `defaultHeaders` and `obtainKey()`'s options must be plain objects (`isPlainObject`;
   `search(5)` would otherwise search unfiltered), text parameters strings or finite
   numbers, `sty`/`page`/`size` numbers, `bg` a boolean, `transport` and `sleep`
-  functions. A server `detail` is cut at 500 characters in a message, never inside a
+  functions. A server `detail` is cleaned first (`sanitizeServerText`: it reads at most
+  16 384 characters, drops whole terminal escape sequences, the remaining C0/C1 controls
+  and DEL and every format character, and folds whitespace, each step a linear regex
+  replace), then cut at 500 characters in a message, never inside a
   surrogate pair (`cutText`), so the message stays well-formed
   (`AusbildungApiError.body` keeps it whole); any other value an own message quotes
   from a server answer or the user's input (a redirect target, a charset, a Bundesland
