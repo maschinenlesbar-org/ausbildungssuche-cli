@@ -720,3 +720,23 @@ test("an answer longer than V8's longest string is an AusbildungParseError namin
   // An error status with such a body is still the API error, without the unreadable body.
   await assert.rejects(on(valid, 500).getJson("/x"), (err: unknown) => err instanceof AusbildungApiError && err.status === 500 && err.body === "");
 });
+
+/** Milliseconds `work` takes. */
+function elapsed(work: () => unknown): number {
+  const start = performance.now();
+  work();
+  return performance.now() - start;
+}
+
+test("a number with a long run of zeros is checked in linear time (A)", () => {
+  // `/0+$/` tried a match at every zero of a run that doesn't end the literal: quadratic, and
+  // 1.<100 000 zeros>1e300 took about 15 s. The index loops take milliseconds.
+  const literal = `1.${"0".repeat(100_000)}1e300`;
+  let found: string | undefined;
+  const ms = elapsed(() => (found = firstInexactNumber(`{"a":${literal}}`)));
+  assert.equal(found, literal);
+  assert.ok(ms < 1000, `${Math.round(ms)} ms`);
+  // Same digits and exponent as before: trailing and leading zeros still don't count.
+  assert.equal(firstInexactNumber("[12345678901234567890.000, 0.0e5, 000.0, 9007199254740993000e-3]"), "12345678901234567890.000");
+  assert.equal(firstInexactNumber("[1e23, 100000000000000000000000, 1.7976931348623157e308, 5e-324, 0.00]"), undefined);
+});
