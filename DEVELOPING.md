@@ -594,7 +594,10 @@ a throw in it is swallowed. The CLI's `action()` sets it to log one `WARN` recor
 seconds, ms under 1 s). Tests: `packages/client/test/retry-hook.test.ts`, `apps/cli/test/retry-log.test.ts`.
 
 **maxResponseBytes.** A cap on the response body size in bytes (`0` = unlimited;
-default 100 MiB), guarding against unbounded responses.
+default 100 MiB), guarding against unbounded responses. Below the cap, the default
+transport joins small chunks as they arrive (every 1024 chunks or 64 KiB), so the memory it
+holds follows the bytes, not the number of chunks: two million one-byte chunks (P27) read
+within a small heap.
 
 **The transport contract, enforced by the engine.** A custom transport (a `fetch`
 wrapper, a test double) gets the same guarantees as the built-in one, because the
