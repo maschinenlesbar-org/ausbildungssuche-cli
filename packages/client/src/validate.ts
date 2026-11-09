@@ -210,7 +210,10 @@ export const apiKeyProblem: Problem = (key) =>
  * request `/%20/...` or reach a custom transport unparsed. A query or fragment
  * would swallow every request path (`http://h/#f` requests `/` for every call).
  * A `%` in the user name or password must start a valid escape (`%25` for a literal
- * one): the userinfo is decoded for the Authorization header. Userinfo is allowed
+ * one): the userinfo is decoded for the Authorization header. A backslash is refused:
+ * WHATWG ends an http(s) authority at it, where a text-based reading does not. So is a scheme
+ * not followed by exactly `//` and the host (`http:host`, `http:/host`, `http:///host`), which
+ * WHATWG repairs silently. Userinfo is allowed
  * (it is redacted from every message). The reasons never echo the value, so a
  * credential in it cannot leak.
  */
@@ -233,6 +236,9 @@ export const baseUrlProblem: Problem = (value) => {
     return `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
   }
   if (/[?#]/.test(value)) return "A base URL cannot have a query (?) or fragment (#).";
+  // WHATWG reads a "\" in an http(s) URL as "/", so it ends the host: in
+  // `https://u:pw@a.example\@b.example` every reader of the base URL has to agree where.
+  if (value.includes("\\")) return 'A base URL cannot contain a backslash (\\); write "/" instead.';
   // Node decodes the userinfo for the Authorization header and throws "URI malformed"
   // for a "%" that isn't an escape — at request time, as a network error. Reject it here.
   for (const part of [url.username, url.password]) {
@@ -242,6 +248,9 @@ export const baseUrlProblem: Problem = (value) => {
       return 'The user name or password has a "%" that is not followed by two hex digits; write a literal "%" as %25.';
     }
   }
+  // WHATWG skips any slashes after "http:" and repairs `http:host`, `http:/host` and
+  // `http:///host` into `http://host` silently: the host requested would not be the one typed.
+  if (!/^https?:\/\/[^/]/i.test(value)) return 'Expected an absolute http(s) URL ("https://" and the host).';
   return undefined;
 };
 

@@ -281,7 +281,7 @@ These apply to every command and may be given before *or* after it, once each:
 | `-h, --help` | Show help for the program or a command |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [ausbildungssuche.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
-| `--base-url <url>` | API base URL (default `https://rest.arbeitsagentur.de`). A `user:password@` part is sent but shown as `***@` in everything the CLI prints, usage errors included; write a literal `%` in it as `%25` (an unescaped `%` is a usage error, exit `2`) |
+| `--base-url <url>` | API base URL (default `https://rest.arbeitsagentur.de`). A `user:password@` part is sent but shown as `***@` in everything the CLI prints, usage errors included; write a literal `%` in it as `%25` (an unescaped `%` is a usage error, exit `2`). A backslash, or a scheme not followed by exactly `//` and the host (`http:host`, `http:///host`), is a usage error too (exit `2`): the URL parser would read another host than the one typed |
 | `--api-key <key>` | `X-API-Key` header value (env `AUSBILDUNGSSUCHE_API_KEY`); no key is bundled. A rejected key is never repeated in the error, and a key typed without `--api-key` (as a command or an extra argument) is not echoed either |
 | `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`; at most `2147483647`; `0` = no limit, so a hanging server blocks forever) |
 | `--user-agent <ua>` | `User-Agent` header value |

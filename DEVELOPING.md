@@ -408,13 +408,20 @@ built-in `http`/`https`; tests inject a mock. This is the only HTTP seam.
 
 **`--base-url` scheme allowlist.** A non-http(s) or malformed base URL
 (`file:`, `ftp:`, `notaurl`), and one with surrounding whitespace, inner whitespace
-or control characters, a query or a fragment, is rejected by one rule,
+or control characters, a query or a fragment, a backslash (WHATWG ends an http(s) host at it,
+a text-based reading does not), or a scheme not followed by exactly `//` and the host
+(`http:host`, `http:/host`, `http:///host`, which WHATWG repairs silently), is rejected by one rule,
 `baseUrlProblem` ([`validate.ts`](packages/client/src/validate.ts)), checked on the raw value
 (`new URL()` would silently trim it). The `RequestEngine` constructor applies it
 through `validateBaseUrl` and throws an `AusbildungValidationError`, so a library
 consumer's custom transport never receives a bad base URL; the CLI's `parseBaseUrl`
 ([`shared.ts`](apps/cli/src/cli/shared.ts)) calls the same rule and makes it a usage error
 (exit `2`) before any client is built. Only `undefined` selects `DEFAULT_BASE_URL`.
+Requests go to the base URL as WHATWG parses it (`new URL(baseUrl).href`, trailing slashes
+stripped): the host lower-cased, a default port dropped, the path percent-encoded where WHATWG
+does it; messages show that spelling, and a custom transport receives it. `credentialsIn`
+reads a userinfo where WHATWG does: after any slashes and backslashes a special scheme skips
+(`http:///u:pw@h`), up to a backslash.
 The default transport additionally rejects any non-http(s) URL on every request with
 an `AusbildungNetworkError`, and the engine never hands a non-http(s) redirect target
 (`file:`, `data:`, `javascript:`) to any transport: such a redirect is not followed

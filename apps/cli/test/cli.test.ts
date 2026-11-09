@@ -732,3 +732,20 @@ test("a token userinfo in --base-url (no password) is redacted from what the CLI
   const out = echoed.out.join("\n");
   assert.ok(!out.includes(basic) && !out.includes(`${token}:`), out);
 });
+
+test("--base-url with a backslash or a repaired scheme is a usage error that never echoes the password (F, F3, F4)", async () => {
+  const pw = "s3cret-Pw";
+  for (const base of [
+    `https://alice:${pw}@api.example\\@evil.example`,
+    `https:\\\\alice:${pw}@127.0.0.1:9`,
+    `http:///alice:${pw}@127.0.0.1:9`,
+    `http:alice:${pw}@127.0.0.1:9`,
+    `http:///alice:${pw}@mirror.example/?q=1`,
+  ]) {
+    const cli = makeCli(okResponse);
+    assert.equal(await run(["--base-url", base, "details", "12345"], cli.deps), 2, base);
+    assert.equal(cli.mt.calls.length, 0);
+    const all = cli.err.join("\n") + cli.out.join("\n");
+    assert.ok(!all.includes(pw), all);
+  }
+});

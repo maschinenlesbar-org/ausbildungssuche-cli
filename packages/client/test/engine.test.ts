@@ -23,6 +23,7 @@ import {
   AusbildungParseError,
   AusbildungNetworkError,
   AusbildungValidationError,
+  credentialsIn,
   cutText,
   echoedCredentialForms,
   redactUrlUserinfo,
@@ -1000,5 +1001,60 @@ test("echoedCredentialForms treats a userinfo without a password as a token (Bas
     for (const text of [err.message, err.detail ?? "", err.body]) {
       assert.ok(!text.includes(token) && !text.includes(basic(`${token}:`)), text);
     }
+  }
+});
+
+test("a base URL with a backslash, or a scheme not followed by // and the host, is rejected at construction, never echoing the password (F, F4)", () => {
+  const pw = "s3cret-Pw";
+  for (const base of [
+    `https://alice:${pw}@api.example\\@evil.example`,
+    `http://alice:${pw}@127.0.0.1\\@evil.example`,
+    `http:alice:${pw}@127.0.0.1:9`,
+    `http:/alice:${pw}@127.0.0.1:9`,
+    `http:///alice:${pw}@127.0.0.1:9`,
+    `HTTPS:alice:${pw}@mirror.example`,
+    `https:\\\\alice:${pw}@mirror.example`,
+  ]) {
+    assert.throws(
+      () => new RequestEngine({ baseUrl: base }),
+      (err: unknown) => err instanceof AusbildungValidationError && !err.message.includes(pw) && /backslash|"https:\/\/" and the host/.test(err.message),
+      base,
+    );
+  }
+});
+
+test("credentialsIn reads the userinfo where WHATWG does: after a special scheme's slashes and backslashes, up to a backslash (F, F3)", () => {
+  for (const scheme of ["http", "https", "HTTPS", "ws", "wss", "ftp"]) {
+    assert.deepEqual(credentialsIn(`${scheme}://u:p@a.example\\@b.example/x`), ["u:p"], scheme);
+    assert.equal(new URL(`${scheme}://u:p@a.example\\@b.example/x`).password, "p", scheme);
+  }
+  // Another scheme's authority runs on to "/", "?" or "#".
+  assert.deepEqual(credentialsIn("foo://u:p@a.example\\@b.example/x"), ["u:p@a.example\\"]);
+  assert.deepEqual(credentialsIn("https://u:p@a.example/x\\@y"), ["u:p"]);
+  for (const value of [
+    "http:alice:pw@h.example",
+    "http:/alice:pw@h.example",
+    "http:///alice:pw@h.example/x",
+    "https:////alice:pw@h.example",
+    "HTTPS:\\\\alice:pw@h.example",
+    "wss:\\/alice:pw@h.example",
+    "ftp:alice:pw@h.example",
+  ]) {
+    assert.deepEqual(credentialsIn(value), ["alice:pw"], value);
+    assert.equal(new URL(value).password, "pw", value);
+  }
+  // Another scheme needs "//" before an authority: `foo:u:p@h` and `foo:///u:p@h` carry none.
+  assert.deepEqual(credentialsIn("foo:u:p@h.example"), []);
+  assert.deepEqual(credentialsIn("foo:///u:p@h.example"), []);
+});
+
+test("requests go to the base URL as WHATWG parses it, an @ in its path included (F)", async () => {
+  for (const [base, want] of [
+    ["https://alice:pw@api.example/v1/@evil.example", "https://api.example/v1/@evil.example/x"],
+    ["https://API.Example:443/v1", "https://api.example/v1/x"],
+  ] as const) {
+    const mt = makeMockTransport(() => jsonResponse({}));
+    await new RequestEngine({ baseUrl: base, transport: mt.transport }).getJson("/x");
+    assert.equal(mt.last().url, want);
   }
 });

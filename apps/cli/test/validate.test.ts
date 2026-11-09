@@ -295,7 +295,7 @@ test("headerNameProblem wants an HTTP token", () => {
 });
 
 test("baseUrlProblem checks the raw value", () => {
-  for (const u of ["https://h.test", "http://127.0.0.1:1/mirror/", "https://u:p@h.test/p"]) {
+  for (const u of ["https://h.test", "http://127.0.0.1:1/mirror/", "https://u:p@h.test/p", "HTTPS://H.test"]) {
     assert.equal(baseUrlProblem(u), undefined, u);
   }
   const cases: Array<[string, string]> = [
@@ -308,6 +308,14 @@ test("baseUrlProblem checks the raw value", () => {
     ["file:///etc/passwd", 'Unsupported scheme "file:". Expected an http(s) URL.'],
     ["https://h.test/?a=1", "A base URL cannot have a query (?) or fragment (#)."],
     ["https://h.test/#f", "A base URL cannot have a query (?) or fragment (#)."],
+    // WHATWG ends an http(s) host at "\\" and repairs a missing or extra "/" after the scheme
+    // silently: the host requested would not be the one every check reads (F, F4).
+    ["https://u:p@a.test\\@b.test", 'A base URL cannot contain a backslash (\\); write "/" instead.'],
+    ["https:\\\\h.test", 'A base URL cannot contain a backslash (\\); write "/" instead.'],
+    ["http:h.test", 'Expected an absolute http(s) URL ("https://" and the host).'],
+    ["http:/h.test", 'Expected an absolute http(s) URL ("https://" and the host).'],
+    ["http:///h.test", 'Expected an absolute http(s) URL ("https://" and the host).'],
+    ["HTTPS:h.test", 'Expected an absolute http(s) URL ("https://" and the host).'],
   ];
   for (const [u, reason] of cases) assert.equal(baseUrlProblem(u), reason, JSON.stringify(u));
 });
