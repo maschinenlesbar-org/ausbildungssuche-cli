@@ -101,3 +101,16 @@ test("the search term and the place name go out trimmed and in composed Unicode;
   }
   assert.equal(mt.calls.length, sent);
 });
+
+test("a key of a refused 2xx answer that echoes the base URL's password is scrubbed from the message (D)", async () => {
+  // A shape error names the first keys of the answer; one may be the credential.
+  const pw = "s3cretPw12";
+  const mt = makeMockTransport(() => jsonResponse({ [pw]: 1, [`alice${pw}`]: 2 }));
+  const client = new AusbildungssucheClient({ baseUrl: `https://alice:${pw}@mirror.example`, transport: mt.transport });
+  await assert.rejects(client.search(), (err: Error) => {
+    assert.match(err.message, /unexpected response shape: expected a search result .*, got an object with "\*\*\*", "alice\*\*\*"/);
+    assert.ok(!err.message.includes(pw), err.message);
+    return true;
+  });
+  await assert.rejects(client.details("1"), (err: Error) => !err.message.includes(pw) && /"\*\*\*"/.test(err.message));
+});

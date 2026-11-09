@@ -124,7 +124,9 @@ export class AusbildungssucheClient {
     // The search collection serves HAL+JSON and 406s on plain application/json.
     const query = prune({ ...normalized });
     const result = await this.engine.getJson(path, query, "application/hal+json");
-    return expectShape<AusbildungSearchResult>(result, searchResultProblem, this.engine.describeUrl(path, query));
+    // A key the shape error names is server text: quoted with the credentials scrubbed.
+    const quote = (key: string): string => this.engine.quoteServerValue(key);
+    return expectShape<AusbildungSearchResult>(result, (value) => searchResultProblem(value, quote), this.engine.describeUrl(path, query));
   }
 
   /**
@@ -141,6 +143,7 @@ export class AusbildungssucheClient {
     // The detail endpoint serves application/json and 406s on HAL+JSON, so we
     // request JSON explicitly. A digits-only id needs no encoding.
     const result = await this.engine.getJson(path, undefined, "application/json");
-    return expectShape<AusbildungDetails>(result, detailsProblem, this.engine.describeUrl(path));
+    const quote = (key: string): string => this.engine.quoteServerValue(key);
+    return expectShape<AusbildungDetails>(result, (value) => detailsProblem(value, quote), this.engine.describeUrl(path));
   }
 }

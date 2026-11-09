@@ -35,6 +35,7 @@ import {
   cutForMessage,
   cutText,
   echoedCredentialForms,
+  quoteValue,
   TextBuilder,
 } from "./errors.js";
 
@@ -439,6 +440,31 @@ export function isTransientNetworkError(err: unknown): boolean {
  */
 const MAX_DETAIL_LENGTH = 500;
 
+/**
+ * `form` and its spelling in a URL (`encodeURIComponent`): a server that puts a credential into
+ * a URL, a redirect's Location, percent-encodes it. A form that has no such spelling (a lone
+ * surrogate) is kept as it is.
+ */
+function urlSpellings(form: string): string[] {
+  try {
+    return [form, encodeURIComponent(form)];
+  } catch {
+    return [form];
+  }
+}
+
+/**
+ * The `Authorization: Basic` value of a userinfo in UTF-8, where it differs from the Latin-1 one
+ * the engine sends (`echoedCredentialForms`): a server or proxy that rebuilt the header from the
+ * URL as Node or a browser would echoes this one.
+ */
+function utf8Basic(userinfo: string): string[] {
+  const [latin1, pair] = echoedCredentialForms(userinfo);
+  if (pair === undefined) return [];
+  const utf8 = Buffer.from(pair, "utf8").toString("base64");
+  return utf8 === latin1 ? [] : [utf8];
+}
+
 /** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters (never inside a surrogate pair). */
 function cleanDetail(text: string): string {
   const clean = sanitizeServerText(text);
@@ -556,7 +582,9 @@ export class RequestEngine {
     // Checked on the raw value, before the trailing-slash strip; only `undefined`
     // selects the default.
     this.#baseUrl = options.baseUrl === undefined ? DEFAULT_BASE_URL : validateBaseUrl(options.baseUrl);
-    this.#credentials = credentialsIn(this.#baseUrl).flatMap((raw) => {
+    // The userinfo as typed and as sent (WHATWG percent-encodes some of its characters).
+    const userinfos = [...new Set([...credentialsIn(this.#baseUrl), ...credentialsIn(new URL(this.#baseUrl).href)])];
+    this.#credentials = userinfos.flatMap((raw) => {
       try {
         return [raw, decodeURIComponent(raw)];
       } catch {
@@ -581,13 +609,15 @@ export class RequestEngine {
     }
     // The secret part of a credential header (`Bearer <token>` → the token; an
     // X-API-Key as it is), never echoed. And the forms a server echoes a base URL's
-    // userinfo in: the Basic value, the decoded `user:password`, the password alone.
-    this.#secrets = Object.entries(this.#defaultHeaders)
+    // userinfo in: the Basic value, the decoded `user:password`, the password alone; each
+    // also percent-encoded, as in a URL (a redirect's Location).
+    const secrets = Object.entries(this.#defaultHeaders)
       .filter(([name]) => CREDENTIAL_HEADERS.includes(name.toLowerCase()))
       .map(([, value]) => value.replace(/^\S+\s+/, "").trim())
-      .concat(credentialsIn(this.#baseUrl).flatMap(echoedCredentialForms))
-      // Longest first, so a password never leaves half of the user:password around it.
-      .sort((a, b) => b.length - a.length);
+      .concat(userinfos.flatMap((userinfo) => [...echoedCredentialForms(userinfo), ...utf8Basic(userinfo)]))
+      .flatMap(urlSpellings);
+    // Longest first, so a password never leaves half of the user:password around it.
+    this.#secrets = [...new Set(secrets)].sort((a, b) => b.length - a.length);
     // Range-check the numeric options: a negative, NaN or fractional value would
     // otherwise silently disable the timeout or the size cap, and an unbounded
     // maxRetries would keep retrying.
@@ -863,6 +893,42 @@ export class RequestEngine {
   }
 
   /**
+   * An error body, already scrubbed as sent, as `AusbildungApiError.body` keeps it: when it is
+   * JSON with an escape in it, checked decoded too. An escape (`\"`, `\u00e4`) hides an echoed
+   * credential from the scrub of the text as sent, while a caller who parses the body sees it.
+   * Such a body is kept as the decoded JSON written again (`JSON.stringify`, one spelling per
+   * character) with the credential scrubbed in that spelling. A body that doesn't parse is text
+   * nobody decodes, and stays as sent; one too deeply nested to write again is left out.
+   */
+  private scrubBody(scrubbed: string): string {
+    if (this.#secrets.length === 0 || !scrubbed.includes("\\")) return scrubbed;
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(scrubbed);
+    } catch {
+      return scrubbed;
+    }
+    let rewritten: string;
+    try {
+      rewritten = JSON.stringify(decoded);
+    } catch {
+      return "";
+    }
+    const spelled = this.#secrets.map((form) => JSON.stringify(form).slice(1, -1));
+    return spelled.some((form) => form.trim().length >= 4 && rewritten.includes(form)) ? redactSecrets(rewritten, spelled) : scrubbed;
+  }
+
+  /**
+   * A value from an answer quoted for an error message (`quoteValue`), the base URL's
+   * credentials and the API key scrubbed first, before the cut: a 2xx answer (a shape the
+   * client refuses) can echo them as well as an error body. API code quotes server values
+   * with this.
+   */
+  quoteServerValue(value: string): string {
+    return quoteValue(this.scrub(value));
+  }
+
+  /**
    * A transport failure as the `cause` of the error the engine raises: the original
    * when its text carries no secret, otherwise a copy with them scrubbed (message,
    * `code` and the cause chain kept), so logging the error with its causes can't
@@ -1021,7 +1087,9 @@ export class RequestEngine {
     // endpoint cannot inject terminal escape sequences via the stderr error message
     // (run.ts prints AusbildungApiError.message raw). The CLI's JSON output is
     // escaped separately (escapeControlChars in cli/shared.ts).
-    if (detail !== undefined) detail = cleanDetail(detail);
+    // It is decoded: scrubbed again first (a JSON escape hid the credential from the scrub
+    // above), before the cut.
+    if (detail !== undefined) detail = cleanDetail(this.scrub(detail));
     // Name the target of a redirect that was not followed.
     const location =
       status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;
@@ -1029,7 +1097,7 @@ export class RequestEngine {
       status,
       url,
       method,
-      body: text,
+      body: this.scrubBody(text),
       detail,
       location,
       ...(credentialsDropped !== undefined ? { credentialsDropped } : {}),

@@ -511,8 +511,13 @@ count, so a file-size limit or a full disk cut the output with exit `0`), and a 
 `util.inspect` and `JSON.stringify` never show them. It scrubs the base URL's
 userinfo (raw and percent-decoded), the forms a server echoes it back in (the `Basic`
 value, the decoded `user:password`, the password alone from 4 characters:
-`echoedCredentialForms`) and the key from error bodies and details,
-transport error text and the `cause` chain (`scrub`, `scrubCause`), and `obtainKey()`
+`echoedCredentialForms`, each also percent-encoded as in a URL) and the key from error bodies
+and details, transport error text and the `cause` chain (`scrub`, `scrubCause`). A detail is
+scrubbed again once decoded, before it is cut: a JSON escape (`\"`, `\u00e4`) hid an echo from
+the scrub of the body as sent. `AusbildungApiError.body` stays as sent unless such an escape
+hides one; then it is the decoded JSON written again, scrubbed (`scrubBody`). A value the
+client quotes from a 2xx answer (a key a shape error names) goes through
+`RequestEngine.quoteServerValue`, which scrubs before it quotes and cuts. `obtainKey()`
 names a source behind Basic auth as `***@` in its errors and in
 `ObtainedKey.sourceUrl`. `apps/cli/test/conformance-p2-library-redaction.test.ts` is the
 shared check.

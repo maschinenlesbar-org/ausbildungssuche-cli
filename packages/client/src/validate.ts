@@ -479,18 +479,23 @@ export const placeProblem: Problem = (orte) => {
   );
 };
 
+/** How a key of an answer is quoted in a message (the client scrubs the base URL's credentials first). */
+export type QuoteKey = (key: string) => string;
+
+const plainQuote: QuoteKey = (key) => `"${key}"`;
+
 /**
  * A short description of a JSON value for a message: its kind, and for an object its
  * first keys. A key is server text, so only a plain one (letters, digits, `_ . -`, at
- * most 40 characters) is shown as it is.
+ * most 40 characters) is shown, quoted with `quote`.
  */
-function kindOf(value: unknown): string {
+function kindOf(value: unknown, quote: QuoteKey = plainQuote): string {
   if (value === null) return "null";
   if (Array.isArray(value)) return value.length === 0 ? "an empty array" : "an array";
   if (typeof value === "object") {
     const keys = Object.keys(value as object)
       .slice(0, 5)
-      .map((k) => (/^[\w.-]{1,40}$/.test(k) ? `"${k}"` : "(a key not shown)"));
+      .map((k) => (/^[\w.-]{1,40}$/.test(k) ? quote(k) : "(a key not shown)"));
     return `an object with ${keys.join(", ") || "no keys"}`;
   }
   return `a ${typeof value}`;
@@ -506,10 +511,11 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
  * has no `_embedded` at all). A proxy, captive portal or mirror answering `null`, a
  * string, `[]`, `{}` or an error object (`{"error": "rate limited"}`) with HTTP 200
  * must not be printed as an empty result with exit 0: a script would read it as
- * "0 offers".
+ * "0 offers". A key the reason names is quoted with `quote` (the client passes
+ * `RequestEngine.quoteServerValue`, which scrubs the base URL's credentials).
  */
-export const searchResultProblem: Problem<unknown> = (value) => {
-  const expected = `expected a search result (page, _embedded.termine), got ${kindOf(value)}`;
+export const searchResultProblem = (value: unknown, quote: QuoteKey = plainQuote): string | undefined => {
+  const expected = `expected a search result (page, _embedded.termine), got ${kindOf(value, quote)}`;
   if (!isObject(value)) return expected;
   const page = value["page"];
   if (!isObject(page)) return expected;
@@ -531,10 +537,11 @@ export const searchResultProblem: Problem<unknown> = (value) => {
  * Why a 2xx body is not an offer's details, or `undefined` when it is: the detail
  * endpoint answers a JSON array of offer records (one, for one id), each an object
  * with an `id`. An empty array, `{}`, `null` or an error object is not an answer
- * (an unknown id is a 404).
+ * (an unknown id is a 404). A key the reason names is quoted with `quote`, as for
+ * searchResultProblem.
  */
-export const detailsProblem: Problem<unknown> = (value) => {
-  const expected = `expected an array of offers (objects with an id), got ${kindOf(value)}`;
+export const detailsProblem = (value: unknown, quote: QuoteKey = plainQuote): string | undefined => {
+  const expected = `expected an array of offers (objects with an id), got ${kindOf(value, quote)}`;
   if (!Array.isArray(value) || value.length === 0) return expected;
   for (const offer of value) {
     const id = isObject(offer) ? offer["id"] : undefined;

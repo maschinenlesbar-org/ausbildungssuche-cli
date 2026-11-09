@@ -890,3 +890,50 @@ test("an error detail of 16 MB is cleaned and cut within a small heap (C)", STAR
   const out = execFileSync(process.execPath, ["--max-old-space-size=128", "--input-type=module", "-e", script], { encoding: "utf8" });
   assert.equal(out, "true");
 });
+
+test("an error body keeps its spelling unless a credential hides behind an escape (D)", async () => {
+  const base = "https://alice:s3cret-pw@mirror.example";
+  const bodyOf = async (body: string): Promise<string> => {
+    const e = new RequestEngine({ baseUrl: base, maxRetries: 0, transport: async () => rawResponse(body, "application/json", 500) });
+    const err = await e.getJson("/x").catch((caught: unknown) => caught);
+    assert.ok(err instanceof AusbildungApiError, String(err));
+    return err.body;
+  };
+  // No credential, or one spelled as sent: the body as sent (scrubbed), escapes kept.
+  assert.equal(await bodyOf('{"m":"caf\\u00e9 \\"x\\""}'), '{"m":"caf\\u00e9 \\"x\\""}');
+  assert.equal(await bodyOf('{"m":"pw s3cret-pw \\u00e9"}'), '{"m":"pw *** \\u00e9"}');
+  // Escaped: written again decoded, scrubbed in that spelling.
+  assert.equal(await bodyOf('{"m":"pw s3cret\\u002dpw \\u00e9"}'), '{"m":"pw *** é"}');
+  // Not JSON: nobody decodes it, it stays as sent.
+  assert.equal(await bodyOf("pw s3cret\\u002dpw"), "pw s3cret\\u002dpw");
+});
+
+test("a credential echoed with JSON escapes is scrubbed from the message, the detail and the decoded body (D)", async () => {
+  // A password with a quote (escaped as \") and an umlaut (may be written as ä).
+  const pw = "pä\"s's-W0rd";
+  const base = `https://alice:${encodeURIComponent(pw)}@mirror.example`;
+  const secrets = [pw, `alice:${pw}`].flatMap((s) => [s, JSON.stringify(s).slice(1, -1)]);
+  const ascii = (text: string): string => JSON.stringify(text).replace(/[\u0080-￿]/g, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const every = (text: string): string => `"${[...text].map((ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")}"`;
+  for (const status of [401, 500]) {
+    for (const json of [ascii(`wrong password ${pw}`), JSON.stringify(`bad login alice:${pw}`), every(pw)]) {
+      const e = new RequestEngine({ baseUrl: base, maxRetries: 0, transport: async () => rawResponse(`{"message":${json}}`, "application/json", status) });
+      const err = await e.getJson("/x").catch((caught: unknown) => caught);
+      assert.ok(err instanceof AusbildungApiError, String(err));
+      const decoded = JSON.stringify(JSON.parse(err.body));
+      for (const text of [err.message, err.detail ?? "", err.body, decoded]) {
+        for (const secret of secrets) assert.ok(!text.includes(secret), `${status} ${json}: ${text}`);
+      }
+    }
+  }
+});
+
+test("a value quoted from an answer is scrubbed before it is cut, so no part of a credential stays (D)", () => {
+  const pw = "s3cret-Pw-long";
+  const e = new RequestEngine({ baseUrl: `https://alice:${pw}@mirror.example` });
+  for (const at of [0, 190, 195, 199]) {
+    const quoted = e.quoteServerValue(`${"x".repeat(at)}${pw}${"y".repeat(600)}`);
+    assert.ok(!quoted.includes("s3cret"), `${at}: ${quoted}`);
+  }
+  assert.equal(new RequestEngine().quoteServerValue('a"b'), '"a\\"b"');
+});
