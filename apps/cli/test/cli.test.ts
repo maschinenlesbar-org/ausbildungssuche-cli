@@ -696,3 +696,26 @@ for (const [what, big] of [
     assert.ok(took < 1000, `${what} took ${Math.round(took)} ms`);
   });
 }
+
+test("with a credential in the run, stdout hides the userinfo of every URL in the answer, glued ones too, in linear time (B, B2)", async () => {
+  // The pattern backstop for an echo no exact secret matches: only when an argument carries a
+  // URL with userinfo; otherwise the data is printed as it came.
+  const base = "https://alice:s3cret-Pw@mirror.example";
+  const value = "https://host://u:p1@h and https://u:p2@x://v:q3@w";
+  const glued = makeCli(() => jsonResponse([{ id: 12345, x: value }]));
+  assert.equal(await run(["--base-url", base, "--compact", "details", "12345"], glued.deps), 0, glued.err.join("\n"));
+  const out = glued.out.join("\n");
+  assert.ok(out.includes("https://host://***@h and https://***@x://***@w"), out);
+  for (const secret of ["u:p1", "u:p2", "v:q3"]) assert.ok(!out.includes(secret), out);
+  const plain = makeCli(() => jsonResponse([{ id: 12345, x: value }]));
+  assert.equal(await run(["--compact", "details", "12345"], plain.deps), 0);
+  assert.ok(plain.out.join("\n").includes(value));
+  // Linear: 200 000 characters of `a.a.…` took seconds with a scheme regex.
+  const long = "a.".repeat(100_000);
+  const big = makeCli(() => jsonResponse([{ id: 12345, x: long }]));
+  const started = performance.now();
+  assert.equal(await run(["--base-url", base, "--compact", "details", "12345"], big.deps), 0);
+  const ms = performance.now() - started;
+  assert.ok(big.out.join("\n").includes(long));
+  assert.ok(ms < 1500, `${Math.round(ms)} ms`);
+});

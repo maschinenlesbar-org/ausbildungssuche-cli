@@ -17,6 +17,7 @@ import {
   quoteValue,
   redactCredentials,
   redactSecrets,
+  redactUrlUserinfo,
 } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
 import { API_KEY_ENV_VAR } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
 import { API_KEY_CREDENTIAL, OutputError } from "./shared.js";
@@ -213,7 +214,10 @@ function flagValues(argv: readonly string[], flags: readonly string[]): string[]
 
 /** The secrets of a run, and the two ways they are replaced. */
 export interface Redaction {
-  /** stdout text: the userinfo of every URL argument replaced (`***@`). */
+  /**
+   * stdout text: the userinfo of every URL argument replaced (`***@`), and, when there is one,
+   * the userinfo of every URL in the text (`redactUrlUserinfo`).
+   */
   out(text: string): string;
   /** stderr text, a record's message: that, and every secret value replaced (`***`). */
   err(text: string): string;
@@ -234,7 +238,9 @@ export interface Redaction {
  *   `--opt=value` value and of the key variable (as `credentialsIn` finds it, parseable
  *   or not: only a URL with a scheme, or the `--base-url` value) becomes `***@`, on stdout
  *   and stderr, and so does its percent-encoded form with the `@`, as a request URL in an
- *   error record carries it;
+ *   error record carries it; when there is such a userinfo, the userinfo of every other URL
+ *   in the text becomes `***` too (`redactUrlUserinfo`, linear), a backstop for an echo in a
+ *   form no exact string matches;
  * - the value of `--api-key` (both forms) and the `AUSBILDUNGSSUCHE_API_KEY` value,
  *   as given and trimmed, plus their JSON-escaped forms, become `***` on stderr. Not
  *   on stdout: `obtain-key` prints the key there, and it may well be the one already
@@ -290,7 +296,10 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
   const sortedKeys = (): string[] => [...keys].sort((a, b) => b.length - a.length);
   let keyList = sortedKeys();
   const echoedList = [...echoed].sort((a, b) => b.length - a.length);
-  const out = (text: string): string => redactSecrets(redactCredentials(text, urlList), echoedList);
+  // With a URL with userinfo in the run, the userinfo of every URL in what is printed goes too
+  // (redactUrlUserinfo, linear): the pattern backstop for an echo no exact string matches.
+  const backstop = urlList.length > 0 ? redactUrlUserinfo : (text: string): string => text;
+  const out = (text: string): string => redactSecrets(backstop(redactCredentials(text, urlList)), echoedList);
   return {
     out,
     err: (text) => redactSecrets(out(text), keyList),

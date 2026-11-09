@@ -436,7 +436,10 @@ as a credential), except as the `--base-url` value; it is found anywhere in an a
 at its start, since a text filter is sent trimmed: a padded
 `" https://user:pw@host"`, one after a dash or inside a phrase reached the request URL; and
 its percent-encoded form with the `@` (`bob%3Apw%40`), as the request URL of an error record
-carries it, is replaced too. The `--api-key` value and
+carries it, is replaced too. When an argument carries such a userinfo, the userinfo of every
+other URL in what is printed becomes `***` as well (`redactUrlUserinfo` in the client's
+`errors.ts`, linear: each `://` found with indexOf, a URL glued onto the one before it
+included), a backstop for an echo no exact string matches. The `--api-key` value and
 the `AUSBILDUNGSSUCHE_API_KEY` value become `***` on stderr (`redactSecrets`). Not on
 stdout, where `obtain-key` prints the key. The forms a server echoes a userinfo back in
 are replaced too: the `Basic` value and the decoded `user:password` on stdout and

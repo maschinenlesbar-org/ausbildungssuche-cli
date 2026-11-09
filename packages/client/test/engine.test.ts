@@ -22,6 +22,7 @@ import {
   AusbildungNetworkError,
   AusbildungValidationError,
   cutText,
+  redactUrlUserinfo,
   toWellFormed,
 } from "../src/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, redirectResponse } from "./helpers.js";
@@ -739,4 +740,41 @@ test("a number with a long run of zeros is checked in linear time (A)", () => {
   // Same digits and exponent as before: trailing and leading zeros still don't count.
   assert.equal(firstInexactNumber("[12345678901234567890.000, 0.0e5, 000.0, 9007199254740993000e-3]"), "12345678901234567890.000");
   assert.equal(firstInexactNumber("[1e23, 100000000000000000000000, 1.7976931348623157e308, 5e-324, 0.00]"), undefined);
+});
+
+test("redactUrlUserinfo hides every URL's userinfo in one linear pass, however many URLs (B)", () => {
+  // A scheme regex tried at every word start (the kit's old form) takes about 3 s on this.
+  assert.ok(elapsed(() => redactUrlUserinfo("a.".repeat(30_000))) < 1000);
+  assert.equal(redactUrlUserinfo("a -https://u:p@h/x and x-ftp://v@w?q, mail@example.org"), "a -https://***@h/x and x-ftp://***@w?q, mail@example.org");
+  assert.equal(redactUrlUserinfo("1://u:p@h ://u:p@h"), "1://u:p@h ://u:p@h");
+  assert.equal(redactUrlUserinfo("https://h/p?u=a@b"), "https://h/p?u=a@b");
+  for (const text of ["a".repeat(1_000_000), "a.".repeat(500_000), "://".repeat(100_000), `https://${"u".repeat(1_000_000)}`]) {
+    assert.equal(redactUrlUserinfo(text), text);
+  }
+  const many = redactUrlUserinfo("https://u:p@h ".repeat(100_000));
+  assert.equal(many, "https://***@h ".repeat(100_000));
+});
+
+test("redactUrlUserinfo hides the userinfo of a URL glued onto the one before it, still linear (B2)", () => {
+  // The authority read for the first `://` ends at the `/` of the second; the second URL starts
+  // inside it (its scheme is the first one's host, or follows a redacted `@`), so the search goes
+  // on after each `://`, not after the authority.
+  assert.equal(redactUrlUserinfo("https://host://u:p@h"), "https://host://***@h");
+  assert.equal(redactUrlUserinfo("https://u:p@x://v:q@w"), "https://***@x://***@w");
+  assert.equal(redactUrlUserinfo("see https://h.example:/x://u:p@h"), "see https://h.example:/x://***@h");
+  assert.equal(redactUrlUserinfo("https://u:p@1://v:q@w"), "https://***@1://v:q@w");
+  // Many glued URLs, unredacted and redacted, and long scheme-character runs: one pass each.
+  const n = 100_000;
+  for (const [text, want] of [
+    [`${"a://".repeat(n)}u:p@h`, `${"a://".repeat(n)}***@h`],
+    ["x://u:p@".repeat(n), "x://***@".repeat(n)],
+    [`${"a.".repeat(500_000)}://u:p@h`, `${"a.".repeat(500_000)}://***@h`],
+    [`https://${"a.".repeat(500_000)}://u:p@h`, `https://${"a.".repeat(500_000)}://***@h`],
+    ["a:".repeat(500_000), "a:".repeat(500_000)],
+  ] as const) {
+    let got = "";
+    const ms = elapsed(() => (got = redactUrlUserinfo(text)));
+    assert.ok(got === want, `${text.slice(0, 40)}…`);
+    assert.ok(ms < 1000, `${Math.round(ms)} ms on ${text.slice(0, 40)}…`);
+  }
 });
