@@ -18,6 +18,7 @@ import {
   redactCredentials,
   redactSecrets,
   redactUrlUserinfo,
+  typedUrlCredentials,
 } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
 import { API_KEY_ENV_VAR } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
 import { API_KEY_CREDENTIAL, OutputError } from "./shared.js";
@@ -262,11 +263,11 @@ export function redactionFor(argv: readonly string[], env: Record<string, string
   // A base URL typed without its scheme is read as if it had one. One with a special scheme
   // but not "//" (`http:///u:pw@h`, `https:\\u:pw@h`, `http:u:pw@h`) has one: credentialsIn
   // reads its userinfo as WHATWG does, where a prefixed `http://` would end the authority at "http:".
-  const baseUrls = flagValues(argv, BASE_URL_FLAGS).map((value) =>
-    /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(value) || credentialsIn(value).length > 0 ? value : `http://${value}`,
-  );
-  for (const source of [...values.flatMap(urlsWithin), envKey, ...baseUrls]) {
-    for (const secret of credentialsIn(source)) {
+  // Read as a URL however its scheme is typed: missing, special without "//", or mistyped
+  // (`http//u:pw@h`, the colon left out): typedUrlCredentials.
+  const baseUrls = flagValues(argv, BASE_URL_FLAGS);
+  for (const found of [...[...values.flatMap(urlsWithin), envKey].map(credentialsIn), ...baseUrls.map(typedUrlCredentials)]) {
+    for (const secret of found) {
       userinfo.add(secret);
       // As a request URL in an error record carries it: percent-encoded, with its "@".
       echoed.add(encodeURIComponent(`${secret}@`));

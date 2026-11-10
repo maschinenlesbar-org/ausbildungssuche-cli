@@ -468,6 +468,11 @@ parsing, too late for the redaction). `apps/cli/test/conformance-p1-cli-redactio
 passwords, seven URL shapes, every echo path, plus the key by flag, by environment
 and typed without its flag).
 
+A base URL (`--base-url`, and the environment variable where the CLI reads one) is read as
+a URL however its scheme is typed (`typedUrlCredentials`): missing (`alice:pw@host`) or
+mistyped (`http//alice:pw@host`, the colon left out, whose userinfo is everything between the
+first slashes and the last `@`), so commander's echo of a refused one shows no password.
+
 **Charset.** `getJson()` and `obtainKey()` decode a body by the charset its
 `Content-Type` declares (UTF-8 when none; `decodeBody`, built on `TextDecoder`), so an
 `iso-8859-1` answer keeps its umlauts and a byte order mark added by a proxy does not
