@@ -114,3 +114,16 @@ test("a key of a refused 2xx answer that echoes the base URL's password is scrub
   });
   await assert.rejects(client.details("1"), (err: Error) => !err.message.includes(pw) && /"\*\*\*"/.test(err.message));
 });
+
+test("a credential header's value with an inner space is scrubbed whole from an error, not from its second word on", async () => {
+  // As jobsuche-cli found (security audit 2026-10-27, D detail): the secret was the value after
+  // its first word (`Bearer <token>` → the token), so an X-API-Key "Zq9xWv first-part" echoed
+  // back by a server kept "Zq9xWv" in the message, the detail and the body.
+  const spaced = "Zq9xWv first-part";
+  for (const options of [{ apiKey: spaced }, { defaultHeaders: { "X-API-Key": spaced } }]) {
+    const c = new AusbildungssucheClient({ ...options, maxRetries: 0, transport: async () => jsonResponse({ message: `bad key ${spaced}` }, 401) });
+    const caught = await c.search({}).catch((e: unknown) => e);
+    assert.ok(caught instanceof AusbildungApiError, String(caught));
+    for (const text of [caught.message, caught.detail ?? "", caught.body]) assert.ok(!text.includes("Zq9xWv"), text);
+  }
+});

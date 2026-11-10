@@ -611,13 +611,13 @@ export class RequestEngine {
       assertValid("header name", name, headerNameProblem);
       assertValid(`header ${name}`, value, headerValueProblem);
     }
-    // The secret part of a credential header (`Bearer <token>` → the token; an
-    // X-API-Key as it is), never echoed. And the forms a server echoes a base URL's
+    // A credential header's value whole (an X-API-Key with an inner space included) and its
+    // secret part (`Bearer <token>` → the token), never echoed. And the forms a server echoes a base URL's
     // userinfo in: the Basic value, the decoded `user:password`, the password alone; each
     // also percent-encoded, as in a URL (a redirect's Location).
     const secrets = Object.entries(this.#defaultHeaders)
       .filter(([name]) => CREDENTIAL_HEADERS.includes(name.toLowerCase()))
-      .map(([, value]) => value.replace(/^\S+\s+/, "").trim())
+      .flatMap(([, value]) => [value.trim(), value.replace(/^\S+\s+(?=\S)/, "").trim()])
       .concat(userinfos.flatMap((userinfo) => [...echoedCredentialForms(userinfo), ...utf8Basic(userinfo)]))
       .flatMap(urlSpellings);
     // Longest first, so a password never leaves half of the user:password around it.
