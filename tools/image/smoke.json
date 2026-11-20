@@ -1,0 +1,190 @@
+{
+  "comment": "What tools/image/smoke.mjs needs that is particular to this repo: the bin (its log topic), a command that makes one request, the exit code of a network error, the mock answer to that request (by path, under --base-url http://mock:8080; recorded live 2026-11-20 and cut to one offer, its texts and synonym lists left out), and a string the printed answer contains. The mock asks for no key, so the command sends none.",
+  "bin": "ausbildungssuche",
+  "command": [
+    "--compact",
+    "search",
+    "--ids",
+    "135349",
+    "--size",
+    "1"
+  ],
+  "networkErrorExit": 6,
+  "answers": {
+    "/infosysbub/absuche/pc/v1/ausbildungsangebot": {
+      "_embedded": {
+        "termine": [
+          {
+            "id": 321400614,
+            "unterrichtsform": {
+              "id": 105,
+              "bezeichnung": "Sonstige Präsenzveranstaltung"
+            },
+            "dauer": {
+              "id": 6,
+              "bezeichnung": "mehr als 6 Monate bis 1 Jahr"
+            },
+            "angebot": {
+              "id": 13853193,
+              "titel": "Pflegefachassistent/in",
+              "inhalt": null,
+              "abschlussart": null,
+              "abschlussbezeichnung": "<p>Staatlich anerkannte/r Pflegefachassisten/in</p>",
+              "foerderung": "<p>Förderung über das Land NRW oder die Arbeitsagentur</p>",
+              "zugang": "<p>Hauptschulabschluss Kl. 9 / Erster Schulabschluss<br/>oder<br/>abgeschlossene Berufsausbildung<br/>persönliche und gesundheitliche Eignung<br/>Kenntnisse der",
+              "zielgruppe": null,
+              "anrechnung": null,
+              "berechtigungen": null,
+              "zusatzqualifikationen": null,
+              "link": "http://www.caritasbildungszentrum-pflege.de",
+              "bildungsanbieter": {
+                "id": 281263,
+                "name": "Caritas Bildungszentrum für Pflege",
+                "telefonVorwahl": "0221",
+                "telefonDurchwahl": "88884311",
+                "mobilVorwahl": null,
+                "mobilDurchwahl": null,
+                "faxVorwahl": null,
+                "faxDurchwahl": null,
+                "homepage": "http://www.caritasbildungszentrum-pflege.de",
+                "email": "bewerbung@caritasbildungszentrum-pflege.de",
+                "adresse": {
+                  "id": 3989151,
+                  "strasse": "Subbelrather Straße 13",
+                  "ortStrasse": {
+                    "id": 23538,
+                    "plz": "50672",
+                    "name": "Köln",
+                    "laengengrad": 6.9569,
+                    "breitengrad": 50.9381,
+                    "laengengradPlz": 6.937059,
+                    "breitengradPlz": 50.942057,
+                    "koordinaten": {
+                      "lat": 50.9381,
+                      "lon": 6.9569
+                    },
+                    "koordinatenPlz": {
+                      "lat": 50.942057,
+                      "lon": 6.937059
+                    },
+                    "land": {
+                      "id": 10,
+                      "name": "Nordrhein-Westfalen",
+                      "bundeslandCode": "iD",
+                      "code": "NRW",
+                      "laenderCode": "D"
+                    }
+                  },
+                  "ortPostfach": null,
+                  "postfach": null,
+                  "dienstleistungen": null,
+                  "ortsteil": null,
+                  "hinweise": "<p>ab 2024: Werthmannstraße 1, 50935 Köln</p>"
+                },
+                "logo": {
+                  "id": 82028,
+                  "url": "https://rest.arbeitsagentur.de/infosysbub/kursnet-rest/ct/v1/bildungsanbieter/281263/logos/82028"
+                }
+              },
+              "bildungsart": {
+                "id": 102,
+                "bezeichnung": "Berufsausbildung"
+              },
+              "systematiken": [
+                {
+                  "dkzId": 135349,
+                  "codeNr": "B 81301-90200",
+                  "kurzbezeichnung": "Pflegeassistent/Pflegeassistentin",
+                  "suchworte": []
+                }
+              ],
+              "schulart": {
+                "id": 102,
+                "bezeichnung": "Berufsbildende Schule/Einrichtung"
+              },
+              "behinderungen": [],
+              "zertifizierer": [],
+              "traeger": null,
+              "suchworte": []
+            },
+            "adresse": {
+              "id": 4046016,
+              "strasse": "Werthmannstraße 1e",
+              "ortStrasse": {
+                "id": 23558,
+                "plz": "50935",
+                "name": "Köln",
+                "laengengrad": 6.9569,
+                "breitengrad": 50.9381,
+                "laengengradPlz": 6.899164,
+                "breitengradPlz": 50.922385,
+                "koordinaten": {
+                  "lat": 50.9381,
+                  "lon": 6.9569
+                },
+                "koordinatenPlz": {
+                  "lat": 50.922385,
+                  "lon": 6.899164
+                },
+                "land": {
+                  "id": 10,
+                  "name": "Nordrhein-Westfalen",
+                  "bundeslandCode": "iD",
+                  "code": "NRW",
+                  "laenderCode": "D"
+                }
+              },
+              "ortPostfach": null,
+              "postfach": null,
+              "dienstleistungen": null,
+              "ortsteil": null,
+              "hinweise": null
+            },
+            "unterrichtszeiten": null,
+            "kostenWert": null,
+            "kostenWaehrung": "EUR",
+            "kostenBemerkung": null,
+            "foerderung": false,
+            "link": null,
+            "bemerkung": "<p>Kenntnisse der deutschen Sprache auf dem Niveau B2, besser C1</p>",
+            "beginn": 1819749600000,
+            "ende": 1851285600000,
+            "individuellerEinstieg": false,
+            "anmeldeschluss": null,
+            "bemerkungZeit": null,
+            "pruefendeStelle": null,
+            "eigeneAngebotsnummer": null,
+            "teilnehmerMin": null,
+            "teilnehmerMax": null,
+            "aktualisierungsdatum": 1757282400000,
+            "veranstaltungsablaeufe": [],
+            "unterrichtszeit": {
+              "id": 1,
+              "bezeichnung": "Vollzeit"
+            },
+            "ansprechpartner": [],
+            "abstaende": [
+              {
+                "ort": {
+                  "name": "Köln",
+                  "postleitzahl": null,
+                  "laengengrad": 6.957,
+                  "breitengrad": 50.938
+                },
+                "abstandInKm": 4.409526443264828
+              }
+            ]
+          }
+        ]
+      },
+      "_links": {},
+      "page": {
+        "number": 0,
+        "size": 1,
+        "totalElements": 41,
+        "totalPages": 41
+      }
+    }
+  },
+  "expectStdout": "Caritas Bildungszentrum"
+}
