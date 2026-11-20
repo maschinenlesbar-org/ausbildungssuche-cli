@@ -1,0 +1,774 @@
+{
+  "comment": "What tools/interop/interop.mjs needs that is particular to this repo: the environment both servers get (a test key, so neither reads a credentials file nor obtains the key over the network), the mock upstream answer per path (under --base-url http://127.0.0.1:<port>; every search gets the same answer, recorded live 2026-11-20 and cut to three offers; the details of one offer, its synonym lists left out and its contact a placeholder), how many tools the server lists, and the calls to make with what each must answer.",
+  "env": {
+    "AUSBILDUNGSSUCHE_API_KEY": "interop-test-key"
+  },
+  "answers": {
+    "/infosysbub/absuche/pc/v1/ausbildungsangebot": {
+      "_embedded": {
+        "termine": [
+          {
+            "id": 348375218,
+            "unterrichtsform": {
+              "id": 303,
+              "bezeichnung": "Hybrid Learning"
+            },
+            "dauer": {
+              "id": 4,
+              "bezeichnung": "mehr als 1 Monat bis 3 Monate"
+            },
+            "angebot": {
+              "id": 16319020,
+              "titel": "Betreuungsassistent mit eingeschränkter Alltagskompetenz nach §53b SGB XI inkl. optionalem Zusatzmodul Schwesternhelfer / Pflegehelfer",
+              "inhalt": null,
+              "abschlussart": null,
+              "abschlussbezeichnung": "<p>TERTIA-Zertifikat</p>",
+              "foerderung": "<p>Förderung mit Bildungsgutschein</p>",
+              "zugang": null,
+              "zielgruppe": null,
+              "anrechnung": null,
+              "berechtigungen": null,
+              "zusatzqualifikationen": null,
+              "link": "https://www.tertia.de/tobi_betreuungsassistentin/",
+              "bildungsanbieter": {
+                "id": 216486,
+                "name": "TERTIA Berufsförderung GmbH & Co. KG",
+                "telefonVorwahl": "0228",
+                "telefonDurchwahl": "648070",
+                "mobilVorwahl": null,
+                "mobilDurchwahl": null,
+                "faxVorwahl": "0228",
+                "faxDurchwahl": "64807470",
+                "homepage": "https://www.tertia.de/",
+                "email": "schnittstelle@tertia.de",
+                "adresse": {
+                  "id": 2999779,
+                  "strasse": "Schöntalweg 7",
+                  "ortStrasse": {
+                    "id": 21152,
+                    "plz": "53347",
+                    "name": "Alfter",
+                    "laengengrad": 7.0133,
+                    "breitengrad": 50.7369,
+                    "laengengradPlz": 7.014834,
+                    "breitengradPlz": 50.714369,
+                    "koordinaten": {
+                      "lat": 50.7369,
+                      "lon": 7.0133
+                    },
+                    "koordinatenPlz": {
+                      "lat": 50.714369,
+                      "lon": 7.014834
+                    },
+                    "land": {
+                      "id": 10,
+                      "name": "Nordrhein-Westfalen",
+                      "bundeslandCode": "iD",
+                      "code": "NRW",
+                      "laenderCode": "D"
+                    }
+                  },
+                  "ortPostfach": null,
+                  "postfach": null,
+                  "dienstleistungen": null,
+                  "ortsteil": null,
+                  "hinweise": null
+                },
+                "logo": {
+                  "id": 32961,
+                  "url": "https://rest.arbeitsagentur.de/infosysbub/kursnet-rest/ct/v1/bildungsanbieter/216486/logos/32961"
+                }
+              },
+              "bildungsart": {
+                "id": 102,
+                "bezeichnung": "Berufsausbildung"
+              },
+              "systematiken": [
+                {
+                  "dkzId": 9066,
+                  "codeNr": "B 83141-90000",
+                  "kurzbezeichnung": "Betreuungskraft / Alltagsbegleiter/Alltagsbegleiterin",
+                  "suchworte": []
+                },
+                {
+                  "dkzId": 9063,
+                  "codeNr": "B 82101-90000",
+                  "kurzbezeichnung": "Altenpflegehelfer/Altenpflegehelferin",
+                  "suchworte": []
+                },
+                {
+                  "dkzId": 135349,
+                  "codeNr": "B 81301-90200",
+                  "kurzbezeichnung": "Pflegeassistent/Pflegeassistentin",
+                  "suchworte": []
+                }
+              ],
+              "schulart": {
+                "id": 105,
+                "bezeichnung": "Einrichtung der beruflichen Weiterbildung"
+              },
+              "behinderungen": [],
+              "zertifizierer": [
+                {
+                  "id": 48,
+                  "name": "CERTQUA GmbH"
+                }
+              ],
+              "traeger": null,
+              "suchworte": []
+            },
+            "adresse": {
+              "id": 4585477,
+              "strasse": "De-Gasperi-Str. 5",
+              "ortStrasse": {
+                "id": 20388,
+                "plz": "51469",
+                "name": "Bergisch Gladbach",
+                "laengengrad": 7.1306,
+                "breitengrad": 50.9922,
+                "laengengradPlz": 7.112666,
+                "breitengradPlz": 50.986663,
+                "koordinaten": {
+                  "lat": 50.9922,
+                  "lon": 7.1306
+                },
+                "koordinatenPlz": {
+                  "lat": 50.986663,
+                  "lon": 7.112666
+                },
+                "land": {
+                  "id": 10,
+                  "name": "Nordrhein-Westfalen",
+                  "bundeslandCode": "iD",
+                  "code": "NRW",
+                  "laenderCode": "D"
+                }
+              },
+              "ortPostfach": null,
+              "postfach": null,
+              "dienstleistungen": null,
+              "ortsteil": null,
+              "hinweise": null
+            },
+            "unterrichtszeiten": "<p>08:00 Uhr bis 16:20 Uhr</p>",
+            "kostenWert": "2857",
+            "kostenWaehrung": "EUR",
+            "kostenBemerkung": null,
+            "foerderung": true,
+            "link": null,
+            "bemerkung": null,
+            "beginn": 1795647600000,
+            "ende": 1801609200000,
+            "individuellerEinstieg": false,
+            "anmeldeschluss": null,
+            "bemerkungZeit": null,
+            "pruefendeStelle": "Keine Angabe",
+            "eigeneAngebotsnummer": null,
+            "teilnehmerMin": null,
+            "teilnehmerMax": null,
+            "aktualisierungsdatum": 1795129200000,
+            "veranstaltungsablaeufe": [],
+            "unterrichtszeit": {
+              "id": 1,
+              "bezeichnung": "Vollzeit"
+            },
+            "ansprechpartner": [],
+            "abstaende": [
+              {
+                "ort": {
+                  "name": "Köln",
+                  "postleitzahl": null,
+                  "laengengrad": 6.957,
+                  "breitengrad": 50.938
+                },
+                "abstandInKm": 12.170928351999176
+              }
+            ]
+          },
+          {
+            "id": 321400614,
+            "unterrichtsform": {
+              "id": 105,
+              "bezeichnung": "Sonstige Präsenzveranstaltung"
+            },
+            "dauer": {
+              "id": 6,
+              "bezeichnung": "mehr als 6 Monate bis 1 Jahr"
+            },
+            "angebot": {
+              "id": 13853193,
+              "titel": "Pflegefachassistent/in",
+              "inhalt": null,
+              "abschlussart": null,
+              "abschlussbezeichnung": "<p>Staatlich anerkannte/r Pflegefachassisten/in</p>",
+              "foerderung": "<p>Förderung über das Land NRW oder die Arbeitsagentur</p>",
+              "zugang": "<p>Hauptschulabschluss Kl. 9 / Erster Schulabschluss<br/>oder<br/>abgeschlossene Berufsausbildung<br/>persönliche und gesundheitliche Eignung<br/>Kenntnisse der",
+              "zielgruppe": null,
+              "anrechnung": null,
+              "berechtigungen": null,
+              "zusatzqualifikationen": null,
+              "link": "http://www.caritasbildungszentrum-pflege.de",
+              "bildungsanbieter": {
+                "id": 281263,
+                "name": "Caritas Bildungszentrum für Pflege",
+                "telefonVorwahl": "0221",
+                "telefonDurchwahl": "88884311",
+                "mobilVorwahl": null,
+                "mobilDurchwahl": null,
+                "faxVorwahl": null,
+                "faxDurchwahl": null,
+                "homepage": "http://www.caritasbildungszentrum-pflege.de",
+                "email": "bewerbung@caritasbildungszentrum-pflege.de",
+                "adresse": {
+                  "id": 3989151,
+                  "strasse": "Subbelrather Straße 13",
+                  "ortStrasse": {
+                    "id": 23538,
+                    "plz": "50672",
+                    "name": "Köln",
+                    "laengengrad": 6.9569,
+                    "breitengrad": 50.9381,
+                    "laengengradPlz": 6.937059,
+                    "breitengradPlz": 50.942057,
+                    "koordinaten": {
+                      "lat": 50.9381,
+                      "lon": 6.9569
+                    },
+                    "koordinatenPlz": {
+                      "lat": 50.942057,
+                      "lon": 6.937059
+                    },
+                    "land": {
+                      "id": 10,
+                      "name": "Nordrhein-Westfalen",
+                      "bundeslandCode": "iD",
+                      "code": "NRW",
+                      "laenderCode": "D"
+                    }
+                  },
+                  "ortPostfach": null,
+                  "postfach": null,
+                  "dienstleistungen": null,
+                  "ortsteil": null,
+                  "hinweise": "<p>ab 2024: Werthmannstraße 1, 50935 Köln</p>"
+                },
+                "logo": {
+                  "id": 82028,
+                  "url": "https://rest.arbeitsagentur.de/infosysbub/kursnet-rest/ct/v1/bildungsanbieter/281263/logos/82028"
+                }
+              },
+              "bildungsart": {
+                "id": 102,
+                "bezeichnung": "Berufsausbildung"
+              },
+              "systematiken": [
+                {
+                  "dkzId": 135349,
+                  "codeNr": "B 81301-90200",
+                  "kurzbezeichnung": "Pflegeassistent/Pflegeassistentin",
+                  "suchworte": []
+                }
+              ],
+              "schulart": {
+                "id": 102,
+                "bezeichnung": "Berufsbildende Schule/Einrichtung"
+              },
+              "behinderungen": [],
+              "zertifizierer": [],
+              "traeger": null,
+              "suchworte": []
+            },
+            "adresse": {
+              "id": 4046016,
+              "strasse": "Werthmannstraße 1e",
+              "ortStrasse": {
+                "id": 23558,
+                "plz": "50935",
+                "name": "Köln",
+                "laengengrad": 6.9569,
+                "breitengrad": 50.9381,
+                "laengengradPlz": 6.899164,
+                "breitengradPlz": 50.922385,
+                "koordinaten": {
+                  "lat": 50.9381,
+                  "lon": 6.9569
+                },
+                "koordinatenPlz": {
+                  "lat": 50.922385,
+                  "lon": 6.899164
+                },
+                "land": {
+                  "id": 10,
+                  "name": "Nordrhein-Westfalen",
+                  "bundeslandCode": "iD",
+                  "code": "NRW",
+                  "laenderCode": "D"
+                }
+              },
+              "ortPostfach": null,
+              "postfach": null,
+              "dienstleistungen": null,
+              "ortsteil": null,
+              "hinweise": null
+            },
+            "unterrichtszeiten": null,
+            "kostenWert": null,
+            "kostenWaehrung": "EUR",
+            "kostenBemerkung": null,
+            "foerderung": false,
+            "link": null,
+            "bemerkung": "<p>Kenntnisse der deutschen Sprache auf dem Niveau B2, besser C1</p>",
+            "beginn": 1819749600000,
+            "ende": 1851285600000,
+            "individuellerEinstieg": false,
+            "anmeldeschluss": null,
+            "bemerkungZeit": null,
+            "pruefendeStelle": null,
+            "eigeneAngebotsnummer": null,
+            "teilnehmerMin": null,
+            "teilnehmerMax": null,
+            "aktualisierungsdatum": 1757282400000,
+            "veranstaltungsablaeufe": [],
+            "unterrichtszeit": {
+              "id": 1,
+              "bezeichnung": "Vollzeit"
+            },
+            "ansprechpartner": [],
+            "abstaende": [
+              {
+                "ort": {
+                  "name": "Köln",
+                  "postleitzahl": null,
+                  "laengengrad": 6.957,
+                  "breitengrad": 50.938
+                },
+                "abstandInKm": 4.409526443264828
+              }
+            ]
+          },
+          {
+            "id": 421093373,
+            "unterrichtsform": {
+              "id": 101,
+              "bezeichnung": "Präsenzunterricht"
+            },
+            "dauer": {
+              "id": 7,
+              "bezeichnung": "mehr als 1 Jahr bis 2 Jahre"
+            },
+            "angebot": {
+              "id": 13128957,
+              "titel": "Ausbildung zur Pflegefachassistenz",
+              "inhalt": null,
+              "abschlussart": null,
+              "abschlussbezeichnung": "<p>staatlich examinierte Pflegefachassistenz</p>",
+              "foerderung": "<p>Bildungsgutscheine nach SGBIII §81/82</p>",
+              "zugang": "<p>Hauptschulabschluss Klasse 9, gesundheitliche Eignung, Kenntnisse der deutschen Sprache in Wort und Schrift</p>",
+              "zielgruppe": "<p>Pflegeinteressierte mit und ohne berufliche Vorerfahrung</p>",
+              "anrechnung": "<p>pflegerische Praxiserfahrung</p>",
+              "berechtigungen": null,
+              "zusatzqualifikationen": null,
+              "link": "https://bildung.apm.de/LS/2046671346/KIP?wss_1=esGrid_KipUebersicht&wss_1_anzahl=10&wss_1_sort=asc---Kursdauer%20von&wss_1_ext-Lehrgang%20Name=Pflegefachassistent%2F%20in%20Wuppertal%20Vollzeit~~Pflegefachassistent%2FIn%20Aachen%20Vollzeit~~Pflegefachassistent%2FIn%20Bielefeld%20Teilzeit~~Pflegefachassistent%2FIn%20Dortmund%20Teilzeit~~Pflegefachassistent%2FIn%20Dortmund%20Vollzeit~~Pflegefachassistent%2FIn%20Recklinghausen%20Vollzeit~~Pflegefachassistent%2FIn%20M%C3%BCnster%20Vollzeit~~Pflegefachassistent%2Fin%20Lippstadt%20Vollzeit~~Pflegefachassistent%2Fin%20K%C3%B6ln%20Vollzeit~~Pflegefachassistent%2Fin%20K%C3%B6ln%20Teilzeit~~Pflegefachassistent%2Fin%20Heinsberg%20Vollzeit~~Pflegefachassistent%2FIn%20D%C3%BCsseldorf%20Vollzeit~~Pflegefachassistent%2FIn%20Duisburg%20Teilzeit&linktype=menue&mtm_campaign=kursnet&mtm_kwd=ausbildung",
+              "bildungsanbieter": {
+                "id": 115979,
+                "name": "apm",
+                "telefonVorwahl": "0800",
+                "telefonDurchwahl": "5889506",
+                "mobilVorwahl": null,
+                "mobilDurchwahl": null,
+                "faxVorwahl": null,
+                "faxDurchwahl": null,
+                "homepage": "https://apm.de",
+                "email": "bildung@apm.de",
+                "adresse": {
+                  "id": 1483713,
+                  "strasse": "Goethering 7",
+                  "ortStrasse": {
+                    "id": 19279,
+                    "plz": "49074",
+                    "name": "Osnabrück",
+                    "laengengrad": 8.0419,
+                    "breitengrad": 52.2769,
+                    "laengengradPlz": 8.052886,
+                    "breitengradPlz": 52.275267,
+                    "koordinaten": {
+                      "lat": 52.2769,
+                      "lon": 8.0419
+                    },
+                    "koordinatenPlz": {
+                      "lat": 52.275267,
+                      "lon": 8.052886
+                    },
+                    "land": {
+                      "id": 9,
+                      "name": "Niedersachsen",
+                      "bundeslandCode": "iD",
+                      "code": "NDS",
+                      "laenderCode": "D"
+                    }
+                  },
+                  "ortPostfach": null,
+                  "postfach": null,
+                  "dienstleistungen": null,
+                  "ortsteil": null,
+                  "hinweise": null
+                },
+                "logo": {
+                  "id": 69189,
+                  "url": "https://rest.arbeitsagentur.de/infosysbub/kursnet-rest/ct/v1/bildungsanbieter/115979/logos/69189"
+                }
+              },
+              "bildungsart": {
+                "id": 102,
+                "bezeichnung": "Berufsausbildung"
+              },
+              "systematiken": [
+                {
+                  "dkzId": 135349,
+                  "codeNr": "B 81301-90200",
+                  "kurzbezeichnung": "Pflegeassistent/Pflegeassistentin",
+                  "suchworte": []
+                }
+              ],
+              "schulart": {
+                "id": 105,
+                "bezeichnung": "Einrichtung der beruflichen Weiterbildung"
+              },
+              "behinderungen": [],
+              "zertifizierer": [
+                {
+                  "id": 384,
+                  "name": "CERTURIA Certification Germany GmbH"
+                }
+              ],
+              "traeger": null,
+              "suchworte": []
+            },
+            "adresse": {
+              "id": 4577934,
+              "strasse": "Am Schützenhof 3-4",
+              "ortStrasse": {
+                "id": 21020,
+                "plz": "53119",
+                "name": "Bonn",
+                "laengengrad": 7.0992,
+                "breitengrad": 50.7342,
+                "laengengradPlz": 7.064097,
+                "breitengradPlz": 50.746968,
+                "koordinaten": {
+                  "lat": 50.7342,
+                  "lon": 7.0992
+                },
+                "koordinatenPlz": {
+                  "lat": 50.746968,
+                  "lon": 7.064097
+                },
+                "land": {
+                  "id": 10,
+                  "name": "Nordrhein-Westfalen",
+                  "bundeslandCode": "iD",
+                  "code": "NRW",
+                  "laenderCode": "D"
+                }
+              },
+              "ortPostfach": null,
+              "postfach": null,
+              "dienstleistungen": null,
+              "ortsteil": null,
+              "hinweise": null
+            },
+            "unterrichtszeiten": null,
+            "kostenWert": null,
+            "kostenWaehrung": "EUR",
+            "kostenBemerkung": null,
+            "foerderung": true,
+            "link": "https://bildung.apm.de/LS/2046671346/KIP?wss_1=esGrid_KipUebersicht&wss_1_anzahl=10&wss_1_sort=asc---Kursdauer%20von&wss_1_ext-Lehrgang%20Name=Pflegefachassistent%2FIn%20Bonn%20Vollzeit&wss_1_ext-Kurs%20Veranstaltungsort=Bonn&linktype=menue&mtm_campaign=Kursnet_PS&mtm_kwd=BN_PFA",
+            "bemerkung": null,
+            "beginn": 1801436400000,
+            "ende": 1848607200000,
+            "individuellerEinstieg": false,
+            "anmeldeschluss": 1801350000000,
+            "bemerkungZeit": null,
+            "pruefendeStelle": null,
+            "eigeneAngebotsnummer": "BN_PFA 27-1",
+            "teilnehmerMin": null,
+            "teilnehmerMax": 28,
+            "aktualisierungsdatum": 1792620000000,
+            "veranstaltungsablaeufe": [],
+            "unterrichtszeit": {
+              "id": 1,
+              "bezeichnung": "Vollzeit"
+            },
+            "ansprechpartner": [],
+            "abstaende": [
+              {
+                "ort": {
+                  "name": "Köln",
+                  "postleitzahl": null,
+                  "laengengrad": 6.957,
+                  "breitengrad": 50.938
+                },
+                "abstandInKm": 22.53353496645548
+              }
+            ]
+          }
+        ]
+      },
+      "_links": {},
+      "page": {
+        "number": 0,
+        "size": 20,
+        "totalElements": 3,
+        "totalPages": 1
+      }
+    },
+    "/infosysbub/absuche/pc/v1/ausbildungsangebot/348375174": [
+      {
+        "id": 348375174,
+        "unterrichtsform": {
+          "id": 303,
+          "bezeichnung": "Hybrid Learning"
+        },
+        "dauer": {
+          "id": 4,
+          "bezeichnung": "mehr als 1 Monat bis 3 Monate"
+        },
+        "angebot": {
+          "id": 16319020,
+          "titel": "Betreuungsassistent mit eingeschränkter Alltagskompetenz nach §53b SGB XI inkl. optionalem Zusatzmodul Schwesternhelfer / Pflegehelfer",
+          "inhalt": "<h4>Betreuungsassistent: Struktur und Inhalte des Moduls 1</h4><br/><p>Das Modul 1 \"Betreuungsassistent\" setzt sich aus verschiedenen Elementen zusammen, die sowohl theoretische als auch praktische Kenntnisse vermitteln.</p><h4>Kursinhalt </h4><h4>1. Unterrichtsinhalte </h4><ul><li>Einführung, Organisation, Ablaufplanung </li><li>Kommunikation </li><li>Formal-rechtliche Hinweise </li><li>Erkrankungen im Alter </li><li>Demenz </li><li>Möglichkeiten, aktiv zu bleiben </li><li>Ernährung und Anregung der Sinne </li><li>Pflegetechniken </li><li>Einführung in die digitale Pflegedokumentation </li><li>Grundkenntnisse des Pflegeprozesses und der Pflegedokumentation </li><li>Seniorenaktivitäten </li><li>Sterbebegleitung </li><li>Psychische Erkrankungen und geistige Behinderungen </li><li>Bewerbungscoaching </li><li>Therapieformen </li><li>Erste-Hilfe-Kurs </li></ul><br/><h4>2. Betreuungspraktikum </h4><ul><li>Das Praktikum erfolgt in einem Pflegeheim oder Tagespflegeeinrichtung oder im ambulanten Dienst unter Anleitung und Begleitung einer in der Pflege und Betreuung des betroffenen Personenkreises erfahrenen Pflegefachkraft. Die Teilnehmer sammeln praktische Erfahrungen in der Betreuung von Menschen mit einer erheblichen Einschränkung der Alltagskompetenz und setzen die erworbenen Kenntnisse praktisch um.</li></ul><br/><h4>3. Optionales Modul </h4><ul><li>Das optionale Modul 2 \"Schwesternhelfer/Pflegehelfer\" finden Sie ebenfalls in der Weiterbildungssuche. Es kann einzeln, im Vorfeld oder im Nachgang zum Modul 1 belegt werden.</li></ul>",
+          "abschlussart": "<p>Abschlussart des Bildungsangebots</p>",
+          "abschlussbezeichnung": "<p>TERTIA-Zertifikat</p>",
+          "foerderung": "<p>Förderung mit Bildungsgutschein</p>",
+          "zugang": null,
+          "zielgruppe": null,
+          "anrechnung": null,
+          "berechtigungen": "<p>Keine Angabe</p>",
+          "zusatzqualifikationen": "<p>Auffrischung Infektionsschutzbelehrung</p>",
+          "link": "https://www.tertia.de/tobi_betreuungsassistentin/",
+          "bildungsanbieter": {
+            "id": 216486,
+            "name": "TERTIA Berufsförderung GmbH & Co. KG",
+            "telefonVorwahl": "0228",
+            "telefonDurchwahl": "648070",
+            "mobilVorwahl": null,
+            "mobilDurchwahl": null,
+            "faxVorwahl": "0228",
+            "faxDurchwahl": "64807470",
+            "homepage": "https://www.tertia.de/",
+            "email": "schnittstelle@tertia.de",
+            "adresse": {
+              "id": 2999779,
+              "strasse": "Schöntalweg 7",
+              "ortStrasse": {
+                "id": 21152,
+                "plz": "53347",
+                "name": "Alfter",
+                "laengengrad": 7.0133,
+                "breitengrad": 50.7369,
+                "laengengradPlz": 7.014834,
+                "breitengradPlz": 50.714369,
+                "koordinaten": {
+                  "lat": 50.7369,
+                  "lon": 7.0133
+                },
+                "koordinatenPlz": {
+                  "lat": 50.714369,
+                  "lon": 7.014834
+                },
+                "land": {
+                  "id": 10,
+                  "name": "Nordrhein-Westfalen",
+                  "bundeslandCode": "iD",
+                  "code": "NRW",
+                  "laenderCode": "D"
+                }
+              },
+              "ortPostfach": null,
+              "postfach": null,
+              "dienstleistungen": null,
+              "ortsteil": null,
+              "hinweise": null
+            },
+            "logo": {
+              "id": 32961,
+              "url": "https://rest.arbeitsagentur.de/infosysbub/kursnet-rest/ct/v1/bildungsanbieter/216486/logos/32961"
+            }
+          },
+          "bildungsart": {
+            "id": 102,
+            "bezeichnung": "Berufsausbildung"
+          },
+          "systematiken": [
+            {
+              "dkzId": 9066,
+              "codeNr": "B 83141-90000",
+              "kurzbezeichnung": "Betreuungskraft / Alltagsbegleiter/Alltagsbegleiterin",
+              "suchworte": []
+            },
+            {
+              "dkzId": 135349,
+              "codeNr": "B 81301-90200",
+              "kurzbezeichnung": "Pflegeassistent/Pflegeassistentin",
+              "suchworte": []
+            },
+            {
+              "dkzId": 9063,
+              "codeNr": "B 82101-90000",
+              "kurzbezeichnung": "Altenpflegehelfer/Altenpflegehelferin",
+              "suchworte": []
+            }
+          ],
+          "schulart": {
+            "id": 105,
+            "bezeichnung": "Einrichtung der beruflichen Weiterbildung"
+          },
+          "behinderungen": [],
+          "zertifizierer": [
+            {
+              "id": 48,
+              "name": "CERTQUA GmbH"
+            }
+          ],
+          "traeger": null,
+          "suchworte": []
+        },
+        "adresse": {
+          "id": 4531282,
+          "strasse": "Kölner Straße 14",
+          "ortStrasse": {
+            "id": 20207,
+            "plz": "41812",
+            "name": "Erkelenz",
+            "laengengrad": 6.3142,
+            "breitengrad": 51.0786,
+            "laengengradPlz": 6.326789,
+            "breitengradPlz": 51.068267,
+            "koordinaten": {
+              "lat": 51.0786,
+              "lon": 6.3142
+            },
+            "koordinatenPlz": {
+              "lat": 51.068267,
+              "lon": 6.326789
+            },
+            "land": {
+              "id": 10,
+              "name": "Nordrhein-Westfalen",
+              "bundeslandCode": "iD",
+              "code": "NRW",
+              "laenderCode": "D"
+            }
+          },
+          "ortPostfach": null,
+          "postfach": null,
+          "dienstleistungen": null,
+          "ortsteil": null,
+          "hinweise": null
+        },
+        "unterrichtszeiten": "<p>08:00 Uhr bis 16:20 Uhr</p>",
+        "kostenWert": "2857",
+        "kostenWaehrung": "EUR",
+        "kostenBemerkung": null,
+        "foerderung": true,
+        "link": null,
+        "bemerkung": null,
+        "beginn": 1795647600000,
+        "ende": 1801609200000,
+        "individuellerEinstieg": false,
+        "anmeldeschluss": null,
+        "bemerkungZeit": "<p>Wir bieten den Kurs auch in Teilzeit (08:00 Uhr bis 12:50 Uhr oder wahlweise 08:45 Uhr bis 13:35 Uhr) an folgenden Terminen an:<br/></p><ul><li>28.08.2026 - 25.11.2026</li><li>26.11.2026 - 04.03.2027 </li></ul><br/><p>Die Veranstaltung findet in wechselnden Online- und Präsenzphasen statt.</p>",
+        "pruefendeStelle": "Keine Angabe",
+        "eigeneAngebotsnummer": null,
+        "teilnehmerMin": null,
+        "teilnehmerMax": null,
+        "aktualisierungsdatum": 1795129200000,
+        "veranstaltungsablaeufe": [],
+        "unterrichtszeit": {
+          "id": 1,
+          "bezeichnung": "Vollzeit"
+        },
+        "ansprechpartner": [
+          {
+            "anrede": "w",
+            "email": "kontakt1@example.org",
+            "faxDurchwahl": "000001",
+            "faxVorwahl": "02431",
+            "homepage": "https://www.tertia.de/erkelenz",
+            "id": 1297969,
+            "mobilDurchwahl": null,
+            "mobilVorwahl": null,
+            "nachname": "Kontakt1",
+            "rollen": [
+              {
+                "id": 6,
+                "bezeichnung": "Sonstige"
+              }
+            ],
+            "telefonDurchwahl": "000000",
+            "telefonVorwahl": "02431",
+            "titel": null,
+            "vorname": "Vorname"
+          }
+        ],
+        "abstaende": []
+      }
+    ]
+  },
+  "tools": 5,
+  "calls": [
+    {
+      "name": "findTraining",
+      "arguments": {
+        "occupationIds": [
+          135349
+        ],
+        "placeName": "Köln",
+        "longitude": 6.957,
+        "latitude": 50.938
+      },
+      "expect": {
+        "status": "ok",
+        "total": 3,
+        "complete": true,
+        "sortedBy": "distance",
+        "picks.0.provider": "Caritas Bildungszentrum für Pflege"
+      }
+    },
+    {
+      "name": "scanMarket",
+      "arguments": {
+        "occupationIds": [
+          135349
+        ],
+        "by": "trainingType"
+      },
+      "expect": {
+        "status": "ok",
+        "total": 3,
+        "cells.0.offers": 3
+      }
+    },
+    {
+      "name": "getOffer",
+      "arguments": {
+        "id": "348375174"
+      },
+      "expect": {
+        "status": "ok",
+        "offer.venue.town": "Erkelenz",
+        "offer.cost.text": "2857 EUR"
+      }
+    },
+    {
+      "name": "searchOffers",
+      "arguments": {
+        "regions": [
+          "NRW"
+        ],
+        "limit": 500
+      },
+      "error": true
+    }
+  ]
+}
