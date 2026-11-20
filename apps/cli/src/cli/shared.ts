@@ -5,6 +5,7 @@ import { constants } from "node:buffer";
 import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import { logOf, type CliDeps } from "./io.js";
+import { pidsProblem, responseCapFor } from "./limits.js";
 import type { AusbildungssucheClientOptions } from "@maschinenlesbar.org/ausbildungssuche-client/internal/client";
 import { AusbildungError, AusbildungValidationError } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
 import { API_KEY_ENV_VAR } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
@@ -229,6 +230,9 @@ export function toEngineOptions(global: GlobalOptions): AusbildungssucheClientOp
  */
 export class OutputError extends AusbildungError {}
 
+/** The container can't run the CLI as it is limited (limits.ts): an ERROR record of the cli area and exit 1. */
+export class EnvironmentError extends AusbildungError {}
+
 /** The longest string V8 makes (2^29 - 24 characters on 64-bit): a longer JSON text can't be printed at once. */
 const MAX_TEXT_LENGTH = constants.MAX_STRING_LENGTH;
 
@@ -411,6 +415,12 @@ export function action(
     const command = args[args.length - 1] as Command;
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     let global = command.optsWithGlobals() as GlobalOptions;
+    // In a container: under a pids limit Node can't work with, refuse before any request; under a
+    // memory limit the 100 MiB default can't be held, so cap by the memory instead (an oversized
+    // answer is then the cap's error, not an OOM kill). An explicit --max-response-bytes wins.
+    const limits = deps.limits?.() ?? {};
+    const problem = pidsProblem(limits);
+    if (problem !== undefined) throw new EnvironmentError(problem);
     // A --api-key flag went through parseApiKey; a key seeded from the env var did
     // not. The client rejects it too (as apiKey); checking it here with the same
     // library rule names the env variable in the message instead.
@@ -436,6 +446,9 @@ export function action(
     }
     warnOnCleartext(deps, global);
     const options = toEngineOptions(global);
+    const given = command.getOptionValueSourceWithGlobals("maxResponseBytes");
+    const memory = given === undefined || given === "default" ? limits.memoryBytes : undefined;
+    if (memory !== undefined) options.maxResponseBytes = responseCapFor(memory);
     options.onRetry = (event) => logOf(deps).warn("http", retryMessage(event));
     // An answer delivered changed (invalid text replaced with U+FFFD) is never silent.
     options.onWarning = (message) => logOf(deps).warn("api", message);

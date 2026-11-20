@@ -6,6 +6,7 @@ import type { AusbildungssucheClient, AusbildungssucheClientOptions } from "@mas
 import type { Transport } from "@maschinenlesbar.org/ausbildungssuche-client/internal/http";
 import { AusbildungError, AusbildungValidationError } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
 import type { CredentialStore } from "./credentials.js";
+import type { ContainerLimits } from "./limits.js";
 import { createLogger, type Logger } from "./log.js";
 
 export interface CliIO {
@@ -54,6 +55,8 @@ export interface CliDeps {
   log?: Logger;
   /** The clock the log's timestamps come from. Unset, the real one. */
   now?: () => Date;
+  /** The container's limits (limits.ts); only the bin's defaultDeps reads them, never a test. */
+  limits?: () => ContainerLimits;
   /**
    * Make a value a secret of the run, replaced in every record from now on. Set by
    * `run()`; the credentials file's values go through it the moment they are read, so a
@@ -339,4 +342,25 @@ export async function readSecretFrom(
     tty.resume();
     tty.on("data", onData);
   });
+}
+
+/** What `exitOnSignalsAsPid1` needs of the process. */
+export interface SignalProcess {
+  readonly pid: number;
+  once(event: string, listener: () => void): unknown;
+  exit(code: number): void;
+}
+
+/**
+ * As PID 1 (the first process of a container), a signal without a listener is ignored: Node's
+ * default action re-raises it, and the kernel drops a default-action signal sent to PID 1, so
+ * `docker stop` waited 10 s and then killed the run. There, and only there, the bin shim listens
+ * for SIGINT, SIGTERM and SIGHUP from the start and exits with 130, 143 or 129. Anywhere else
+ * Node's default action stays.
+ */
+export function exitOnSignalsAsPid1(proc: SignalProcess = process): void {
+  if (proc.pid !== 1) return;
+  for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143], ["SIGHUP", 129]] as const) {
+    proc.once(signal, () => proc.exit(code));
+  }
 }

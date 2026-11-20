@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import { defaultIO, API_KEY_ENV_VAR } from "./io.js";
+import { readContainerLimits } from "./limits.js";
 import { AusbildungssucheClient } from "@maschinenlesbar.org/ausbildungssuche-client/internal/client";
 import { MAX_TIMEOUT_MS } from "@maschinenlesbar.org/ausbildungssuche-client/internal/http";
 import { MAX_RETRIES } from "@maschinenlesbar.org/ausbildungssuche-client/internal/engine";
@@ -43,6 +44,8 @@ export const defaultDeps: CliDeps = {
   env: process.env,
   transport: nodeHttpTransport,
   credentials: () => CredentialStore.fromEnv(process.env),
+  // In a container: the memory and pids limits (cgroup), for action()'s checks.
+  limits: () => readContainerLimits(),
 };
 
 /** commander value-parser for `--log-format`. */
