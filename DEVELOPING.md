@@ -252,8 +252,10 @@ the API then answers `401`/`403`. The client sends the key trimmed, whichever wa
 came; the CLI passes the flag or env value through unchanged. The env value is seeded onto the option after
 parse (not as a commander default), so it never appears in `--help` output.
 
-The credentials file is the CLI's, not the library's: `apps/cli/src/cli/credentials.ts`
-(`CredentialStore`, the same mechanism as openka-cli's `ka config`) and
+The credentials file is written by the CLI only; its store lives with the client as an internal
+module, so the MCP server can read it too: `packages/client/src/credentials.ts` (`CredentialStore`,
+the same mechanism as openka-cli's `ka config`, not part of the library's public surface;
+`apps/cli/src/cli/credentials.ts` re-exports it) and
 `ausbildungssuche config` (`apps/cli/src/cli/commands/config.ts`). It reaches the CLI through
 `CliDeps.credentials`, which only `defaultDeps` sets, so a test that does not ask for
 one never reads the user's file; `action()` (`apps/cli/src/cli/shared.ts`) reads it only when
@@ -331,14 +333,18 @@ apps/cli/            # @maschinenlesbar.org/ausbildungssuche-cli — the publish
   test/              # CLI tests and every conformance-*.test.ts
 packages/client/     # @maschinenlesbar.org/ausbildungssuche-client — private, shipped inside the CLI's tarball
   src/               # the API client (below)
-  test/              # tests that only touch the client, + the transport helpers
+  test/              # tests that only touch the client, + the transport helpers and fixtures (recorded.ts: recorded answers)
+apps/mcp/            # @maschinenlesbar.org/ausbildungssuche-mcp — the MCP server, released with the CLI
+packages/log/        # the log records (text/jsonl), shared by both apps
+tools/image/         # the container images of both apps (build, push, smoke, SBOM)
+tools/interop/       # the built MCP server against the official MCP client (own lockfile)
 tools/pack/          # prepack/postpack: ship the client (dist/node_modules) and commander in the tarball
-tools/bump.mjs       # version bump + commit + tag (npm run bump)
+tools/bump.mjs       # version bump + commit + tag of every published app (npm run bump)
 tools/sbom/          # the CycloneDX SBOM tool, own lockfile (release.yml's sbom job only)
 tsconfig.docs.json   # TypeDoc only: the package entry, with the client read from its sources
 ```
 
-- **The client is its own package** so a later MCP app can share it with the CLI. It is
+- **The client is its own package** so the MCP app shares it with the CLI. It is
   never published on its own: `apps/cli`'s `prepack` copies it into
   `apps/cli/dist/node_modules/`, where the CLI's imports find it, and the tarball ships it
   as plain files — so npm lists only commander (bundled) as a dependency, never the
@@ -351,11 +357,13 @@ tsconfig.docs.json   # TypeDoc only: the package entry, with the client read fro
   the CLI needs beyond that; `"./test/*"` reaches the client's test helpers from the CLI's
   tests (not bundled). Only `"."` is part of the library.
 - **Dependencies point one way:** the app depends on the client, the client on nothing
-  in the workspace. `obtainKey()` (fetching the published key document) is client code;
-  the `obtain-key` and `config` commands and the credentials file are the CLI's.
-- **The version lives in `apps/cli/package.json`.** The root has none; a plain
-  `npm version` at the root is refused. Release with `npm run bump -- <patch|minor|major>`,
-  which bumps the app, commits (the bare version as the message) and tags `vX.Y.Z`.
+  in the workspace. `obtainKey()` (fetching the published key document) and the credentials
+  file's store are client code, which both apps use; the `obtain-key` and `config` commands are
+  the CLI's.
+- **The version lives in `apps/cli/package.json`** (and, the same, in `apps/mcp/package.json`).
+  The root has none; a plain `npm version` at the root is refused. Release with
+  `npm run bump -- <patch|minor|major>`, which bumps every published app together, commits (the
+  bare version as the message) and tags `vX.Y.Z`.
 - **TypeScript:** `tsconfig.base.json` holds the compiler options; every workspace has a
   `tsconfig.json` (`src/`) and a `tsconfig.test.json` (`test/`), and the root
   `tsconfig.json`/`tsconfig.test.json` reference them, built with `tsc -b`.
@@ -372,11 +380,14 @@ packages/client/src/
     errors.ts    # AusbildungError / AusbildungApiError / AusbildungNetworkError / AusbildungParseError
     client.ts    # AusbildungssucheClient — search + details over the engine (injects X-API-Key)
     obtain-key.ts # obtainKey(): reads the public key from the document it is published in
+    credentials.ts # CredentialStore — the credentials file behind `ausbildungssuche config` (internal)
+    operations.ts # the skills' use cases: findTraining / scanMarket / offerBrief / findOccupations / searchOffers
     index.ts     # the client's public surface (the library entry re-exports it)
 apps/cli/src/cli/
     io.ts        # injectable I/O seam (stdout/stderr, readSecret) + injectable env (for AUSBILDUNGSSUCHE_API_KEY) + credentials, the logger and the clock
     log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
-    credentials.ts # CredentialStore — the credentials file behind `config`
+    credentials.ts # re-exports the client's CredentialStore
+    limits.ts    # the container's cgroup limits (memory -> response cap, pids)
     shared.ts    # option parsers, global-option resolver (incl. --api-key), JSON renderer
     commands/    # search / details, obtain-key, config
     program.ts   # assembles the commander program from injectable deps
@@ -714,9 +725,12 @@ is exit 1 with an ERROR record; this CLI has no `-o`), P28 hostile error answers
 
 GitHub Actions workflows under `.github/workflows/`:
 
-- **ci.yml** — type-check, build and test on Node 22/24/26 for every push and PR; then pack the
-  real tarball, check the pack left nothing behind, install it globally with the registry out
-  of reach and run the bin.
+- **ci.yml** — type-check, build and test on Node 22/24/26 for every push and PR; then pack each
+  published app (the CLI and the MCP server), check the pack left nothing behind, install it
+  globally with the registry out of reach and run its bins; its `interop` job runs the MCP server
+  against the official client.
+- **images.yml** — builds, smoke-tests and scans both container images on every push and weekly
+  (see [Container image](#container-image)).
 - **release.yml** — on a `v*` tag (made by `npm run bump`), three jobs. **pack**
   (`contents: read`): verify the tag matches `apps/cli/package.json`, write the changelog,
   test, `npm pack --workspace apps/cli`; the tarball's and the notes' sha256 are job outputs.
@@ -727,13 +741,120 @@ GitHub Actions workflows under `.github/workflows/`:
   creates the GitHub Release with `gh`, so no third-party code runs where the tarball is
   built or where the write token is. To update the tool, change its version in
   `tools/sbom/package.json` and run `npm install --package-lock-only --ignore-scripts` there;
-  don't chain its install into an npm script (the `tools/docs` rule).
-- **publish.yml** — manual dispatch from the release tag (`gh workflow run publish.yml --ref vX.Y.Z`; the version is the tag's): `npm publish --workspace apps/cli` via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
+  don't chain its install into an npm script (the `tools/docs` rule). The release also carries
+  both apps' tarballs, both image archives, their SBOMs, `SHA256SUMS` and signed provenance (P32
+  checks the image pipeline).
+- **publish.yml** — manual dispatch from the release tag (`gh workflow run publish.yml --ref vX.Y.Z`; the version is the tag's): publishes the release's own files, each checked first against the immutable release and the provenance `release.yml` signed: both tarballs to npm via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance, and both images to ghcr.io.
 - **docs.yml** — build the project website (`site/`, English and German) with the TypeDoc API docs
   under `/api/`, and deploy both to GitHub Pages on each `v*` tag.
   TypeDoc runs from the isolated, lockfile-pinned `tools/docs/` toolchain because it
   needs the TypeScript 6 compiler API, which TypeScript 7 no longer ships; locally,
   run `npm ci --prefix tools/docs` once before `npm run docs`.
+
+## MCP server (apps/mcp)
+
+`apps/mcp` is the second published app, `@maschinenlesbar.org/ausbildungssuche-mcp` (bin
+`ausbildungssuche-mcp`), released in lockstep with the CLI: `npm run bump` bumps every published
+app under `apps/` together, one version, one tag. Its npm README is the root `MCP.md` (prepack
+packs `<APP>.md` for an app that has one).
+
+**The API key.** The kit's credentials hook (`apps/mcp/src/mcp/credentials.ts`) asks `api.ts`'s
+`findCredentials` once, at the first tool call that needs the client, and builds the client with
+what it returns. `findCredentials` takes `AUSBILDUNGSSUCHE_API_KEY` from the server's environment,
+else (only when the server runs from its bin, never in a test) the `api-key` of the credentials
+file through the client's `CredentialStore`, checked with `apiKeyProblem` as the CLI checks it,
+else the published key through the client's `obtainKey` (as `ausbildungssuche obtain-key`), over
+the server's limited transport and inside the call's deadline. An AUSBILDUNGSSUCHE_API_KEY no
+header can carry, or a stored value the CLI would refuse, is the call's error naming the fix,
+never skipped. A lookup that fails is tried again at the next call. Not at start: the handshake,
+the tool list, the image's smoke test and the tests that start the bin need neither the network
+nor a credentials file. One INFO record of `ausbildungssuche-mcp.config` names the source, never
+the key; every form of the key is a secret from then on, replaced with `***` in every record the
+server logs (`redactingLog`), every result (`Secrets.redactAll`) and every error message. The
+server has no option for the key (argv shows in `ps`), and HTTP needs no authentication for a
+public key. A 401/403 is a tool error that says what the gateway's bare 403 can mean and what to
+check (`withKeyHint` in `tools.ts`).
+
+| Module | Role |
+|---|---|
+| `packages/client/src/operations.ts` | The skills' use cases as library functions, with their traps built in. `prepareSearch` checks the filters before any request and turns them into the API's: occupation ids (never the ignored keyword `sw`), a place as `Name_lon_lat` with the longitude first (coordinates given the other way round for Germany are swapped back, `place.swapped` and a note), a radius of 10, 25 (default), 50 or 100 km and only with a place, Bundesländer by name, code or 2-letter abbreviation as the API's codes (`regionCode`), the training type by name (`bart`), the Bildungsgutschein filter. `findOccupations`: the occupation ids for a word from the first pages of a search in the scope (name matches, then search-word matches, how many sampled offers carry each; dkzId 0 only named in `withoutId`). Resolving a word (`findTraining`, `scanMarket`): one candidate, or the only one with the word as a whole part of its name, is used; several are `ambiguous`; without a training type the sample is of apprenticeships first, then of every offer. `findTraining`: up to `maxPages` pages of 20, the runs of one offer (`angebot.id`) merged (the nearest or earliest kept, `moreRuns`, `otherTowns`), sorted by distance with a place, else by start (rolling = now, none last), `complete` when every match was read. `scanMarket`: one size-1 request per cell (16 Bundesländer or those given, 3 training types, offer types 0-3, funding) and the total, up to 4 at a time, a count of 10000 marked `capped` and given no share, optionally the Bildungsgutschein-eligible count and a provider tally. `offerBrief`: the details array's first record as a briefing: HTML as plain lines (`htmlToText`), dates in Europe/Berlin (`berlinDate`), the venue (not the provider's office), the cost stated honestly ("not stated", "listed as 0 EUR"), a 404 `empty`. `searchOffers`: a slice (offset, limit) read in pages of 20. Public API of both packages. |
+| `packages/log` | The log records (text/jsonl), shared by both apps; `createLogger({ program })`. |
+| `src/mcp/tools.ts` | This repo's: the five tools (flat input schemas with limits, no root combinators; one object output schema each; descriptions under 2000 characters), the instructions, the licence (the BA's terms and a link: not open data), the hints the server's messages give, `withKeyHint`. |
+| `src/mcp/api.ts` | This repo's: how the kit reaches the client (`AusbildungssucheClient` as `Client`, `AusbildungError` as `ClientError`, `AusbildungNetworkError` as `NetworkError`, `apiBase` with the service path `/infosysbub/absuche`) and `findCredentials` (the key, above). |
+| `src/mcp/credentials.ts` | The kit's credentials hook: `findCredentials` read from `api.ts` when it exports one, `Secrets` (the values never shown), `redactingLog`. |
+| `src/mcp/server.ts` | The McpServer factory (the client built at once, or at the first call once the credentials are found), the tool types, `callTool`: deadline (`--call-timeout`) plus the client's cancellation, cleaned, redacted and fitted answers, failures as `isError` results. |
+| `src/mcp/result.ts` | `cleanStrings` (control, bidi, zero-width characters dropped in the value), `fitResult` (whole list entries dropped under `--max-result-chars`, `nextOffset`). |
+| `src/mcp/limiter.ts` | One per process around the upstream transport: 2 in flight, 120 a minute, pause on 429, a bounded queue. |
+| `src/mcp/http.ts` | node:http adapter for the SDK's `createMcpHandler`: POST /mcp, /healthz, Host and Origin checks (the SDK does neither), 1 MiB body, 8 requests at once, timeouts. |
+| `src/mcp/config.ts`, `run.ts`, `index.ts` | Options (`node:util` parseArgs), argv -> exit code, the bin (console into log records, SIGINT/SIGTERM, stdin's end; the environment and the credentials file for the key, from here only). |
+
+The protocol is the SDK's: `@modelcontextprotocol/server` 2.4.0, bundled with its core and zod
+(prepack). It serves the 2026-07-28 revision and the 2025 handshake (2025-11-25, 2025-06-18)
+statelessly, on stdio (`serveStdio`) and HTTP. The SDK bundles AJV 8.18 into its own code to
+validate tool arguments against the input schemas; an SBOM doesn't list that copy.
+
+**The kit.** Everything in `apps/mcp` but `tools.ts`, `api.ts`, `test/helpers.ts`,
+`test/tools.test.ts` and the conformance tests' adapter blocks, plus `packages/log`,
+`apps/cli/src/cli/limits.ts`, `tools/image/` (but `smoke.json`), `tools/interop/` (but
+`interop.json`), `tools/bump.mjs`, `tools/pack/` and the workflows `ci.yml`, `images.yml`,
+`release.yml` and `publish.yml`, is the kit of `create-cli-template` (in the api-cli workspace),
+the same in every repository with an MCP server: a fix lands there first and comes here with
+`npm run sync-kit -- ../ausbildungssuche-cli` (run in create-cli-template; `--check` lists the drift).
+
+Tests (`apps/mcp/test`) run in-process over the SDK's InMemoryTransport with raw JSON-RPC (the
+kit's `harness.ts`, which gives every server `helpers.ts`'s `TEST_ENV`, a test key, unless a test
+passes its own environment: no test reads a credentials file or obtains a key over the network).
+The rules every server follows are the shared conformance tests `conformance-m1-…` to
+`conformance-m11-…`, each with an adapter block naming this repo's calls and mock answers; M11
+covers the key: nothing looked up before the first call, the environment's key sent with one
+INFO record, the key never in a record, a result or an error even when the upstream echoes it,
+the published key obtained once and tried again after a failure. `tools.test.ts` holds this
+server's own. The mock (`ausbildungApi` in `helpers.ts`) answers the search and the details paths
+with the client's `test/recorded.ts`: the three pages of Pflegeassistent/in (dkzId 135349) around
+Köln within 25 km (41 runs of 6 offers), the first page of apprenticeships in NRW (the occupation
+sample) and the details of one offer, recorded on 2026-11-20 with the synonym lists cut, long HTML
+cut in the search answers and placeholders for the named contacts; the operation tests
+(`packages/client/test/operations.test.ts`) add the traps' variants (swapped coordinates, a
+radius the API refuses, Bundesland names, an ambiguous word, dkzId 0, a capped count, rolling
+starts, a cost not stated or 0, a gone offer, a slice across a page border). `tools/interop/`
+checks the built server against the official client 2.4.0 (stdio and HTTP; legacy, auto and
+pinned 2026-07-28) in ci.yml's `interop` job, with its own lockfile; `interop.json` gives both
+servers a test key (`env`), answers every search with the same three offers and one offer's
+details.
+
+## Container image
+
+`tools/image/` builds both apps' images (Dockerfile targets `cli` and `mcp`) from their release
+tarballs (`npm pack` output), never from source: `ADD` unpacks it onto distroless Node 24 (Debian
+13, `nonroot`, uid 65532), so the image holds exactly the files npm users get. The base,
+BuildKit, the test registry, skopeo (local runs only), syft and grype are pinned in `pins.json`;
+bump them in the deps round. A Node or Debian security fix reaches the image only through a new
+base digest, so it means a patch release.
+
+| Script | What it does |
+|---|---|
+| `build.mjs` | Multi-arch OCI archive (amd64, arm64), reproducible: no provenance or SBOM attestation, timestamps from `SOURCE_DATE_EPOCH` (default: the HEAD commit's time). Two builds give the same index digest; compare index digests, not files. |
+| `push.mjs` | Copies the archive to a registry with skopeo (`--all --preserve-digests`) and checks the digest the registry serves. Used for the local test registry and for ghcr.io. |
+| `smoke.mjs` | Runs the image read-only, without capabilities, as an arbitrary uid: `--version`, `--help`, a network error (exit 6, one ERROR record), one request to a mock upstream (`smoke.json`: `search --ids 135349 --size 1` against a recorded offer; the mock asks for no key, so none is sent), and `docker stop`, which must end a waiting call with 143 in under 5 s. The MCP image's checks make no tool call, so the server looks up no key. |
+| `sbom.mjs` | One CycloneDX SBOM per platform with syft, and with `--gate true` grype over them: a fixable high or critical finding fails. Accepted findings go into `.grype.yaml` with a reason. CI only. |
+
+Locally (colima; the scripts never read your docker config, so no credential helper is asked;
+on macOS port 5000 is often taken by the AirPlay receiver, hence 5055):
+
+```bash
+export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
+npm pack --workspace apps/cli --pack-destination dist-artifacts
+node tools/image/build.mjs --app cli --tarball dist-artifacts/<tarball>.tgz --out dist-artifacts/cli.oci.tar
+docker run -d -p 127.0.0.1:5055:5000 <registry pin from pins.json>
+node tools/image/push.mjs --archive dist-artifacts/cli.oci.tar --to 127.0.0.1:5055/ausbildungssuche-cli:dev
+node tools/image/smoke.mjs --app cli --image 127.0.0.1:5055/ausbildungssuche-cli@<index digest>
+```
+
+In CI: `images.yml` does all of it on every push and weekly, with the arm64 image smoke-tested on
+an arm64 runner and the vulnerability gate. In `release.yml` the job `image` builds from the
+checked tarball and records the archive's digest, `image-sbom` makes the SBOMs (no gate: the
+scanner's database changes daily), `attest` signs build provenance for the tarball, the archive
+and the image index, and the release attaches the archive, the image SBOMs and `SHA256SUMS`.
 
 ## Website
 

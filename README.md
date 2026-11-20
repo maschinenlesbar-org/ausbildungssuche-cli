@@ -35,6 +35,60 @@ Check it works:
 ausbildungssuche --help
 ```
 
+### Docker
+
+From 0.9.0 every release is also a container image for linux/amd64 and linux/arm64 on the
+GitHub Container Registry, made from the same tarball as the npm package. It needs no Node.js and no
+install. Pass the key through the environment (the image has no credentials file):
+
+```bash
+docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+  -e AUSBILDUNGSSUCHE_API_KEY ghcr.io/maschinenlesbar-org/ausbildungssuche-cli:latest search --ids 9162 --size 5
+```
+
+The image's entrypoint is the program, so the command follows the image name directly;
+`… ausbildungssuche-cli:latest ausbildungssuche search …` works too.
+
+In a container with a memory limit (`--memory`) the default `--max-response-bytes` is an eighth
+of that limit (at most the usual 100 MiB), so an oversized answer is refused with a clear
+error instead of the container being killed for memory. The CLI needs at least 12 processes and
+threads (`--pids-limit 12`): below that it refuses with an error, and with 4 or fewer Node.js
+itself hangs before the CLI can check.
+
+`latest` is the newest release. For scripts, name a release and pin its digest, which the
+[release notes](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/releases) give:
+`…/ausbildungssuche-cli:0.9.0@sha256:<digest>`. Each image carries signed build provenance;
+check it with
+
+```bash
+gh attestation verify oci://ghcr.io/maschinenlesbar-org/ausbildungssuche-cli:latest \
+  --repo maschinenlesbar-org/ausbildungssuche-cli
+```
+
+### MCP server
+
+From 0.9.0 the Ausbildungssuche is also an [MCP](https://modelcontextprotocol.io/) server for AI
+agents, `@maschinenlesbar.org/ausbildungssuche-mcp` (command `ausbildungssuche-mcp`, image
+`ghcr.io/maschinenlesbar-org/ausbildungssuche-mcp`): five read-only tools, to find and rank
+training offers near a place or in a Bundesland (the runs of one course merged, nearest first),
+scan the training market for an occupation by Bundesland, training type or funding, brief one
+offer in full (content, entry requirements, dates, cost, how to apply), find the occupation ids
+for a word, and page through offers, on stdio or Streamable HTTP. The tools handle the skills'
+traps: the ignored keyword filter (an occupation word is resolved to its ids), coordinates with the
+longitude first, the radii the API accepts, the Bundesland codes, counts capped at 10000, dates in
+Europe/Berlin. The server finds the public key by itself: `AUSBILDUNGSSUCHE_API_KEY`, else the key
+stored with `ausbildungssuche config set api-key`, else the published one, obtained at the first
+call (never bundled). Setup for Claude Code, Claude Desktop and VS Code:
+[MCP.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/MCP.md).
+
+```bash
+npm i -g @maschinenlesbar.org/ausbildungssuche-mcp
+claude mcp add ausbildungssuche -- ausbildungssuche-mcp
+```
+
+Every result carries the Bundesagentur für Arbeit's terms: the data is not open data, and running
+the server as a service for others may need the BA's permission.
+
 ## Obtain key
 
 One static key works for everyone. It is **not a secret** — it is the same value
@@ -323,6 +377,7 @@ host and what travels unencrypted without printing it, e.g.
 - **[Usage.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/Usage.md)** — full use-case-driven cookbook.
 - **[GLOSSARY.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/GLOSSARY.md)** — every flag and domain term explained.
 - **[DEVELOPING.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
+- **[MCP.md](https://github.com/maschinenlesbar-org/ausbildungssuche-cli/blob/main/MCP.md)** — the same use cases as the tools of the MCP server, for any MCP client.
 
 ## Data license
 
