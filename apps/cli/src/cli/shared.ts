@@ -6,6 +6,7 @@ import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import { logOf, type CliDeps } from "./io.js";
 import { pidsProblem, responseCapFor } from "./limits.js";
+import { API_KEY_CREDENTIAL } from "@maschinenlesbar.org/ausbildungssuche-client/internal/credentials";
 import type { AusbildungssucheClientOptions } from "@maschinenlesbar.org/ausbildungssuche-client/internal/client";
 import { AusbildungError, AusbildungValidationError } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
 import { API_KEY_ENV_VAR } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
@@ -34,7 +35,7 @@ import {
 } from "@maschinenlesbar.org/ausbildungssuche-client/internal/validate";
 
 /** The name the API key is stored under in the credentials file (`ausbildungssuche config set api-key`). */
-export const API_KEY_CREDENTIAL = "api-key";
+export { API_KEY_CREDENTIAL };
 
 /**
  * commander value-parser: a plain base-10 non-negative integer.
