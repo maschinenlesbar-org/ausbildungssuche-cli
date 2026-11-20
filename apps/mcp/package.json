@@ -1,6 +1,6 @@
 {
   "name": "@maschinenlesbar.org/ausbildungssuche-mcp",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "MCP server for the Ausbildungssuche of the Bundesagentur für Arbeit: a ranked shortlist of apprenticeships and training offers near a place, the training market for an occupation by region, and one offer as a clean briefing, for AI agents (stdio and Streamable HTTP)",
   "type": "module",
   "bin": {
