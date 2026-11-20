@@ -452,10 +452,14 @@ type Resolution = { ids: string[]; resolved: ResolvedOccupation } | { answer: Oc
 
 /**
  * `word` as occupation ids: one candidate is used; several are used only when exactly one has the
- * word as a whole part of its name ("Tischler" in "Tischler/Tischlerin"); else ambiguous.
+ * word as a whole part of its name ("Tischler" in "Tischler/Tischlerin"); else ambiguous. Without
+ * a training type the sample is of apprenticeships first (what most ask for, and more kinds of
+ * occupation than the first pages of everything, which near a city are mostly short courses),
+ * then, when that finds none, of every offer in the scope.
  */
 async function resolveOccupation(client: AusbildungssucheClient, word: string, scope: Omit<OfferFilters, "occupationIds">, pages: number | undefined): Promise<Resolution> {
-  const answer = await findOccupations(client, { ...scope, word, pages });
+  let answer = await findOccupations(client, { ...scope, trainingType: scope.trainingType ?? "apprenticeship", word, pages });
+  if (answer.status === "empty" && scope.trainingType === undefined) answer = await findOccupations(client, { ...scope, word, pages });
   if (answer.status !== "ok" || answer.candidates === undefined) return { answer };
   const byName = answer.candidates.filter((c) => c.matched === "name");
   const pool = byName.length > 0 ? byName : answer.candidates;
@@ -677,7 +681,7 @@ export async function scanMarket(client: AusbildungssucheClient, input: ScanMark
   let filters: OfferFilters = input;
   let occupation: ResolvedOccupation | undefined;
   if (input.occupationIds === undefined && input.occupation !== undefined) {
-    const resolution = await resolveOccupation(client, input.occupation, { regions: input.regions, trainingType: input.trainingType ?? "apprenticeship", place: input.place, radiusKm: input.radiusKm }, maxPages);
+    const resolution = await resolveOccupation(client, input.occupation, { regions: input.regions, trainingType: input.trainingType, place: input.place, radiusKm: input.radiusKm }, maxPages);
     if ("answer" in resolution) {
       const { answer } = resolution;
       return {

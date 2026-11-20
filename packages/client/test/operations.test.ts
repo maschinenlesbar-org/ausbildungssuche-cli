@@ -120,10 +120,22 @@ test("findTraining with an occupation word: one occupation is resolved and searc
   assert.equal(one.status, "ok");
   assert.deepEqual(one.occupation?.ids, [{ dkzId: 135349, name: "Pflegeassistent/Pflegeassistentin" }]);
   assert.equal(searches(mock).at(-1)?.get("ids"), "135349");
+  assert.equal(searches(mock)[0]?.get("bart"), "102", "without a training type the sample is of apprenticeships first");
   const several = await findTraining(client(api(recorded)), { occupation: "Pflege", place: KOELN, maxPages: 1 });
   assert.equal(several.status, "ambiguous");
   assert.equal(several.candidates?.length, 2);
   assert.match(several.reason ?? "", /ask which/);
+});
+
+test("findTraining: a word not among the sampled apprenticeships is looked for among all offers in the scope", async () => {
+  const mock = api((q) => (q.get("ids") !== null ? recorded(q) : q.get("bart") === "102" ? EMPTY_SEARCH : SEARCH_NRW_APPRENTICESHIP_P0));
+  const answer = await findTraining(client(mock), { occupation: "Pflegeassistent", place: KOELN, maxPages: 1 });
+  assert.equal(answer.status, "ok");
+  assert.deepEqual(searches(mock).map((q) => [q.get("bart"), q.get("ids")]), [["102", null], [null, null], [null, "135349"]]);
+  const given = api((q) => (q.get("ids") !== null ? recorded(q) : EMPTY_SEARCH));
+  const none = await findTraining(client(given), { occupation: "Pflegeassistent", trainingType: "further-training", place: KOELN, maxPages: 1 });
+  assert.equal(none.status, "empty");
+  assert.equal(searches(given).length, 1, "a training type given is kept: no second sample");
 });
 
 test("findTraining: a large result is ranked from a sample and says so; 10000 is capped", async () => {
