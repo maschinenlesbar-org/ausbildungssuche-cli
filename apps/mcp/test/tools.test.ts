@@ -14,7 +14,7 @@ import { TOOLS } from "../src/mcp/tools.js";
 import { connect } from "./harness.js";
 import { KEY_SOURCE_URL } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
 import type { HttpResponse } from "../src/mcp/api.js";
-import { ausbildungApi, EMPTY_SEARCH, jsonResponse, makeMockTransport, TEST_KEY } from "./helpers.js";
+import { ausbildungApi, DETAILS_348375174, EMPTY_SEARCH, jsonResponse, makeMockTransport, TEST_KEY, type JsonObject } from "./helpers.js";
 
 const API = "https://rest.arbeitsagentur.de/infosysbub/absuche";
 const KOELN = { placeName: "Köln", longitude: 6.957, latitude: 50.938 };
@@ -164,6 +164,22 @@ test("getOffer: a clean briefing; a gone offer is empty with the reason, not an 
   assert.ok(!offer.content.includes("<"));
   assert.equal(content["source"], `${API}/pc/v1/ausbildungsangebot/348375174`);
   await found.close();
+});
+
+test("getOffer passes a briefing section as the client made it: up to 3000 characters, never cut again at the server's 2000", async () => {
+  const record = DETAILS_348375174[0] as JsonObject;
+  const withContent = (inhalt: string): unknown => [{ ...record, angebot: { ...(record["angebot"] as JsonObject), inhalt } }];
+  const call = async (inhalt: string): Promise<Record<string, unknown>> => {
+    const connection = await connect({ transport: ausbildungApi({ details: () => withContent(inhalt) }) });
+    const content = (await connection.call("getOffer", { id: "348375174" })).structuredContent ?? {};
+    await connection.close();
+    return content;
+  };
+  const long = await call(`<p>${"Inhalt ".repeat(400).trim()}</p>`);
+  assert.equal((long["offer"] as { content: string }).content.length, 2799, "a 2799-character section whole");
+  assert.equal(long["truncated"], undefined);
+  const longer = await call(`<p>${"x".repeat(5000)}</p>`);
+  assert.equal((longer["offer"] as { content: string }).content, `${"x".repeat(3000)}…`, "the client's cut, and only that");
 });
 
 test("findOccupations: candidates from a sample, with what was sampled", async () => {

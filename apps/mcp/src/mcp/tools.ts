@@ -13,6 +13,7 @@ import {
   findOccupations,
   findTraining,
   MAX_OFFSET,
+  MAX_SECTION_LENGTH,
   offerBrief,
   OFFER_PAGE_SIZE,
   prepareSearch,
@@ -235,13 +236,16 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "Get one training offer",
     description: [
       'One offer in full, as a briefing: what you learn, entry requirements, the qualification, dates, format, cost, funding options, the venue, the provider and how to apply. Use it for "Details zu Angebot 348375174", "was kostet dieser Kurs und wird er gefördert?", "what\'s offer 348375174 about?", "how do I apply to the second one?".',
-      "Give the id from findTraining or searchOffers (picks[].id, offers[].id: the run, not offerId). The texts are plain (the API's HTML stripped), dates YYYY-MM-DD in Europe/Berlin (\"rolling\" = start any time), venue is where the course takes place (the provider's office can be in another city).",
+      "Give the id from findTraining or searchOffers (picks[].id, offers[].id: the run, not offerId). The texts are plain (the API's HTML stripped), dates YYYY-MM-DD in Europe/Berlin (\"rolling\" = start any time), venue is where the course takes place (the provider's office can be in another city). A section longer than 3000 characters is cut and ends in \"…\".",
       "Traps: cost.text \"not stated\" is not free; \"listed as 0 EUR\" alone is not free either unless the provider's note says so; funded true means it can be funded, fundingOptions names how. A gone id is status empty: ids change as the catalogue is updated; search again. contacts are named people: pass them on only to the user who asked.",
       RULES,
     ].join("\n\n"),
     inputSchema: input({ id: { type: "string", minLength: 1, maxLength: 18, pattern: "^[0-9]+$", description: 'The offer\'s id ("348375174").' } }, ["id"]),
     outputSchema: output({ id: { type: "string" }, offer: obj }),
     source: (args) => `pc/v1/ausbildungsangebot/${encodeURIComponent((str(args, "id") ?? "").trim())}`,
+    // The briefing's sections are cut by the client at MAX_SECTION_LENGTH (and "…"): passed as they
+    // are, not cut a second time at the server's default with a mark that counts the first cut.
+    maxFieldLength: MAX_SECTION_LENGTH + 1,
     async run(args, context) {
       return { ...(await withKeyHint(() => offerBrief(context.client, str(args, "id") ?? ""))) };
     },
