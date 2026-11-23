@@ -691,6 +691,7 @@ export async function scanMarket(client: AusbildungssucheClient, input: ScanMark
       return {
         status: answer.status,
         searched: answer.searched,
+        ...(answer.place === undefined ? {} : { place: answer.place }),
         ...(answer.candidates === undefined ? {} : { candidates: answer.candidates }),
         ...(answer.withoutId === undefined ? {} : { withoutId: answer.withoutId }),
         note: answer.note,

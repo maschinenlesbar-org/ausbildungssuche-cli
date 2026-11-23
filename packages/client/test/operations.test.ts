@@ -203,6 +203,16 @@ test("scanMarket: the sweep replaces the filter's own value; a provider tally fr
   assert.match(answer.note ?? "", /tallied from the first 20 runs only/);
 });
 
+test("scanMarket: an ambiguous word keeps the note that the coordinates were swapped back, as findTraining's does", async () => {
+  const swapped = { name: "Köln", longitude: 50.938, latitude: 6.957 };
+  const scan = await scanMarket(client(api(recorded)), { occupation: "Pflege", place: swapped, maxPages: 1 });
+  assert.equal(scan.status, "ambiguous");
+  assert.equal(scan.place?.swapped, true);
+  assert.match(scan.place?.note ?? "", /other way round/);
+  const training = await findTraining(client(api(recorded)), { occupation: "Pflege", place: swapped, maxPages: 1 });
+  assert.deepEqual(scan.place, training.place);
+});
+
 test("scanMarket by region sweeps only the Länder given", async () => {
   const mock = api(() => counted(7));
   const answer = await scanMarket(client(mock), { regions: ["Berlin", "HH"] });
