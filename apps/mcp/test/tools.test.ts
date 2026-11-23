@@ -11,6 +11,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
 import { connect } from "./harness.js";
+import { KEY_SOURCE_URL } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
+import type { HttpResponse } from "../src/mcp/api.js";
 import { ausbildungApi, EMPTY_SEARCH, jsonResponse, makeMockTransport, TEST_KEY } from "./helpers.js";
 
 const API = "https://rest.arbeitsagentur.de/infosysbub/absuche";
@@ -78,6 +80,28 @@ test("findTraining under a small size cap: the picks it drops are counted (short
   assert.equal(content["shortlisted"], 25, "the picks before the cap: the model sees how many were dropped");
   assert.match(String(content["reason"]), /picks lost entries/);
   await connection.close();
+});
+
+test("a key lookup that fails says what to change for this server, not what to do by hand with the CLI", async () => {
+  const doc = (body: string, status = 200): HttpResponse => ({ status, headers: { "content-type": "text/plain; charset=utf-8" }, body: Buffer.from(body) });
+  const sources: [string, HttpResponse][] = [
+    ["404", doc("gone", 404)],
+    ["no key", doc("# Ausbildungssuche\n\nno key here\n")],
+    ["two keys", doc('curl -H "X-API-Key: infosysbub-absuche" …\ncurl -H "X-API-Key: infosysbub-other" …\n')],
+    ["a placeholder", doc('curl -H "X-API-Key: YOUR-API-KEY" …\n')],
+  ];
+  for (const [what, answer] of sources) {
+    const upstream = makeMockTransport((request) => (request.url === KEY_SOURCE_URL ? answer : jsonResponse(EMPTY_SEARCH)));
+    const connection = await connect({ transport: upstream, env: {} });
+    const result = await connection.call("searchOffers", { regions: ["NRW"] });
+    const text = result.content[0]?.text ?? "";
+    assert.equal(result.isError, true, what);
+    assert.doesNotMatch(text, /by hand|this command/, `${what}: ${text}`);
+    assert.match(text, /set AUSBILDUNGSSUCHE_API_KEY in the MCP client's configuration/, what);
+    assert.match(text, /ausbildungssuche obtain-key/, what);
+    assert.match(text, /next call tries the lookup again/, what);
+    await connection.close();
+  }
 });
 
 test("findTraining: nothing found is empty with what to change, the coordinates' order first", async () => {

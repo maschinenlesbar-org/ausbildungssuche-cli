@@ -12,7 +12,7 @@
 import { API_KEY_CREDENTIAL, CredentialStore } from "@maschinenlesbar.org/ausbildungssuche-client/internal/credentials";
 import { DEFAULT_BASE_URL } from "@maschinenlesbar.org/ausbildungssuche-client";
 import { API_KEY_ENV_VAR, obtainKey } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
-import { AusbildungValidationError } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
+import { AusbildungError, AusbildungValidationError } from "@maschinenlesbar.org/ausbildungssuche-client/internal/errors";
 import { apiKeyProblem } from "@maschinenlesbar.org/ausbildungssuche-client/internal/validate";
 import type { CredentialContext, FoundCredentials } from "./credentials.js";
 
@@ -38,6 +38,14 @@ export const SERVICE_PATH = "/infosysbub/absuche";
 export function apiBase(baseUrl: string | undefined): string {
   return `${(baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "")}${SERVICE_PATH}`;
 }
+
+/** The trailing advice of obtainKey's errors, written for the CLI's obtain-key command. */
+const CLI_ADVICE = /\s*(?:Retry, or copy the key from \S+ by hand\.|— check (?:it|the document) by hand before relying on this command\.)$/;
+
+/** What to do when the published key can't be obtained, for this server. */
+const OBTAIN_HINT =
+  `Without a key of its own the server obtains the public one at its first call. To give it one: set ${API_KEY_ENV_VAR} in the MCP client's configuration of this server ` +
+  "(`ausbildungssuche obtain-key` prints it; it is published at github.com/bundesAPI/ausbildungssuche-api) or store it with `ausbildungssuche config set api-key`. Otherwise the next call tries the lookup again.";
 
 /**
  * The API key, in this order: AUSBILDUNGSSUCHE_API_KEY from the server's environment (what an MCP
@@ -66,12 +74,24 @@ export async function findCredentials(context: CredentialContext): Promise<Found
       return { clientOptions: { apiKey: stored.trim() }, secrets: [stored, stored.trim()], source: `the API key stored in ${store.path} (ausbildungssuche config)` };
     }
   }
-  const obtained = await obtainKey({
-    transport: context.transport,
-    timeoutMs: context.timeoutMs,
-    userAgent: context.userAgent,
-    maxResponseBytes: context.maxResponseBytes,
-  });
+  let obtained;
+  try {
+    obtained = await obtainKey({
+      transport: context.transport,
+      timeoutMs: context.timeoutMs,
+      userAgent: context.userAgent,
+      maxResponseBytes: context.maxResponseBytes,
+    });
+  } catch (err) {
+    // The client's advice is for `ausbildungssuche obtain-key` at a terminal ("by hand", "this
+    // command"); say what changes it for this server instead. The error's class stays (a network
+    // error is still one: a cancelled call is told by it).
+    if (err instanceof AusbildungError) {
+      const reason = err.message.replace(CLI_ADVICE, "").trimEnd();
+      err.message = `${reason}${/[.!?)]$/.test(reason) ? "" : "."} ${OBTAIN_HINT}`;
+    }
+    throw err;
+  }
   return {
     clientOptions: { apiKey: obtained.key },
     secrets: [obtained.key],
