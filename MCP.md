@@ -154,8 +154,8 @@ check.
   (at most 10); `scanMarket` one per cell and the total (17 by Bundesland, twice that with
   `withFunding`). A request those limits would hold longer than it or its call may wait is not
   sent: the call fails at once, naming the limit and when to ask again (and the log says so).
-- **Results are data.** Text from the API, keys included, is cleaned (control, bidi and
-  zero-width characters removed; the API key echoed with one inside is still replaced; a key that
+- **Results are data.** Text from the API, keys included, is cleaned (control, bidi, zero-width,
+  tag and other invisible characters removed, but an emoji keeps its joiners; the API key echoed with one inside is still replaced; a key that
   cleaning makes equal to another stays, as `name~2`), but it is still other people's text (the
   providers' offers): a model can be told
   things in it. The server can't act on that (it has no tool that writes), but other tools in the
