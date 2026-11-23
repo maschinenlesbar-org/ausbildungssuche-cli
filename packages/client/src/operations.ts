@@ -774,8 +774,8 @@ const ENTITIES: Record<string, string> = {
   Ouml: "Ö", Uuml: "Ü", szlig: "ß", eacute: "é", egrave: "è", agrave: "à", sect: "§", deg: "°", middot: "·", bull: "•", shy: "",
 };
 
-/** What a tag (the text between "<" and ">") becomes: a line break, a bullet, or nothing. */
-function tagText(tag: string): string {
+/** A tag's parts (the text between "<" and ">"): a closing one, its name in lower case, the rest. */
+function tagParts(tag: string): { closing: boolean; name: string; rest: string } {
   // Read by index, not by a regular expression with two optional runs of spaces, which
   // backtracks over a long run of them.
   let i = 0;
@@ -790,18 +790,25 @@ function tagText(tag: string): string {
   }
   const start = i;
   while (i < tag.length && /[a-z0-9]/i.test(tag[i] as string)) i++;
-  const name = tag.slice(start, i).toLowerCase();
-  const rest = tag.slice(i).trim();
+  return { closing, name: tag.slice(start, i).toLowerCase(), rest: tag.slice(i).trim() };
+}
+
+/** What a tag becomes: a line break, a bullet, or nothing. */
+function tagText({ closing, name, rest }: { closing: boolean; name: string; rest: string }): string {
   if (!closing && name.startsWith("li")) return "\n• ";
   if (!closing && name === "br" && (rest === "" || rest === "/")) return "\n";
   if (closing && rest === "" && /^(p|div|h\d|li|ul|ol|tr|table)$/.test(name)) return "\n";
   return "";
 }
 
+/** Elements whose contents no browser shows: dropped whole. */
+const HIDDEN_ELEMENTS = new Set(["script", "style"]);
+
 /**
  * `html` with its tags replaced (tagText): a tag runs from "<" to the next ">"; a "<" with no ">"
- * after it is text. One pass with indexOf, so linear: a regular expression tried at every "<"
- * rescans the rest of a text without a ">" (quadratic).
+ * after it is text. A script or style element goes with its contents, up to its closing tag (or
+ * the end, when there is none). One pass with indexOf, so linear: a regular expression tried at
+ * every "<" rescans the rest of a text without a ">" (quadratic).
  */
 function withoutTags(html: string): string {
   const out: string[] = [];
@@ -809,8 +816,20 @@ function withoutTags(html: string): string {
   for (let open = html.indexOf("<"); open !== -1; open = html.indexOf("<", at)) {
     const close = html.indexOf(">", open + 1);
     if (close === -1) break;
-    out.push(html.slice(at, open), tagText(html.slice(open + 1, close)));
+    const tag = tagParts(html.slice(open + 1, close));
+    out.push(html.slice(at, open));
     at = close + 1;
+    if (tag.closing || !HIDDEN_ELEMENTS.has(tag.name)) {
+      out.push(tagText(tag));
+      continue;
+    }
+    // Its closing tag: "</name" (any case, spaces allowed) up to the next ">".
+    const end = new RegExp(`<\\s*/\\s*${tag.name}(?![a-z0-9])`, "gi");
+    end.lastIndex = at;
+    const found = end.exec(html);
+    const after = found === null ? -1 : html.indexOf(">", found.index);
+    if (after === -1) return out.join("");
+    at = after + 1;
   }
   out.push(html.slice(at));
   return out.join("");
@@ -821,7 +840,8 @@ export const MAX_SECTION_LENGTH = 3000;
 
 /**
  * An HTML text of the API as plain text: list items as "• " lines, paragraphs, headings and
- * breaks as lines, tags dropped, entities decoded, blank lines dropped; cut at
+ * breaks as lines, tags dropped (script and style elements with their contents), entities
+ * decoded, blank lines dropped; cut at
  * MAX_SECTION_LENGTH with "…".
  */
 export function htmlToText(html: string | undefined): string | undefined {
