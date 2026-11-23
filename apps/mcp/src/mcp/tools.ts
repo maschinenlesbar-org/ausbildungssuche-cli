@@ -158,7 +158,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "Find training offers",
     description: [
       'Find and rank apprenticeship and training offers near a place or in a Bundesland. Use it for "Ausbildung als Pflegeassistent in Köln", "Umschulung zum Erzieher im Umkreis von 50 km um Leipzig", "Weiterbildung mit Bildungsgutschein in Bayern", "apprenticeships for a nurse assistant near Cologne", "training with an education voucher near me".',
-      "An occupation word is first resolved to its occupation ids, from a sample of the apprenticeships in the scope (then of all offers there, unless trainingType is given): one is used and named in occupation; several are status ambiguous with candidates: ask which. Up to maxPages pages of 20 are read; the runs of one course at other towns or dates are merged (moreRuns, otherTowns); picks are sorted nearest first with a place (distanceKm), else by start. complete says whether every match was ranked; otherwise narrow.",
+      "An occupation word is first resolved to its occupation ids, from a sample of the apprenticeships in the scope (then of all offers there, unless trainingType is given): one is used and named in occupation; several are status ambiguous with candidates: ask which. Up to maxPages pages of 20 are read; the runs of one course at other towns or dates are merged (moreRuns, otherTowns); picks are sorted nearest first with a place (distanceKm), else by start. complete says whether every match was ranked; otherwise narrow. shortlisted + more is every offer ranked; when the size cap drops picks, picks holds fewer than shortlisted (reason says so): ask for a smaller limit.",
       "Traps: you supply the place's coordinates (longitude first; given the other way round they are swapped back and place says so). radiusKm is 10, 25, 50 or 100. A count of 10000 is capped. start is a date in Europe/Berlin, \"rolling\" (start any time) or missing (not fixed). funded true means it can be funded (Bildungsgutschein). Nothing found is status empty with what to change: never say there are none without it.",
       RULES,
     ].join("\n\n"),
@@ -168,14 +168,26 @@ export const TOOLS: readonly ToolDefinition[] = [
       limit: whole("Picks on the shortlist (1-25, default 10).", 1, 25),
       maxPages: whole("Pages of 20 read and ranked (1-10, default 5); also the occupation sample.", 1, 10),
     }),
-    outputSchema: output({ occupation: obj, read: int, complete: bool, runsMerged: int, sortedBy: { type: "string" }, picks: arr, more: int, candidates: arr, withoutId: arr }),
+    outputSchema: output({
+      occupation: obj,
+      read: int,
+      complete: bool,
+      runsMerged: int,
+      sortedBy: { type: "string" },
+      picks: arr,
+      shortlisted: { type: "integer", description: "The picks on the shortlist; picks holds fewer only when the size cap dropped some (reason says so)." },
+      more: { type: "integer", description: "Offers ranked below the shortlist (shortlisted + more is every offer ranked)." },
+      candidates: arr,
+      withoutId: arr,
+    }),
     source: (args) => searchSource(args, 0, OFFER_PAGE_SIZE),
     async run(args, context) {
-      return {
-        ...(await withKeyHint(() =>
-          findTraining(context.client, { ...filters(args), occupation: str(args, "occupation"), limit: num(args, "limit"), maxPages: Math.min(num(args, "maxPages") ?? 5, context.maxPages) }),
-        )),
-      };
+      const { picks, more, ...answer } = await withKeyHint(() =>
+        findTraining(context.client, { ...filters(args), occupation: str(args, "occupation"), limit: num(args, "limit"), maxPages: Math.min(num(args, "maxPages") ?? 5, context.maxPages) }),
+      );
+      // The size cap may drop picks after this (it can't know what `more` counts): `shortlisted`
+      // keeps how many there were, so the dropped ones are never lost from the count.
+      return { ...answer, ...(picks === undefined ? {} : { picks, shortlisted: picks.length }), ...(more === undefined ? {} : { more }) };
     },
   },
   {

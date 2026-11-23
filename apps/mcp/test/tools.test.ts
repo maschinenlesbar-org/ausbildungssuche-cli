@@ -65,6 +65,21 @@ test("findTraining: coordinates the other way round are swapped back and said so
   await connection.close();
 });
 
+test("findTraining under a small size cap: the picks it drops are counted (shortlisted), so picks + dropped + more is every offer ranked", async () => {
+  const termine = Array.from({ length: 60 }, (_, i) => ({ id: 5000 + i, angebot: { id: 7000 + i, titel: `Kurs ${i} ${"x".repeat(300)}`, bildungsanbieter: { name: `Anbieter ${i}` } }, beginn: null, individuellerEinstieg: true }));
+  const search = (q: URLSearchParams): unknown => ({ _embedded: { termine: termine.slice(Number(q.get("page")) * 20, Number(q.get("page")) * 20 + 20) }, page: { number: Number(q.get("page")), size: 20, totalElements: 60, totalPages: 3 } });
+  const connection = await connect({ transport: ausbildungApi({ search }), config: { maxResultChars: 4000 } });
+  const content = (await connection.call("findTraining", { occupationIds: [135349], limit: 25, maxPages: 3 })).structuredContent ?? {};
+  assert.equal(content["status"], "ok");
+  assert.equal(content["truncated"], true);
+  const picks = content["picks"] as unknown[];
+  assert.ok(picks.length < 25, `${picks.length} picks kept`);
+  assert.equal(content["more"], 35, "offers ranked below the shortlist");
+  assert.equal(content["shortlisted"], 25, "the picks before the cap: the model sees how many were dropped");
+  assert.match(String(content["reason"]), /picks lost entries/);
+  await connection.close();
+});
+
 test("findTraining: nothing found is empty with what to change, the coordinates' order first", async () => {
   const connection = await connect({ transport: ausbildungApi({ search: () => EMPTY_SEARCH }) });
   const content = (await connection.call("findTraining", { occupationIds: [135349], ...KOELN })).structuredContent ?? {};
