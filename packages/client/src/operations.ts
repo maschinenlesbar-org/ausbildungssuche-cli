@@ -774,6 +774,48 @@ const ENTITIES: Record<string, string> = {
   Ouml: "Ö", Uuml: "Ü", szlig: "ß", eacute: "é", egrave: "è", agrave: "à", sect: "§", deg: "°", middot: "·", bull: "•", shy: "",
 };
 
+/** What a tag (the text between "<" and ">") becomes: a line break, a bullet, or nothing. */
+function tagText(tag: string): string {
+  // Read by index, not by a regular expression with two optional runs of spaces, which
+  // backtracks over a long run of them.
+  let i = 0;
+  const spaces = (): void => {
+    while (i < tag.length && /\s/.test(tag[i] as string)) i++;
+  };
+  spaces();
+  const closing = tag[i] === "/";
+  if (closing) {
+    i++;
+    spaces();
+  }
+  const start = i;
+  while (i < tag.length && /[a-z0-9]/i.test(tag[i] as string)) i++;
+  const name = tag.slice(start, i).toLowerCase();
+  const rest = tag.slice(i).trim();
+  if (!closing && name.startsWith("li")) return "\n• ";
+  if (!closing && name === "br" && (rest === "" || rest === "/")) return "\n";
+  if (closing && rest === "" && /^(p|div|h\d|li|ul|ol|tr|table)$/.test(name)) return "\n";
+  return "";
+}
+
+/**
+ * `html` with its tags replaced (tagText): a tag runs from "<" to the next ">"; a "<" with no ">"
+ * after it is text. One pass with indexOf, so linear: a regular expression tried at every "<"
+ * rescans the rest of a text without a ">" (quadratic).
+ */
+function withoutTags(html: string): string {
+  const out: string[] = [];
+  let at = 0;
+  for (let open = html.indexOf("<"); open !== -1; open = html.indexOf("<", at)) {
+    const close = html.indexOf(">", open + 1);
+    if (close === -1) break;
+    out.push(html.slice(at, open), tagText(html.slice(open + 1, close)));
+    at = close + 1;
+  }
+  out.push(html.slice(at));
+  return out.join("");
+}
+
 /** The longest text a briefing section carries. */
 export const MAX_SECTION_LENGTH = 3000;
 
@@ -784,11 +826,7 @@ export const MAX_SECTION_LENGTH = 3000;
  */
 export function htmlToText(html: string | undefined): string | undefined {
   if (html === undefined) return undefined;
-  const text = html
-    .replace(/<\s*li[^>]*>/gi, "\n• ")
-    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
-    .replace(/<\s*\/\s*(p|div|h\d|li|ul|ol|tr|table)\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
+  const text = withoutTags(html)
     .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, name: string) => {
       if (name.startsWith("#")) {
         const code = name[1] === "x" || name[1] === "X" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);

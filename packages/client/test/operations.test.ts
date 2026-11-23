@@ -282,6 +282,20 @@ test("htmlToText: list items as bullets, entities decoded, 'Keine Angabe' is not
   assert.equal(htmlToText("<p>Keine Angabe</p>"), undefined);
 });
 
+test("htmlToText is linear: an opening bracket with no closing one never rescans the rest of the text", () => {
+  // `/<[^>]*>/` and `/<\s*li[^>]*>/` tried every "<" against the rest of the text: quadratic, so
+  // 120 000 characters of "<li" took seconds, and an offer of a few MiB held the event loop for hours.
+  const text = "<li".repeat(40_000);
+  const start = performance.now();
+  const out = htmlToText(text);
+  const ms = performance.now() - start;
+  assert.ok(ms < 500, `${Math.round(ms)} ms`);
+  assert.ok(out?.startsWith("<li<li"), "a bracket that closes no tag is text, as before");
+  assert.equal(htmlToText("a < b <p>c</p> d > e"), "a c\nd > e", "a tag runs from < to the next >, as before");
+  assert.equal(htmlToText("x<br  /  >y<br>z<brx>w< / h2 >v<li-x>u"), "x\ny\nzw\nv\n• u");
+  assert.equal(htmlToText("<P>Ein</P><BR/>Zwei<UL><LI>Drei</LI></UL>< /div >Vier"), "Ein\nZwei\n• Drei\nVier");
+});
+
 test("searchOffers: a slice across the API's pages of 20 and where the next starts", async () => {
   const mock = api(recorded);
   const slice = await searchOffers(client(mock), { occupationIds: [135349], place: KOELN, offset: 15, limit: 10 });
