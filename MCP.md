@@ -111,7 +111,8 @@ alone is "listed as 0 EUR"; the venue is where the course takes place, not the p
 Every tool only reads. An answer is JSON (`structuredContent` and the same as text), with the
 `source` it came from (an answer a redirect fetched from another host says so there: "… (answered
 by https://other.example after a redirect)", and a WARN record names both) and the data licence.
-A failure is a tool error that says what to change;
+A text over 2000 characters is cut and ends in `…[cut, N characters in all]`, and the answer says
+`truncated`. A failure is a tool error that says what to change;
 the gateway's bare 403 (a wrong key, a refused network, now and then a valid key) says what to
 check.
 

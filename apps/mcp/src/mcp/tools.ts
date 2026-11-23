@@ -81,7 +81,7 @@ const output = (properties: Record<string, JsonSchema>): JsonSchema => ({
     status: { type: "string", enum: ["ok", "ambiguous", "empty"], description: "ok: the answer; ambiguous: several occupations match, ask which and call again with occupationIds; empty: nothing matched (see reason)." },
     source: { type: "string" },
     licence: { type: "string" },
-    truncated: { type: "boolean", description: "True when the answer holds only part of the matches (size cap)." },
+    truncated: { type: "boolean", description: "True when the answer holds only part of the matches (size cap), or a text cut at its end (it ends in \"…[cut, N characters in all]\")." },
     reason: { type: "string" },
     searched: { type: "object" },
     place: { type: "object", description: "What was done with the place when not simply that: swapped (coordinates given the other way round) and a note." },
