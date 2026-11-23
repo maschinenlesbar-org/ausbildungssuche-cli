@@ -109,7 +109,9 @@ read in Europe/Berlin (in UTC they are the day before); a cost not stated is not
 alone is "listed as 0 EUR"; the venue is where the course takes place, not the provider's office.
 
 Every tool only reads. An answer is JSON (`structuredContent` and the same as text), with the
-`source` it came from and the data licence. A failure is a tool error that says what to change;
+`source` it came from (an answer a redirect fetched from another host says so there: "… (answered
+by https://other.example after a redirect)", and a WARN record names both) and the data licence.
+A failure is a tool error that says what to change;
 the gateway's bare 403 (a wrong key, a refused network, now and then a valid key) says what to
 check.
 
