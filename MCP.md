@@ -155,8 +155,8 @@ and then a valid key) says what to check.
   Exposed beyond localhost (it logs a warning then), it belongs behind a proxy that authenticates or
   at least terminates TLS.
 - **Gentle with the upstream.** One server process sends at most 2 requests at a time and 120 a
-  minute to the API, pauses on HTTP 429 (as long as its Retry-After asks, at most 30 s), and stops
-  a tool call after its deadline (a tool that has read part of its answer by then may answer with
+  minute to the API, pauses the requests to a host that answers HTTP 429 (as long as its
+  Retry-After asks, at most 30 s; those to another host go on), and stops a tool call after its deadline (a tool that has read part of its answer by then may answer with
   that part, and says so). `getOffer` makes
   one request; `findTraining`, `findOccupations` and `searchOffers` one per page of 20 they read
   (at most 10); `scanMarket` one per cell and the total (17 by Bundesland, twice that with
