@@ -770,7 +770,10 @@ never skipped. A lookup that fails is tried again at the next call. Not at start
 the tool list, the image's smoke test and the tests that start the bin need neither the network
 nor a credentials file. One INFO record of `ausbildungssuche-mcp.config` names the source, never
 the key; every form of the key is a secret from then on, replaced with `***` in every record the
-server logs (`redactingLog`), every result (`Secrets.redactAll`) and every error message. The
+server logs (`redactingLog`), every result (`Secrets.redactAll`) and every error message
+(`Secrets` in the kit's `credentials.ts`: a value under 16 characters only as a whole occurrence,
+not inside a run of letters and digits of any script, as the client's `redactSecrets` does; a
+longer one wherever it stands). The
 server has no option for the key (argv shows in `ps`), and HTTP needs no authentication for a
 public key. A 401/403 is a tool error that says what the gateway's bare 403 can mean and what to
 check (`withKeyHint` in `tools.ts`).
