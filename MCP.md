@@ -146,7 +146,8 @@ check.
   a tool call after its deadline. `getOffer` makes
   one request; `findTraining`, `findOccupations` and `searchOffers` one per page of 20 they read
   (at most 10); `scanMarket` one per cell and the total (17 by Bundesland, twice that with
-  `withFunding`).
+  `withFunding`). A request those limits would hold longer than it or its call may wait is not
+  sent: the call fails at once, naming the limit and when to ask again (and the log says so).
 - **Results are data.** Text from the API is cleaned (control, bidi and zero-width characters
   removed), but it is still other people's text (the providers' offers): a model can be told
   things in it. The server can't act on that (it has no tool that writes), but other tools in the
