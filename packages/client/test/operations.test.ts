@@ -105,13 +105,30 @@ test("findOccupations: ids from a sample by name; dkzId 0 is no usable id; the s
   const mock = api(recorded);
   const pflege = await findOccupations(client(mock), { word: "Pflege", regions: ["NRW"], trainingType: "apprenticeship", pages: 1 });
   assert.equal(pflege.status, "ok");
-  assert.deepEqual(pflege.candidates?.map((c) => c.dkzId).sort(), [135349, 9063]);
+  assert.deepEqual(pflege.candidates?.filter((c) => c.matched === "name").map((c) => c.dkzId).sort(), [135349, 9063]);
+  assert.deepEqual(pflege.candidates?.filter((c) => c.matched === "synonym").map((c) => c.dkzId), [14427], "Fußpflege, a search word of the Podologe, comes after the names");
   assert.match(pflege.note, /A sample: the occupations of the first 20 of 5333 offers/);
   assert.equal(searches(mock)[0]?.get("sw"), null, "the ignored keyword filter is not used");
   const tischler = await findOccupations(client(mock), { word: "tischler", pages: 1 });
   assert.equal(tischler.status, "empty");
   assert.deepEqual(tischler.withoutId, ["Tischler/Tischlerin"]);
   await assert.rejects(findOccupations(client(mock), { word: "ab" }), /at least 3 letters/);
+});
+
+test("findOccupations: a word found only among an occupation's search words (the API sends them as { suchwort } objects) is a synonym match", async () => {
+  const koeln = (q: URLSearchParams): unknown => KOELN_PAGES[Number(q.get("page"))] ?? EMPTY_SEARCH;
+  const answer = await findOccupations(client(api(koeln)), { word: "Altenbetreuung", place: KOELN, pages: 3 });
+  assert.equal(answer.status, "ok");
+  assert.deepEqual(answer.candidates?.map((c) => [c.dkzId, c.matched]), [[9063, "synonym"]]);
+  const french = await findOccupations(client(api(koeln)), { word: "aide soignant", place: KOELN, pages: 3 });
+  assert.ok(french.candidates?.some((c) => c.matched === "synonym"), "an English or French term the BA lists is found too");
+  const plain = await findOccupations(
+    client(api(() => ({ _embedded: { termine: [{ id: 1, angebot: { id: 1, systematiken: [{ dkzId: 77, kurzbezeichnung: "Beruf X", suchworte: ["Altenbetreuung"] }] } }] }, page: { number: 0, size: 20, totalElements: 1, totalPages: 1 } }))),
+    { word: "Altenbetreuung", pages: 1 },
+  );
+  assert.deepEqual(plain.candidates?.map((c) => c.dkzId), [77], "a plain string search word still counts");
+  const viaTraining = await findTraining(client(api(koeln)), { occupation: "Altenbetreuung", place: KOELN, maxPages: 3 });
+  assert.deepEqual(viaTraining.occupation?.ids, [{ dkzId: 9063, name: "Altenpflegehelfer/Altenpflegehelferin" }]);
 });
 
 test("findTraining with an occupation word: one occupation is resolved and searched by id; several are ambiguous", async () => {

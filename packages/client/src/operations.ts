@@ -391,7 +391,8 @@ export interface OccupationsAnswer {
 /**
  * The occupation ids (dkzId) for `word`, read from a sample of offers (the first pages of a search
  * in the scope given; the API has no occupation lookup, and its keyword filter is ignored): the
- * occupations whose name contains the word, else those whose search words do. dkzId 0 is no usable
+ * occupations whose name contains the word, else those whose search words do (`suchworte`, which
+ * the API sends as `{ "suchwort": "…" }` objects; plain strings count too). dkzId 0 is no usable
  * id and only named (`withoutId`).
  */
 export async function findOccupations(client: AusbildungssucheClient, input: FindOccupationsInput): Promise<OccupationsAnswer> {
@@ -414,7 +415,10 @@ export async function findOccupations(client: AusbildungssucheClient, input: Fin
       const id = num(s?.["dkzId"]) ?? 0;
       const byName = fold(name).includes(needle);
       const words = s?.["suchworte"];
-      const bySynonym = !byName && Array.isArray(words) && words.some((w) => typeof w === "string" && fold(w).includes(needle));
+      const bySynonym = !byName && Array.isArray(words) && words.some((w) => {
+        const synonym = typeof w === "string" ? w : str(obj(w)?.["suchwort"]);
+        return synonym !== undefined && fold(synonym).includes(needle);
+      });
       if (!byName && !bySynonym) continue;
       if (id === 0) {
         if (byName) withoutId.add(name);

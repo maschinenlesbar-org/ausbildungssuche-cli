@@ -108,7 +108,9 @@ test("findOccupations: candidates from a sample, with what was sampled", async (
   const connection = await connect({ transport: ausbildungApi() });
   const content = (await connection.call("findOccupations", { word: "Betreuung", regions: ["NRW"], trainingType: "apprenticeship", pages: 1 })).structuredContent ?? {};
   assert.equal(content["status"], "ok");
-  assert.deepEqual((content["candidates"] as { dkzId: number }[]).map((c) => c.dkzId), [9066]);
+  const candidates = content["candidates"] as { dkzId: number; matched: string }[];
+  assert.deepEqual(candidates.filter((c) => c.matched === "name").map((c) => c.dkzId), [9066]);
+  assert.equal(candidates[0]?.matched, "name", "a name match comes before the search-word ones");
   assert.equal(content["sampled"], 20);
   assert.equal(content["source"], `${API}/pc/v1/ausbildungsangebot?re=NRW&bart=102&page=0&size=20`);
   await connection.close();
