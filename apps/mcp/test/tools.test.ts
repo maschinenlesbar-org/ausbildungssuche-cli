@@ -10,6 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
+import { TOOLS } from "../src/mcp/tools.js";
 import { connect } from "./harness.js";
 import { KEY_SOURCE_URL } from "@maschinenlesbar.org/ausbildungssuche-client/internal/obtain-key";
 import type { HttpResponse } from "../src/mcp/api.js";
@@ -101,6 +102,28 @@ test("a key lookup that fails says what to change for this server, not what to d
     assert.match(text, /ausbildungssuche obtain-key/, what);
     assert.match(text, /next call tries the lookup again/, what);
     await connection.close();
+  }
+});
+
+test("the deadline's advice fits every tool: each option it names is named with the tools that take it", async () => {
+  const hanging = { transport: (): Promise<never> => new Promise<never>(() => {}) };
+  const connection = await connect({ transport: hanging, config: { callTimeoutMs: 30 } });
+  const text = (await connection.call("getOffer", { id: "1001" })).content[0]?.text ?? "";
+  await connection.close();
+  assert.match(text, /took longer than .* and was stopped/);
+  assert.match(text, /try again shortly/);
+  assert.match(text, /AUSBILDUNGSSUCHE_API_KEY/, "a slow key lookup at the first call is named too");
+  const schemas = new Map(TOOLS.map((tool) => [tool.name, Object.keys((tool.inputSchema as { properties: Record<string, unknown> }).properties)]));
+  const pairs = [...text.matchAll(/(\w+(?: or \w+)*) \((\w+(?:, \w+)*)\)/g)];
+  assert.ok(pairs.length >= 3, text);
+  for (const [, options, tools] of pairs) {
+    for (const tool of (tools as string).split(", ")) {
+      for (const option of (options as string).split(" or ")) assert.ok(schemas.get(tool)?.includes(option), `${tool} takes no ${option}: ${text}`);
+    }
+  }
+  const named = new Set(pairs.flatMap(([, options]) => (options as string).split(" or ")));
+  for (const option of ["maxPages", "withFunding", "providers"]) {
+    assert.ok(!new RegExp(`\\b${option}\\b`).test(text) || named.has(option), `${option} named without its tools`);
   }
 });
 
