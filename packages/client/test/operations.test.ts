@@ -213,6 +213,30 @@ test("scanMarket: an ambiguous word keeps the note that the coordinates were swa
   assert.deepEqual(scan.place, training.place);
 });
 
+test("scanMarket: total counts without the swept filter, so a cell over total is its share; a filter the sweep replaces is named", async () => {
+  // 400 offers: 320 apprenticeships, 80 further training; 134 eligible for a voucher; 120 in Bayern, 80 in NRW.
+  const world = (q: URLSearchParams): unknown => {
+    if (q.get("bg") === "true") return counted(134);
+    const bart = q.get("bart");
+    if (bart !== null) return counted(bart === "102" ? 320 : bart === "104" ? 80 : 0);
+    const re = q.get("re");
+    if (re !== null) return counted(re === "BAY" ? 120 : re === "NRW" ? 80 : re === "BAY,NRW" ? 200 : 0);
+    return counted(400);
+  };
+  const byType = await scanMarket(client(api(world)), { by: "trainingType", trainingType: "apprenticeship" });
+  assert.equal(byType.total, 400);
+  assert.deepEqual(byType.cells?.map((c) => c.offers), [320, 80, 0]);
+  assert.match(byType.note ?? "", /trainingType given is replaced by the sweep/);
+  const byFunding = await scanMarket(client(api(world)), { by: "funding", voucherOnly: true });
+  assert.equal(byFunding.total, 400);
+  assert.equal(byFunding.cells?.[0]?.fundedShare, 0.335);
+  assert.match(byFunding.note ?? "", /voucherOnly given is replaced by the sweep/);
+  const byRegion = await scanMarket(client(api(world)), { by: "region", regions: ["Bayern", "NRW"] });
+  assert.equal(byRegion.total, 400, "every Land, not only those swept");
+  assert.deepEqual(byRegion.cells?.map((c) => c.offers), [120, 80]);
+  assert.doesNotMatch(byRegion.note ?? "", /replaced by the sweep/, "regions choose the cells; nothing is replaced");
+});
+
 test("scanMarket by region sweeps only the Länder given", async () => {
   const mock = api(() => counted(7));
   const answer = await scanMarket(client(mock), { regions: ["Berlin", "HH"] });

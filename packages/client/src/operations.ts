@@ -632,7 +632,7 @@ export interface MarketScan {
   place?: PlaceNote;
   occupation?: ResolvedOccupation;
   by?: ScanDimension;
-  /** Every match without the swept filter (10000 means 10000 or more). */
+  /** Every match of the other filters, without the swept one (by region: every Land); 10000 means 10000 or more. */
   total?: number;
   capped?: boolean;
   cells?: MarketCell[];
@@ -657,6 +657,9 @@ function cellsOf(by: ScanDimension, regions: string[] | undefined): { label: str
       return [{ label: "Bildungsgutschein-eligible", code: "bg", params: { bg: true } }];
   }
 }
+
+/** The search parameter each dimension sets per cell: the total is counted without it. */
+const SWEPT_PARAM: Record<ScanDimension, keyof AusbildungSearchParams> = { region: "re", trainingType: "bart", offerType: "sty", funding: "bg" };
 
 /** Runs `tasks` with at most `width` at a time, in order. */
 async function pooled<T>(tasks: (() => Promise<T>)[], width: number): Promise<T[]> {
@@ -708,12 +711,17 @@ export async function scanMarket(client: AusbildungssucheClient, input: ScanMark
     requests++;
     return totalOf(await client.search({ ...params, page: 0, size: 1 }));
   };
-  const total = await count(prepared.params);
+  // The total counts without the swept filter (each cell sets its own), so a cell over the total
+  // is its share; by region the regions given choose the cells, and the total is every Land's.
+  const sweptParam = SWEPT_PARAM[by];
+  const { [sweptParam]: _swept, ...unswept } = prepared.params;
+  const total = await count(unswept);
   if (total === 0) return { status: "empty", ...base, total, requests, reason: emptyReason(prepared.searched) };
   const swept = by === "region" ? (prepared.searched.regions ?? undefined) : undefined;
   const cells = cellsOf(by, swept);
   // A cell's value replaces the filter's own (by region: one Land instead of the ones given).
   const sweepParams = (extra: AusbildungSearchParams): AusbildungSearchParams => ({ ...prepared.params, ...extra });
+  const replaced = by === "trainingType" && input.trainingType !== undefined ? "trainingType" : by === "funding" && input.voucherOnly === true ? "voucherOnly" : undefined;
   const funding = input.withFunding === true && by !== "funding";
   const counted = await pooled(
     cells.map((cell) => async (): Promise<MarketCell> => {
@@ -750,6 +758,7 @@ export async function scanMarket(client: AusbildungssucheClient, input: ScanMark
   const notes = [
     "A count of 10000 is the API's cap: 10000 or more (capped), not comparable as an exact figure; narrow the search for real resolution.",
     by === "region" ? "The per-Land counts need not add up to the total: some offers carry no Land." : undefined,
+    replaced === undefined ? undefined : `The ${replaced} given is replaced by the sweep: each cell sets its own, and the total counts without it.`,
     by === "offerType" ? "The offer types (sty 0-3) are undocumented upstream: compare them, don't name them." : undefined,
     providers !== undefined && !providers.complete ? `Providers are tallied from the first ${providers.runsRead} runs only (a sample).` : undefined,
     occupation === undefined && prepared.searched.occupationIds === undefined ? "No occupation filter: these are counts of the whole catalogue." : undefined,
