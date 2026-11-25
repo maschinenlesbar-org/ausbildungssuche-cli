@@ -620,9 +620,12 @@ within a small heap.
 **The transport contract, enforced by the engine.** A custom transport (a `fetch`
 wrapper, a test double) gets the same guarantees as the built-in one, because the
 engine checks them itself: every call runs under the `timeoutMs` deadline (the
-request carries an `AbortSignal` that fires then, which the built-in transport
-honours and `fetch(url, { signal })` takes; the engine rejects at the deadline
-either way), the body it gets back is checked against `maxResponseBytes`
+request carries an `AbortSignal` that fires then, with the timeout error as its reason,
+which the built-in transport honours and `fetch(url, { signal })` takes; the engine
+rejects at the deadline either way; the built-in transport stops with the signal's reason,
+and for a signal some other caller aborted (the MCP server's tool call: its deadline, a
+cancellation) it says "Request aborted by its caller before it finished", never a timeout
+it didn't have), the body it gets back is checked against `maxResponseBytes`
 (`sizeLimitMessage` names the option and `--max-response-bytes`), response headers
 are read case-insensitively from a plain record, a `Headers` object or a `Map`, the
 body may be a Buffer, any `ArrayBuffer` view (a `Uint8Array` from fetch), an
